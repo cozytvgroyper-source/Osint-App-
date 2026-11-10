@@ -36,6 +36,7 @@
           <div class="hero-copy"><span class="status-pill"><i></i><span id="serverStatus">Demo workspace ready</span></span><h2>What do you want to investigate?</h2><p>Start with a person, organization, domain, vessel, aircraft, place, or current event.</p></div>
           <form id="investigateForm" class="search-box">
             <div class="search-row"><span class="search-icon">⌕</span><input id="query" autocomplete="off" placeholder="e.g. Map recent infrastructure outages in the Baltic region" /><button type="submit">Investigate <span>→</span></button></div>
+            <div class="file-actions"><label class="upload-button">＋ Add file, picture, or video<input id="fileInput" type="file" accept="image/*,video/*,.pdf,.doc,.docx,.txt,.csv,.json,.rtf" /></label><div id="fileSelection" class="file-selection" hidden><span id="fileIcon">◇</span><div><b id="fileName"></b><small id="fileDetails"></small></div><button type="button" id="removeFile" aria-label="Remove selected file">×</button></div><small class="file-privacy">Analyzed locally · 50 MB maximum</small></div>
             <div class="chips" aria-label="Suggested investigations">
               <button type="button" data-prompt="Find recent cyber threats affecting healthcare">Cyber threats</button>
               <button type="button" data-prompt="Review sanctions exposure for an organization">Sanctions check</button>
@@ -91,6 +92,6 @@
   <dialog id="resultDialog" class="result-dialog"><div class="dialog-head"><div><p class="eyebrow">INVESTIGATION RESULT</p><h2 id="resultTitle">Result</h2></div><button class="icon-button" data-close-result aria-label="Close">×</button></div><div id="resultBody" class="result-body"></div><div class="dialog-actions"><button class="ghost" data-close-result>Close</button><button class="primary" id="saveEvidence">Save to evidence</button></div></dialog>
 
   <div id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/app.js?v=16"></script>
+  <script type="module" src="/app.js?v=17"></script>
 </body>
 </html>

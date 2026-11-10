@@ -20,7 +20,8 @@ const state = {
   history: JSON.parse(localStorage.getItem('signaldesk.history') || '[]'),
   evidence: JSON.parse(localStorage.getItem('signaldesk.evidence') || '[]'),
   activeTool: null,
-  lastResult: null
+  lastResult: null,
+  pendingFile: null
 };
 const clientSessionId=sessionStorage.getItem('signaldesk.clientSessionId')||crypto.randomUUID();
 sessionStorage.setItem('signaldesk.clientSessionId',clientSessionId);
@@ -270,6 +271,30 @@ function hasUsefulData(value,key=''){
   return Object.entries(value).some(([childKey,child])=>hasUsefulData(child,childKey));
 }
 
+function formatBytes(bytes){if(bytes<1024)return `${bytes} B`;if(bytes<1024**2)return `${(bytes/1024).toFixed(1)} KB`;return `${(bytes/1024**2).toFixed(1)} MB`;}
+function fileAsDataUrl(file){return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error('Could not read the selected file'));reader.readAsDataURL(file);});}
+function clearSelectedFile(){state.pendingFile=null;$('#fileInput').value='';$('#fileSelection').hidden=true;$('#fileName').textContent='';$('#fileDetails').textContent='';}
+
+async function analyzeSelectedFile(file,note=''){
+  if(file.size>50_000_000)throw new Error('Files must be 50 MB or smaller');
+  const tool=allTools().find(candidate=>candidate.name==='exiftool_metadata');
+  if(!tool)throw new Error('Connect OSINT Toolbox to analyze files, pictures, and videos');
+  toast(`Analyzing ${file.name} locally…`);
+  const upload=await api('/api/upload',{name:file.name,type:file.type,size:file.size,data:await fileAsDataUrl(file)});
+  try{
+    const response=await callTool(tool,tool.serverId,{file_path:upload.path});
+    if(response.error)throw new Error(response.error.message||'File analysis failed');
+    const parsed=parseToolResult(response.result); const metadata=parsed?.data??parsed;
+    const kind=file.type.startsWith('image/')?'Image':file.type.startsWith('video/')?'Video':'Document';
+    const report={
+      'File Overview':{eyebrow:'LOCAL FILE',description:'Basic details for the selected file.',data:{name:file.name,type:file.type||'Unknown',category:kind,size:formatBytes(file.size),investigationNote:note||'Not provided'}},
+      'Technical Metadata':{eyebrow:`${tool.serverName} · ExifTool`,description:'Embedded metadata, media properties, timestamps, software, camera, codec, and location fields reported by ExifTool.',data:metadata}
+    };
+    const result={content:[{type:'text',text:JSON.stringify({description:`Local ${kind.toLowerCase()} analysis for “${file.name}”`,data:{query:note||file.name,modulesQueried:1,modulesWithResults:hasUsefulData(metadata)?1:0,report,errors:[]}})}]};
+    const time=new Date().toISOString();state.lastResult={title:file.name,result,time,server:tool.serverName};state.history.unshift({title:file.name,time,server:`${tool.serverName} · Local file`});renderAll();showResult(file.name,result);clearSelectedFile();
+  }finally{await api('/api/upload/delete',{id:upload.id}).catch(()=>{});}
+}
+
 async function smartInvestigate(query){
   const tools=allTools(); if(!tools.length){state.history.unshift({title:query,time:new Date().toISOString(),server:'Demo workspace'});renderAll();showResult(query,{message:'Connect Open OSINT to run this investigation with live sources.',suggested_next_step:'Open MCP servers and connect http://127.0.0.1:8892/mcp'});return;}
   const intent=searchIntent(query);
@@ -319,7 +344,9 @@ document.addEventListener('click',async event=>{
   const del=event.target.closest('[data-delete-evidence]');if(del){state.evidence.splice(Number(del.dataset.deleteEvidence),1);renderAll();}
 });
 
-$('#investigateForm').addEventListener('submit',async e=>{e.preventDefault();const q=$('#query').value.trim();if(!q)return;try{await smartInvestigate(q);}catch(error){toast(error.message);}});
+$('#investigateForm').addEventListener('submit',async e=>{e.preventDefault();const q=$('#query').value.trim();if(!q&&!state.pendingFile)return;try{if(state.pendingFile)await analyzeSelectedFile(state.pendingFile,q);else await smartInvestigate(q);}catch(error){toast(error.message);}});
+$('#fileInput').addEventListener('change',event=>{const file=event.target.files?.[0];if(!file)return;state.pendingFile=file;$('#fileName').textContent=file.name;$('#fileDetails').textContent=`${file.type||'Unknown type'} · ${formatBytes(file.size)}`;$('#fileIcon').textContent=file.type.startsWith('image/')?'▧':file.type.startsWith('video/')?'▶':'◇';$('#fileSelection').hidden=false;});
+$('#removeFile').onclick=clearSelectedFile;
 $('#addServer').onclick=()=>$('#serverDialog').showModal();
 $('#newInvestigation').onclick=()=>{switchView('workspace');$('#query').focus();};
 $('#cmdButton').onclick=()=>{switchView('workspace');$('#query').focus();};

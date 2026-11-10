@@ -1,13 +1,15 @@
 import http from 'node:http';
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pathToFileURL } from 'node:url';
 import { createHash, randomBytes } from 'node:crypto';
 
 const ROOT = fileURLToPath(new URL('./public/', import.meta.url));
+const UPLOAD_ROOT = fileURLToPath(new URL('./work/uploads/', import.meta.url));
 const PORT = Number(process.env.PORT || 4173);
 const sessions = new Map();
+const uploads = new Map();
 const consensusOAuth = { client: null, accessToken: '', refreshToken: '', expiresAt: 0, pending: new Map() };
 const CONSENSUS_ENDPOINT = 'https://mcp.consensus.app/mcp';
 const CONSENSUS_ISSUER = 'https://consensus.app';
@@ -24,12 +26,12 @@ function json(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
-async function body(req) {
+async function body(req, limit = 1_000_000) {
   const chunks = [];
   let size = 0;
   for await (const chunk of req) {
     size += chunk.length;
-    if (size > 1_000_000) throw new Error('Request too large');
+    if (size > limit) throw new Error('Request too large');
     chunks.push(chunk);
   }
   return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
@@ -178,6 +180,28 @@ const server = http.createServer(async (req, res) => {
       if (payload.initialize) await initialize(payload);
       const result = await mcpRequest(payload);
       return json(res, 200, result);
+    }
+    if (req.method === 'POST' && url.pathname === '/api/upload') {
+      const payload = await body(req, 75_000_000);
+      const name = String(payload.name || '').replace(/[^a-zA-Z0-9._ -]/g, '_').slice(0, 180);
+      const extension = extname(name).toLowerCase();
+      const allowed = new Set(['.jpg','.jpeg','.png','.gif','.webp','.heic','.heif','.tif','.tiff','.bmp','.mp4','.mov','.m4v','.avi','.mkv','.webm','.pdf','.doc','.docx','.txt','.csv','.json','.rtf']);
+      if (!name || !allowed.has(extension)) return json(res, 400, { error: 'Unsupported file type' });
+      const encoded = String(payload.data || '').replace(/^data:[^;]+;base64,/, '');
+      const data = Buffer.from(encoded, 'base64');
+      if (!data.length || data.length > 50_000_000) return json(res, 400, { error: 'File must be between 1 byte and 50 MB' });
+      const id = crypto.randomUUID();
+      await mkdir(UPLOAD_ROOT, { recursive: true });
+      const path = join(UPLOAD_ROOT, `${id}-${name}`);
+      await writeFile(path, data, { flag: 'wx', mode: 0o600 });
+      uploads.set(id, path);
+      return json(res, 200, { id, path, name, size: data.length, type: String(payload.type || 'application/octet-stream') });
+    }
+    if (req.method === 'POST' && url.pathname === '/api/upload/delete') {
+      const payload = await body(req);
+      const path = uploads.get(payload.id);
+      if (path) { await unlink(path).catch(() => {}); uploads.delete(payload.id); }
+      return json(res, 200, { deleted: Boolean(path) });
     }
     if (req.method === 'POST' && url.pathname === '/api/mcp/disconnect') {
       const payload = await body(req);
