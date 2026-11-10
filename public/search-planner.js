@@ -29,9 +29,9 @@ function isOmegaTool(tool){return tool.serverName==='Omega MCP'||/^omega_/i.test
 const TOO_SLOW_FOR_AUTO_SEARCH=new Set(['subfinder_subdomain_search','theharvester_domain_search']);
 // Why a tool may never be chosen automatically, or null when it may.
 function exclusionReason(tool){
+  if(ACTIVE_TOOL_NAMES.test(tool.name||'')||ACTIVE_LANGUAGE.test(tool.description||''))return 'Active or side-effect tool (never auto-run)';
   if(TOO_SLOW_FOR_AUTO_SEARCH.has(tool.name))return 'Too slow for automatic search (Tool Library only)';
   if(isOmegaTool(tool)&&!OMEGA_AUTO_SEARCH_TOOLS.has(tool.name))return 'Omega tool not reviewed for automatic search';
-  if(ACTIVE_TOOL_NAMES.test(tool.name||'')||ACTIVE_LANGUAGE.test(tool.description||''))return 'Active or side-effect tool (never auto-run)';
   return null;
 }
 function passiveCandidate(tool){return exclusionReason(tool)===null;}
@@ -94,6 +94,23 @@ export function explainSearchPlan({query,intentId,preferredNames=[],tools,maxToo
 
 export function planSearchTools(options){
   return explainSearchPlan(options).selected.map(({tool,score,reason})=>({tool,score,reason}));
+}
+
+// A short, readable account of a plan for development mode: what was selected, the closest misses,
+// and how many tools were skipped for each reason.
+export function summarizePlanDiagnostics(explained,{nearMisses=12}={}){
+  const row=entry=>({name:entry.tool.name,server:entry.tool.serverName,score:entry.score,reason:entry.reason});
+  const skipped=explained.entries.filter(entry=>entry.status==='skipped');
+  const counts=new Map();
+  for(const entry of skipped)counts.set(entry.reason,(counts.get(entry.reason)||0)+1);
+  return{
+    target:explained.target?`${explained.target.type}: ${explained.target.value}`:'None (searching the words)',
+    searchWords:explained.queryTerms.join(', ')||'None',
+    topicWords:explained.intentTerms.join(', '),
+    selected:explained.selected.map(row),
+    nearMisses:skipped.filter(entry=>entry.score!==null&&entry.score>0).sort((a,b)=>b.score-a.score).slice(0,nearMisses).map(row),
+    skippedBecause:[...counts].map(([reason,tools])=>({name:reason,tools})).sort((a,b)=>b.tools-a.tools||a.name.localeCompare(b.name))
+  };
 }
 
 export function isPassiveSearchTool(tool){return passiveCandidate(tool);}
