@@ -179,6 +179,12 @@ const server = http.createServer(async (req, res) => {
       const result = await mcpRequest(payload);
       return json(res, 200, result);
     }
+    if (req.method === 'POST' && url.pathname === '/api/mcp/disconnect') {
+      const payload = await body(req);
+      if (!payload.sessionKey) return json(res, 400, { error: 'sessionKey is required' });
+      sessions.delete(payload.sessionKey);
+      return json(res, 200, { disconnected: true });
+    }
     if (req.method === 'POST' && url.pathname === '/api/health') {
       const payload = await body(req);
       const endpoint = validatedEndpoint(payload.endpoint);
