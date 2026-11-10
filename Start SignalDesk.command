@@ -19,6 +19,57 @@ is_ready() {
   /usr/bin/curl -fsS --max-time 2 "$1" >/dev/null 2>&1
 }
 
+# MCP endpoints reject plain GET requests (HTTP 400), so a bridge only counts as running
+# when it answers an MCP initialize request.
+mcp_ready() {
+  /usr/bin/curl -fsS --max-time 2 -X POST "$1" \
+    -H 'content-type: application/json' -H 'accept: application/json, text/event-stream' \
+    --data '{"jsonrpc":"2.0","id":"startup","method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"SignalDesk Launcher","version":"1.0"}}}' \
+    >/dev/null 2>&1
+}
+
+port_owner() {
+  local pid
+  pid="$(/usr/sbin/lsof -nP -tiTCP:"$1" -sTCP:LISTEN 2>/dev/null | head -1)"
+  [[ -n "$pid" ]] && /bin/ps -o command= -p "$pid"
+}
+
+# Bridges started from another SignalDesk folder run that folder's config, so refuse to reuse them.
+require_own_bridge() {
+  local name="$1" port="$2" config="$3" owner
+  owner="$(port_owner "$port")"
+  if [[ -n "$owner" && "$owner" != *"$config"* ]]; then
+    echo "$name on port $port belongs to another SignalDesk folder:"
+    echo "  $owner"
+    echo "Double-click Stop SignalDesk.command in that folder, then start again."
+    read -k 1 "?Press any key to close."
+    exit 1
+  fi
+}
+
+start_bridge() {
+  local name="$1" port="$2" service="$3" config="$APP_DIR/config/$3-mcp.json"
+  require_own_bridge "$name" "$port" "$config"
+  if mcp_ready "http://127.0.0.1:$port/mcp"; then
+    echo "$name is already running."
+    return 0
+  fi
+  echo "Starting $name…"
+  (
+    cd "$APP_DIR"
+    PATH="$HOME/.local/bin:$PATH" "$HOME/.local/bin/uvx" --from 'fastmcp-slim[server]' fastmcp run \
+      "$config" --transport http \
+      --host 127.0.0.1 --port "$port" --path /mcp --no-banner \
+      >"$LOG_DIR/$service.log" 2>&1 &
+    echo $! >"$RUNTIME_DIR/$service.pid"
+  )
+  for _ in {1..40}; do
+    mcp_ready "http://127.0.0.1:$port/mcp" && return 0
+    sleep 0.5
+  done
+  echo "$name is still starting (first launch can take a few minutes). Check $LOG_DIR/$service.log"
+}
+
 wait_for() {
   local name="$1" url="$2"
   for _ in {1..40}; do
@@ -28,6 +79,19 @@ wait_for() {
   echo "$name did not start. Check $LOG_DIR"
   return 1
 }
+
+signaldesk_pid="$(/usr/sbin/lsof -nP -tiTCP:4173 -sTCP:LISTEN 2>/dev/null | head -1)"
+if [[ -n "$signaldesk_pid" ]]; then
+  signaldesk_dir="$(/usr/sbin/lsof -a -p "$signaldesk_pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p')"
+  if [[ "$signaldesk_dir" != "$APP_DIR" ]]; then
+    echo "SignalDesk is already running from another folder:"
+    echo "  $signaldesk_dir"
+    echo "Double-click Stop SignalDesk.command in that folder, then start again."
+    read -k 1 "?Press any key to close."
+    exit 1
+  fi
+  echo "SignalDesk is already running."
+fi
 
 if ! is_ready "http://127.0.0.1:8080/health"; then
   echo "Starting Open OSINT data service…"
@@ -50,45 +114,8 @@ if ! is_ready "http://127.0.0.1:8892/health"; then
 fi
 wait_for "MCP service" "http://127.0.0.1:8892/health" || exit 1
 
-if ! is_ready "http://127.0.0.1:8893/mcp"; then
-  echo "Starting OSINT Toolbox MCP bridge…"
-  (
-    cd "$APP_DIR"
-    PATH="$HOME/.local/bin:$PATH" "$HOME/.local/bin/uvx" --from 'fastmcp-slim[server]' fastmcp run \
-      "$APP_DIR/config/osint-toolbox-mcp.json" --transport http \
-      --host 127.0.0.1 --port 8893 --path /mcp --no-banner \
-      >"$LOG_DIR/osint-toolbox.log" 2>&1 &
-    echo $! >"$RUNTIME_DIR/osint-toolbox.pid"
-  )
-fi
-
-for _ in {1..40}; do
-  /usr/bin/curl -sS --max-time 2 -X POST "http://127.0.0.1:8893/mcp" \
-    -H 'content-type: application/json' -H 'accept: application/json, text/event-stream' \
-    --data '{"jsonrpc":"2.0","id":"startup","method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"SignalDesk Launcher","version":"1.0"}}}' \
-    >/dev/null 2>&1 && break
-  sleep 0.5
-done
-
-if ! is_ready "http://127.0.0.1:8894/mcp"; then
-  echo "Starting Omega MCP bridge…"
-  (
-    cd "$APP_DIR"
-    PATH="$HOME/.local/bin:$PATH" "$HOME/.local/bin/uvx" --from 'fastmcp-slim[server]' fastmcp run \
-      "$APP_DIR/config/omega-mcp.json" --transport http \
-      --host 127.0.0.1 --port 8894 --path /mcp --no-banner \
-      >"$LOG_DIR/omega.log" 2>&1 &
-    echo $! >"$RUNTIME_DIR/omega.pid"
-  )
-fi
-
-for _ in {1..40}; do
-  /usr/bin/curl -sS --max-time 2 -X POST "http://127.0.0.1:8894/mcp" \
-    -H 'content-type: application/json' -H 'accept: application/json, text/event-stream' \
-    --data '{"jsonrpc":"2.0","id":"startup","method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"SignalDesk Launcher","version":"1.0"}}}' \
-    >/dev/null 2>&1 && break
-  sleep 0.5
-done
+start_bridge "OSINT Toolbox MCP bridge" 8893 osint-toolbox
+start_bridge "Omega MCP bridge" 8894 omega
 
 if ! is_ready "http://127.0.0.1:4173"; then
   echo "Starting SignalDesk…"
