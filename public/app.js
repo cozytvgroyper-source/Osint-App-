@@ -1,4 +1,4 @@
-import {planSearchTools} from './search-planner.js';
+import {explainSearchPlan,summarizePlanDiagnostics} from './search-planner.js';
 import {classifyToolResult,hasUsefulData,parseToolResult} from './result-classifier.js';
 import {recordToolHealth,serverConnectionLabel,toolCountLabel} from './tool-health.js';
 import {argsForSearch,extractTarget,searchIntent} from './search-query.js';
@@ -33,6 +33,8 @@ const state = {
 const clientSessionId=sessionStorage.getItem('signaldesk.clientSessionId')||crypto.randomUUID();
 sessionStorage.setItem('signaldesk.clientSessionId',clientSessionId);
 const sessionKeyFor=serverId=>`${clientSessionId}:${serverId}`;
+// Development mode: open Public Desk at /?diagnostics to see why the planner chose each tool.
+const diagnosticsEnabled=new URLSearchParams(location.search).has('diagnostics');
 const intelNews={events:[],metrics:null,categories:[],generatedAt:'',loaded:false,loading:false,error:''};
 
 function persist() {
@@ -272,7 +274,8 @@ async function analyzeSelectedFile(file,note=''){
 async function smartInvestigate(query){
   const tools=allTools(); if(!tools.length){state.history.unshift({title:query,time:new Date().toISOString(),server:'Demo workspace'});renderAll();showResult(query,{message:'Connect Open OSINT to run this investigation with live sources.',suggested_next_step:'Open MCP servers and connect http://127.0.0.1:8892/mcp'});return;}
   const intent=searchIntent(query);
-  const plan=planSearchTools({query,intentId:intent.id,preferredNames:intent.tools,tools,maxTools:6});
+  const explained=explainSearchPlan({query,intentId:intent.id,preferredNames:intent.tools,tools,maxTools:6});
+  const plan=explained.selected.map(({tool,score,reason})=>({tool,score,reason}));
   if(!plan.length&&intent.id==='entity'){const fallback=tools.find(tool=>tool.name==='get_wikidata')||tools.find(tool=>tool.name==='get_hn_search');if(fallback)plan.push({tool:fallback,score:1,reason:'General entity fallback'});}
   const selected=plan.map(item=>item.tool);
   const plannedServers=new Set(selected.map(tool=>tool.serverName));
@@ -284,6 +287,7 @@ async function smartInvestigate(query){
   }));
   const report={}; const errors=[]; const servers=new Set();
   if(plan.length)report['Search Plan']={eyebrow:'DYNAMIC MCP ROUTING',description:'Public Desk inspected every connected tool and selected the most relevant passive capabilities for this query.',data:plan.map(item=>({tool:item.tool.name,server:item.tool.serverName,reason:item.reason}))};
+  if(diagnosticsEnabled)report['Planner Diagnostics']={eyebrow:'DEVELOPMENT MODE',description:'Why each tool was or was not chosen. Shown because Public Desk was opened with ?diagnostics.',data:summarizePlanDiagnostics(explained)};
   if(!selected.length)errors.push({source:'Relevant MCP server',error:'No connected server currently provides the tools needed for this search category. Connect the matching server and try again.'});
   settled.forEach((outcome,index)=>{
     const tool=selected[index];
@@ -302,7 +306,7 @@ async function smartInvestigate(query){
   });
   const links=relatedLinks(intent,query);
   if(links.length)report['Related Links']={eyebrow:'FOLLOW-UP SOURCES',description:'Useful external sources for verifying and expanding this search.',data:{links}};
-  const findingCount=Object.keys(report).filter(key=>!['Related Links','Search Plan'].includes(key)).length;
+  const findingCount=Object.keys(report).filter(key=>!['Related Links','Search Plan','Planner Diagnostics'].includes(key)).length;
   const result={content:[{type:'text',text:JSON.stringify({description:`${intent.label} for “${query}”`,data:{query,modulesQueried:selected.length,modulesWithResults:findingCount,durationMs:0,report,errors}})}]};
   const time=new Date().toISOString(); state.lastResult={title:query,result,time,server:[...servers].join(', ')||'Connected MCP'};
   state.history.unshift({title:query,time,server:state.lastResult.server}); renderAll(); showResult(query,result);

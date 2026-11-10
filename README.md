@@ -16,6 +16,10 @@ npm start
 
 Open <http://127.0.0.1:4173>. No package installation is required.
 
+To see why the main search chose each tool, open <http://127.0.0.1:4173/?diagnostics>. Each search then adds a
+**Planner Diagnostics** section: the detected target, the words matched, the selected tools with scores, the
+closest misses, and how many tools were skipped for each reason (active, too slow, wrong target type, no match).
+
 ## Connect Open OSINT
 
 The local launcher starts the adjacent `osint-mcp` data and MCP services automatically.
