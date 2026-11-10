@@ -27,6 +27,8 @@ http://127.0.0.1:8892/mcp
 
 SignalDesk supports MCP Streamable HTTP, tool discovery, JSON-schema-assisted arguments, tool execution, local investigation history, and evidence export. Bearer tokens remain in browser memory and are not persisted.
 
+The Mac launcher also starts the bundled OSINT Toolbox and Omega MCP bridges. Omega includes active reconnaissance utilities; run those only against systems you own or have explicit permission to test. Consensus is included as a remote academic-search server and uses its official OAuth sign-in flow.
+
 ## Security notes
 
 - The UI is served only on `127.0.0.1` by default.

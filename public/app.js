@@ -2,9 +2,11 @@ const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
 const bundledServers=[
   { id: 'osint-local', name: 'Open OSINT', endpoint: 'http://127.0.0.1:8892/mcp', status: 'offline', tools: [] },
-  { id: 'osint-toolbox-local', name: 'OSINT Toolbox', endpoint: 'http://127.0.0.1:8893/mcp', status: 'offline', tools: [] }
+  { id: 'osint-toolbox-local', name: 'OSINT Toolbox', endpoint: 'http://127.0.0.1:8893/mcp', status: 'offline', tools: [] },
+  { id: 'omega-local', name: 'Omega MCP', endpoint: 'http://127.0.0.1:8894/mcp', status: 'offline', tools: [], caution: 'Use active scanning tools only on systems you own or are authorized to test.' },
+  { id: 'consensus', name: 'Consensus', endpoint: 'https://mcp.consensus.app/mcp', status: 'offline', tools: [], oauth: 'consensus' }
 ];
-const removedBundledEndpoints=new Set(['http://127.0.0.1:8894/mcp']);
+const removedBundledEndpoints=new Set();
 const storedServers=JSON.parse(localStorage.getItem('signaldesk.servers') || '[]');
 const retainedServers=storedServers.filter(server=>!removedBundledEndpoints.has(server.endpoint));
 const missingBundled=bundledServers.filter(bundled=>!retainedServers.some(server=>server.endpoint===bundled.endpoint));
@@ -57,7 +59,8 @@ async function connect(server) {
     toast(`${server.name} connected · ${server.tools.length} tools`);
   } catch(error) {
     server.status='offline'; server.error=error.message;
-    toast(`Could not connect: ${error.message}`);
+    if(server.oauth&&/401|Authentication required|unauthorized/i.test(error.message))server.needsAuth=true;
+    toast(server.needsAuth?`${server.name} needs sign-in`:`Could not connect: ${error.message}`);
   }
   renderAll();
 }
@@ -74,7 +77,7 @@ function renderConnections(){
   $('#connectionSummary').innerHTML=state.servers.map(s=>`<div class="connection"><div class="connection-name"><span class="server-dot ${s.status==='connected'?'connected':''}"></span><div><b>${escapeHtml(s.name)}</b><small>${s.status==='connected'?`${s.tools.length} tools available`:s.status==='connecting'?'Connecting…':'Ready to connect'}</small></div></div><button class="text-button" data-connect="${s.id}">${s.status==='connected'?'Refresh':'Connect'}</button></div>`).join('');
 }
 function renderServers(){
-  $('#serverList').innerHTML=state.servers.length?state.servers.map(s=>`<article class="server-card"><div class="server-card-top"><span class="badge">STREAMABLE HTTP</span><span class="server-dot ${s.status==='connected'?'connected':''}"></span></div><h3>${escapeHtml(s.name)}</h3><p class="endpoint">${escapeHtml(s.endpoint)}</p><p class="subtle">${s.status==='connected'?`${s.tools.length} tools discovered`:s.error?escapeHtml(s.error):'Not connected'}</p><div class="server-actions"><button class="ghost" data-remove="${s.id}">Remove</button><button class="primary" data-connect="${s.id}">${s.status==='connecting'?'Connecting…':s.status==='connected'?'Refresh':'Connect'}</button></div></article>`).join(''):'<div class="empty-state">Add your first MCP server to begin.</div>';
+  $('#serverList').innerHTML=state.servers.length?state.servers.map(s=>`<article class="server-card"><div class="server-card-top"><span class="badge">STREAMABLE HTTP</span><span class="server-dot ${s.status==='connected'?'connected':''}"></span></div><h3>${escapeHtml(s.name)}</h3><p class="endpoint">${escapeHtml(s.endpoint)}</p><p class="subtle">${s.status==='connected'?`${s.tools.length} tools discovered`:s.needsAuth?'Sign in is required to search academic research.':s.error?escapeHtml(s.error):'Not connected'}</p>${s.caution?`<p class="form-note">${escapeHtml(s.caution)}</p>`:''}<div class="server-actions"><button class="ghost" data-remove="${s.id}">Remove</button>${s.needsAuth?`<a class="primary" href="/api/oauth/consensus/start">Sign in to Consensus</a>`:`<button class="primary" data-connect="${s.id}">${s.status==='connecting'?'Connecting…':s.status==='connected'?'Refresh':'Connect'}</button>`}</div></article>`).join(''):'<div class="empty-state">Add your first MCP server to begin.</div>';
 }
 function allTools(){ return state.servers.flatMap(server=>server.tools.map(tool=>({...tool,serverId:server.id,serverName:server.name}))); }
 function renderTools(){
@@ -199,5 +202,9 @@ $('#toolFilter').oninput=renderTools;
 $('#exportEvidence').onclick=()=>{const blob=new Blob([JSON.stringify(state.evidence,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`signaldesk-evidence-${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href);};
 $('#themeToggle').onclick=()=>{const next=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=next;localStorage.setItem('signaldesk.theme',next);};
 document.documentElement.dataset.theme=localStorage.getItem('signaldesk.theme')||'light';
+if(new URLSearchParams(location.search).get('consensus')==='connected'){
+  history.replaceState({},'',location.pathname);
+  toast('Consensus sign-in complete');
+}
 renderAll();
 setTimeout(()=>state.servers.forEach(server=>connect(server)),100);

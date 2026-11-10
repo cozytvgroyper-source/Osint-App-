@@ -3,10 +3,15 @@ import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pathToFileURL } from 'node:url';
+import { createHash, randomBytes } from 'node:crypto';
 
 const ROOT = fileURLToPath(new URL('./public/', import.meta.url));
 const PORT = Number(process.env.PORT || 4173);
 const sessions = new Map();
+const consensusOAuth = { client: null, accessToken: '', refreshToken: '', expiresAt: 0, pending: new Map() };
+const CONSENSUS_ENDPOINT = 'https://mcp.consensus.app/mcp';
+const CONSENSUS_ISSUER = 'https://consensus.app';
+const CONSENSUS_REDIRECT = `http://127.0.0.1:${PORT}/api/oauth/consensus/callback`;
 
 const mime = {
   '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8',
@@ -56,7 +61,8 @@ async function mcpRequest({ endpoint, token, method, params = {}, sessionKey }) 
     'content-type': 'application/json',
     'mcp-protocol-version': '2025-03-26'
   };
-  if (token) headers.authorization = `Bearer ${token}`;
+  const effectiveToken = endpoint === CONSENSUS_ENDPOINT ? await consensusAccessToken() : token;
+  if (effectiveToken) headers.authorization = `Bearer ${effectiveToken}`;
   if (sessionKey && sessions.has(sessionKey)) headers['mcp-session-id'] = sessions.get(sessionKey);
   const response = await fetch(url, {
     method: 'POST', headers,
@@ -69,6 +75,54 @@ async function mcpRequest({ endpoint, token, method, params = {}, sessionKey }) 
   if (!response.ok) throw new Error(`MCP server returned ${response.status}: ${text.slice(0, 240)}`);
   if (isNotification && !text) return { accepted: true };
   return parseMcpResponse(text, response.headers.get('content-type') || '');
+}
+
+function base64url(value) {
+  return Buffer.from(value).toString('base64url');
+}
+
+async function consensusClient() {
+  if (consensusOAuth.client) return consensusOAuth.client;
+  const response = await fetch(`${CONSENSUS_ISSUER}/oauth/register/`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      client_name: 'SignalDesk Local',
+      redirect_uris: [CONSENSUS_REDIRECT],
+      grant_types: ['authorization_code', 'refresh_token'],
+      response_types: ['code'],
+      token_endpoint_auth_method: 'none'
+    }),
+    signal: AbortSignal.timeout(15_000)
+  });
+  if (!response.ok) throw new Error(`Consensus client registration failed (${response.status})`);
+  consensusOAuth.client = await response.json();
+  return consensusOAuth.client;
+}
+
+async function consensusToken(form) {
+  const response = await fetch(`${CONSENSUS_ISSUER}/oauth/token/`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams(form),
+    signal: AbortSignal.timeout(15_000)
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error_description || `Consensus token request failed (${response.status})`);
+  consensusOAuth.accessToken = data.access_token;
+  consensusOAuth.refreshToken = data.refresh_token || consensusOAuth.refreshToken;
+  consensusOAuth.expiresAt = Date.now() + Math.max(0, (Number(data.expires_in) || 3600) - 60) * 1000;
+  return data.access_token;
+}
+
+async function consensusAccessToken() {
+  if (consensusOAuth.accessToken && Date.now() < consensusOAuth.expiresAt) return consensusOAuth.accessToken;
+  if (!consensusOAuth.refreshToken || !consensusOAuth.client?.client_id) return '';
+  return consensusToken({
+    grant_type: 'refresh_token',
+    refresh_token: consensusOAuth.refreshToken,
+    client_id: consensusOAuth.client.client_id
+  });
 }
 
 async function initialize(payload) {
@@ -88,6 +142,36 @@ async function initialize(payload) {
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host}`);
+    if (req.method === 'GET' && url.pathname === '/api/oauth/consensus/start') {
+      const client = await consensusClient();
+      const state = base64url(randomBytes(24));
+      const verifier = base64url(randomBytes(48));
+      const challenge = createHash('sha256').update(verifier).digest('base64url');
+      consensusOAuth.pending.set(state, { verifier, createdAt: Date.now() });
+      const authorize = new URL(`${CONSENSUS_ISSUER}/oauth/authorize/`);
+      authorize.search = new URLSearchParams({
+        response_type: 'code', client_id: client.client_id, redirect_uri: CONSENSUS_REDIRECT,
+        scope: 'search', state, code_challenge: challenge, code_challenge_method: 'S256'
+      });
+      res.writeHead(302, { location: authorize.toString(), 'cache-control': 'no-store' });
+      return res.end();
+    }
+    if (req.method === 'GET' && url.pathname === '/api/oauth/consensus/callback') {
+      const state = url.searchParams.get('state');
+      const pending = state && consensusOAuth.pending.get(state);
+      if (!pending || Date.now() - pending.createdAt > 10 * 60_000) return json(res, 400, { error: 'Invalid or expired OAuth state' });
+      consensusOAuth.pending.delete(state);
+      const oauthError = url.searchParams.get('error');
+      if (oauthError) return json(res, 400, { error: url.searchParams.get('error_description') || oauthError });
+      const code = url.searchParams.get('code');
+      if (!code) return json(res, 400, { error: 'Consensus did not return an authorization code' });
+      await consensusToken({
+        grant_type: 'authorization_code', code, redirect_uri: CONSENSUS_REDIRECT,
+        client_id: consensusOAuth.client.client_id, code_verifier: pending.verifier
+      });
+      res.writeHead(302, { location: '/?consensus=connected', 'cache-control': 'no-store' });
+      return res.end();
+    }
     if (req.method === 'POST' && url.pathname === '/api/mcp') {
       const payload = await body(req);
       if (!payload.endpoint || !payload.method) return json(res, 400, { error: 'endpoint and method are required' });
