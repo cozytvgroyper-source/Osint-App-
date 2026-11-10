@@ -4,6 +4,12 @@ A local-first, user-friendly client for MCP servers and Open OSINT workflows.
 
 ## Run
 
+On this Mac, double-click **Start SignalDesk.command**. When finished, double-click
+**Stop SignalDesk.command**. All three services bind to localhost and are available
+only on this computer.
+
+For a terminal launch of the interface only:
+
 ```bash
 npm start
 ```
@@ -12,7 +18,8 @@ Open <http://127.0.0.1:4173>. No package installation is required.
 
 ## Connect Open OSINT
 
-Start the adjacent `osint-mcp` project using its Docker setup, then connect the default endpoint:
+The local launcher starts the adjacent `osint-mcp` data and MCP services automatically.
+SignalDesk connects to:
 
 ```text
 http://127.0.0.1:8892/mcp

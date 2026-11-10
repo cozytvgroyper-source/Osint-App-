@@ -49,7 +49,8 @@ function parseMcpResponse(text, contentType) {
 
 async function mcpRequest({ endpoint, token, method, params = {}, sessionKey }) {
   const url = validatedEndpoint(endpoint);
-  const id = crypto.randomUUID();
+  const isNotification = method.startsWith('notifications/');
+  const id = isNotification ? undefined : crypto.randomUUID();
   const headers = {
     accept: 'application/json, text/event-stream',
     'content-type': 'application/json',
@@ -59,13 +60,14 @@ async function mcpRequest({ endpoint, token, method, params = {}, sessionKey }) 
   if (sessionKey && sessions.has(sessionKey)) headers['mcp-session-id'] = sessions.get(sessionKey);
   const response = await fetch(url, {
     method: 'POST', headers,
-    body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
+    body: JSON.stringify({ jsonrpc: '2.0', ...(id ? { id } : {}), method, params }),
     signal: AbortSignal.timeout(45_000)
   });
   const sessionId = response.headers.get('mcp-session-id');
   if (sessionId && sessionKey) sessions.set(sessionKey, sessionId);
   const text = await response.text();
   if (!response.ok) throw new Error(`MCP server returned ${response.status}: ${text.slice(0, 240)}`);
+  if (isNotification && !text) return { accepted: true };
   return parseMcpResponse(text, response.headers.get('content-type') || '');
 }
 
@@ -106,7 +108,10 @@ const server = http.createServer(async (req, res) => {
     const resolved = normalize(join(ROOT, requestPath));
     if (!resolved.startsWith(ROOT)) return json(res, 403, { error: 'Forbidden' });
     const data = await readFile(resolved);
-    res.writeHead(200, { 'content-type': mime[extname(resolved)] || 'application/octet-stream' });
+    res.writeHead(200, {
+      'content-type': mime[extname(resolved)] || 'application/octet-stream',
+      'cache-control': 'no-store'
+    });
     res.end(data);
   } catch (error) {
     if (error?.code === 'ENOENT') return json(res, 404, { error: 'Not found' });

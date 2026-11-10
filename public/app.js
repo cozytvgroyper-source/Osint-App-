@@ -128,3 +128,5 @@ $('#exportEvidence').onclick=()=>{const blob=new Blob([JSON.stringify(state.evid
 $('#themeToggle').onclick=()=>{const next=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=next;localStorage.setItem('signaldesk.theme',next);};
 document.documentElement.dataset.theme=localStorage.getItem('signaldesk.theme')||'light';
 renderWorkflows();renderAll();
+const bundledLocalServer=state.servers.find(server=>server.endpoint==='http://127.0.0.1:8892/mcp');
+if(bundledLocalServer)connect(bundledLocalServer);
