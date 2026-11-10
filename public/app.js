@@ -93,7 +93,59 @@ async function runTool(tool,serverId,args,title=tool.name){
   state.history.unshift({title,time:state.lastResult.time,server:server.name}); renderAll(); showResult(title,result); return result;
 }
 
-function showResult(title,result){ $('#resultTitle').textContent=title; const content=result?.content; const text=Array.isArray(content)?content.map(v=>v.text||JSON.stringify(v)).join('\n\n'):JSON.stringify(result,null,2); $('#resultBody').innerHTML=`<pre>${escapeHtml(text)}</pre>`; $('#resultDialog').showModal(); }
+function humanize(value=''){return String(value).replace(/([a-z0-9])([A-Z])/g,'$1 $2').replace(/[_-]+/g,' ').replace(/\b\w/g,c=>c.toUpperCase());}
+function parseToolResult(result){
+  const content=result?.content;
+  if(Array.isArray(content)&&content.length===1&&typeof content[0]?.text==='string'){
+    try{return JSON.parse(content[0].text);}catch{return content[0].text;}
+  }
+  return result?.structuredContent??result;
+}
+function readableValue(key,value){
+  if(value===null||value===undefined||value==='')return 'Not reported';
+  if(typeof value==='boolean')return value?'Yes':'No';
+  if(typeof value==='number'){
+    if(/At$|timestamp|date/i.test(key)&&value>1e11)return new Date(value).toLocaleString();
+    return value.toLocaleString();
+  }
+  if(typeof value==='string'){
+    if(/^https?:\/\//.test(value))return `<a href="${escapeHtml(value)}" target="_blank" rel="noreferrer">Open source ↗</a>`;
+    if(/^\d{4}-\d{2}-\d{2}T/.test(value)){const date=new Date(value);if(!Number.isNaN(date.valueOf()))return date.toLocaleString();}
+    return escapeHtml(value);
+  }
+  return escapeHtml(JSON.stringify(value));
+}
+function renderRecord(data){
+  if(!data||typeof data!=='object')return `<p>${readableValue('',data)}</p>`;
+  const scalarEntries=Object.entries(data).filter(([,value])=>!Array.isArray(value)&&(typeof value!=='object'||value===null));
+  return scalarEntries.length?`<dl class="fact-list">${scalarEntries.map(([key,value])=>`<div><dt>${escapeHtml(humanize(key))}</dt><dd>${readableValue(key,value)}</dd></div>`).join('')}</dl>`:'';
+}
+function renderArray(items){
+  if(!items.length)return '<p class="empty-copy">No matching items reported.</p>';
+  return `<div class="result-items">${items.slice(0,25).map((item,index)=>{
+    if(typeof item!=='object'||item===null)return `<div class="result-item"><b>${index+1}.</b> ${readableValue('',item)}</div>`;
+    const title=item.title||item.name||item.place||item.headline||item.id||`Item ${index+1}`;
+    const rest=Object.fromEntries(Object.entries(item).filter(([key])=>!['title','name','place','headline','id'].includes(key)));
+    return `<article class="result-item"><h4>${escapeHtml(title)}</h4>${renderRecord(rest)}</article>`;
+  }).join('')}</div>${items.length>25?`<p class="result-note">Showing 25 of ${items.length.toLocaleString()} items.</p>`:''}`;
+}
+function renderCategory(name,entry){
+  const data=entry?.data??entry;
+  const arrays=data&&typeof data==='object'?Object.entries(data).filter(([,value])=>Array.isArray(value)):[];
+  return `<section class="result-category"><div class="category-head"><div><p class="eyebrow">CATEGORY</p><h3>${escapeHtml(humanize(name))}</h3></div>${entry?.description?`<p>${escapeHtml(entry.description)}</p>`:''}</div>${renderRecord(data)}${arrays.map(([key,items])=>`<div class="result-subgroup"><h4>${escapeHtml(humanize(key))}</h4>${renderArray(items)}</div>`).join('')}</section>`;
+}
+function renderReadableResult(result){
+  const parsed=parseToolResult(result); const payload=parsed?.data??parsed; const report=payload?.report;
+  if(report&&typeof report==='object'){
+    const stats=[['Categories queried',payload.modulesQueried],['Categories with results',payload.modulesWithResults],['Completed in',payload.durationMs?`${(payload.durationMs/1000).toFixed(1)} seconds`:null]].filter(([,value])=>value!==undefined&&value!==null);
+    const errors=Array.isArray(payload.errors)&&payload.errors.length?`<section class="result-category warning"><div class="category-head"><div><p class="eyebrow">SOURCE NOTES</p><h3>Unavailable Sources</h3></div></div>${renderArray(payload.errors)}</section>`:'';
+    return `<div class="result-summary"><p>${escapeHtml(parsed.description||'Multi-source intelligence report')}</p><div class="result-stats">${stats.map(([label,value])=>`<div><b>${escapeHtml(String(value))}</b><span>${escapeHtml(label)}</span></div>`).join('')}</div></div>${Object.entries(report).map(([name,entry])=>renderCategory(name,entry)).join('')}${errors}<details class="raw-result"><summary>Technical details</summary><pre>${escapeHtml(JSON.stringify(parsed,null,2))}</pre></details>`;
+  }
+  if(Array.isArray(payload))return renderArray(payload);
+  if(payload&&typeof payload==='object')return `<section class="result-category"><div class="category-head"><div><p class="eyebrow">RESULT</p><h3>Findings</h3></div></div>${renderRecord(payload)}${Object.entries(payload).filter(([,value])=>Array.isArray(value)).map(([key,items])=>`<div class="result-subgroup"><h4>${escapeHtml(humanize(key))}</h4>${renderArray(items)}</div>`).join('')}</section><details class="raw-result"><summary>Technical details</summary><pre>${escapeHtml(JSON.stringify(parsed,null,2))}</pre></details>`;
+  return `<div class="plain-result">${escapeHtml(String(payload??'No result returned.'))}</div>`;
+}
+function showResult(title,result){ $('#resultTitle').textContent=title; $('#resultBody').innerHTML=renderReadableResult(result); $('#resultDialog').showModal(); }
 
 async function smartInvestigate(query){
   const tools=allTools(); if(!tools.length){state.history.unshift({title:query,time:new Date().toISOString(),server:'Demo workspace'});renderAll();showResult(query,{message:'Connect Open OSINT to run this investigation with live sources.',suggested_next_step:'Open MCP servers and connect http://127.0.0.1:8892/mcp'});return;}
