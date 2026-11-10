@@ -167,7 +167,7 @@ function renderCategory(name,entry){
   const data=entry?.data??entry;
   const arrays=data&&typeof data==='object'?Object.entries(data).filter(([,value])=>Array.isArray(value)):[];
   const objects=data&&typeof data==='object'?Object.entries(data).filter(([,value])=>value&&typeof value==='object'&&!Array.isArray(value)):[];
-  return `<section class="result-category"><div class="category-head"><div><p class="eyebrow">SOURCE</p><h3>${escapeHtml(sourceLabel(name))}</h3></div>${entry?.description?`<p>${escapeHtml(entry.description)}</p>`:''}</div>${renderRecord(data)}${objects.map(([key,value])=>`<div class="result-subgroup"><h4>${escapeHtml(humanize(key))}</h4>${renderRecord(value)}</div>`).join('')}${arrays.map(([key,items])=>`<div class="result-subgroup"><h4>${escapeHtml(humanize(key))}</h4>${renderArray(items)}</div>`).join('')}</section>`;
+  return `<section class="result-category"><div class="category-head"><div><p class="eyebrow">${escapeHtml(entry?.eyebrow||'CATEGORY')}</p><h3>${escapeHtml(humanize(name))}</h3></div>${entry?.description?`<p>${escapeHtml(entry.description)}</p>`:''}</div>${renderRecord(data)}${objects.map(([key,value])=>`<div class="result-subgroup"><h4>${escapeHtml(humanize(key))}</h4>${renderRecord(value)}</div>`).join('')}${arrays.map(([key,items])=>`<div class="result-subgroup"><h4>${escapeHtml(humanize(key))}</h4>${renderArray(items)}</div>`).join('')}</section>`;
 }
 function renderReadableResult(result){
   const parsed=parseToolResult(result); const payload=parsed?.data??parsed; const report=payload?.report;
@@ -182,23 +182,66 @@ function renderReadableResult(result){
 }
 function showResult(title,result){ $('#resultTitle').textContent=title; $('#resultBody').innerHTML=renderReadableResult(result); $('#resultDialog').showModal(); }
 
+const intent=(id,label,tools)=>({id,label,tools});
 function searchIntent(query){
   const q=query.trim();
-  if(/\bCVE-\d{4}-\d+\b/i.test(q))return{label:'Vulnerability intelligence',tools:['get_nvd_cves','get_cisa_kev']};
-  if(/^(?:https?:\/\/)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/.*)?$/i.test(q)||/\b(domain|website|whois|certificate|dns)\b/i.test(q))return{label:'Domain intelligence',tools:['whois_lookup','dnstwist_lookalike_domains']};
-  if(/^@?[a-z0-9_.-]{2,32}$/i.test(q)&&(/^@/.test(q)||/\b(username|handle|account)\b/i.test(q)))return{label:'Public username presence',tools:['sherlock_username_search','blackbird_username_search']};
-  if(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(q))return{label:'Public email-account presence',tools:['holehe_email_search']};
-  if(/^\+?[\d\s().-]{8,}$/.test(q))return{label:'Public phone information',tools:['phoneinfoga_scan']};
-  if(/\b(sanction|ofac|sdn|pep|embargo)\b/i.test(q))return{label:'Sanctions screening',tools:['get_opensanctions','get_sanctions']};
-  if(/\b(earthquake|wildfire|hurricane|storm|flood|volcano|disaster|natural hazard)\b/i.test(q))return{label:'Natural hazard intelligence',tools:['get_earthquakes','get_natural_events','get_disaster_alerts']};
-  if(/\b(vessel|ship|maritime|port|chokepoint)\b/i.test(q))return{label:'Maritime intelligence',tools:['get_maritime_news','get_chokepoints']};
-  if(/\b(aircraft|flight|airport|aviation|notam)\b/i.test(q))return{label:'Aviation intelligence',tools:['get_notams','get_aviation_news','get_aircraft']};
-  if(/\b(cyber|ransomware|malware|threat actor|ioc)\b/i.test(q))return{label:'Cyber threat intelligence',tools:['get_cyber_news','get_ransomware','get_threatfox']};
-  if(/\b(paper|research|study|academic|arxiv)\b/i.test(q))return{label:'Research literature',tools:['get_arxiv']};
-  if(/\b(country|city|location|coordinates|geocode|travel advisory)\b/i.test(q))return{label:'Location and country context',tools:['get_geocode','get_country_facts','get_travel_advisories']};
-  if(/\b(company|corporation|business|ticker|filing|organization|hospital|university)\b/i.test(q))return{label:'Organization intelligence',tools:['get_wikidata','get_opencorporates','get_news_rss']};
-  if(/\b(latest|recent|news|current|today|event|developments)\b/i.test(q))return{label:'Current-event coverage',tools:['get_gdelt','get_news_velocity','get_news_rss']};
-  return{label:'Entity and news intelligence',tools:['get_wikidata','get_gdelt','get_hn_search']};
+  if(/\bCVE-\d{4}-\d+\b/i.test(q))return intent('cve','Vulnerability intelligence',['get_nvd_cves','get_cisa_kev']);
+  if(/\b(?:[A-Fa-f0-9]{32}|[A-Fa-f0-9]{40}|[A-Fa-f0-9]{64})\b/.test(q))return intent('malware','File and malware reputation',['get_malwarebazaar','omega_malware']);
+  if(/^(?:\d{1,3}\.){3}\d{1,3}$/.test(q)||/\b(ip address|asn|bgp|routing)\b/i.test(q))return intent('network','IP and network intelligence',['get_bgp','get_greynoise','get_whois']);
+  if(/^(?:https?:\/\/)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/.*)?$/i.test(q)||/\b(domain|website|whois|certificate|dns)\b/i.test(q))return intent('domain','Domain intelligence',['whois_lookup','dnstwist_lookalike_domains']);
+  if(/^@?[a-z0-9_.-]{2,32}$/i.test(q)&&(/^@/.test(q)||/\b(username|handle|account)\b/i.test(q)))return intent('username','Public username presence',['sherlock_username_search','blackbird_username_search']);
+  if(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(q))return intent('email','Public email-account presence',['holehe_email_search']);
+  if(/^\+?[\d\s().-]{8,}$/.test(q))return intent('phone','Public phone information',['phoneinfoga_scan']);
+  if(/\b(sanction|ofac|sdn|pep|embargo)\b/i.test(q))return intent('sanctions','Sanctions screening',['get_opensanctions','get_sanctions']);
+  if(/\b(earthquake|wildfire|hurricane|storm|flood|volcano|disaster|natural hazard)\b/i.test(q))return intent('hazard','Natural hazard intelligence',['get_earthquakes','get_natural_events','get_disaster_alerts']);
+  if(/\b(vessel|ship|maritime|port|chokepoint|piracy)\b/i.test(q))return intent('maritime','Maritime intelligence',['get_maritime_news','get_chokepoints','get_ais_vessels']);
+  if(/\b(aircraft|flight|airport|aviation|notam|airspace)\b/i.test(q))return intent('aviation','Aviation intelligence',['get_notams','get_aviation_news','get_aircraft']);
+  if(/\b(cyber|ransomware|malware|threat actor|ioc|phishing|botnet)\b/i.test(q))return intent('cyber','Cyber threat intelligence',['get_cyber_news','get_ransomware','get_threatfox']);
+  if(/\b(paper|research|study|academic|arxiv|literature)\b/i.test(q))return intent('research','Research literature',['get_arxiv']);
+  if(/\b(crypto|bitcoin|ethereum|stablecoin|blockchain)\b/i.test(q))return intent('crypto','Cryptocurrency and market context',['get_crypto','get_fear_greed','get_stablecoins']);
+  if(/\b(stock|share price|ticker|equity|market quote)\b/i.test(q))return intent('markets','Market and company profile',['get_fmp_quote','get_fmp_profile','get_sec_filings']);
+  if(/\b(gdp|inflation|unemployment|economic|economy|interest rate|exchange rate)\b/i.test(q))return intent('economy','Economic indicators',['get_economic_macro','get_bis_rates','get_bis_fx']);
+  if(/\b(sec filing|10-k|10-q|8-k|edgar)\b/i.test(q))return intent('filings','Corporate filings',['get_sec_filings','get_opencorporates']);
+  if(/\b(github|repository|open source project|developer activity)\b/i.test(q))return intent('github','Public development activity',['get_github_activity','get_hn_search']);
+  if(/\b(satellite|imagery|orbit|spacecraft)\b/i.test(q))return intent('satellite','Satellite and imagery context',['get_satellite_snapshot','get_satellites']);
+  if(/\b(election|vote|polling|ballot)\b/i.test(q))return intent('election','Election monitoring',['get_election_monitor','get_news_rss']);
+  if(/\b(outbreak|disease|health advisory|epidemic|pandemic)\b/i.test(q))return intent('health','Health and outbreak intelligence',['get_health_advisories','get_news_rss']);
+  if(/\b(nuclear|arms control|radiation|iaea)\b/i.test(q))return intent('nuclear','Nuclear and arms-control intelligence',['get_nuclear_status','get_radiation_safecast']);
+  if(/\b(oil|gas|lng|energy|commodity|uranium|mineral)\b/i.test(q))return intent('energy','Energy and commodities intelligence',['get_energy_commodities_news','get_critical_minerals']);
+  if(/\b(offshore|panama papers|paradise papers|pandora papers|shell company)\b/i.test(q))return intent('offshore','Offshore entity intelligence',['get_offshore_leaks','get_opencorporates']);
+  if(/\b(food security|famine|hunger|crop)\b/i.test(q))return intent('food','Food-security intelligence',['get_food_security','get_news_rss']);
+  if(/\b(country|city|location|coordinates|geocode|travel advisory|place)\b/i.test(q))return intent('location','Location and country context',['get_geocode','get_country_facts','get_travel_advisories']);
+  if(/\b(company|corporation|business|filing|organization|hospital|university|nonprofit)\b/i.test(q))return intent('organization','Organization intelligence',['get_wikidata','get_opencorporates','get_news_rss']);
+  if(/\b(latest|recent|news|current|today|event|developments)\b/i.test(q))return intent('news','Current-event coverage',['get_gdelt','get_news_velocity','get_news_rss']);
+  return intent('entity','Entity and related coverage',['get_wikidata','get_news_rss','get_hn_search']);
+}
+
+const categoryNames={
+  get_nvd_cves:'Vulnerability Details',get_cisa_kev:'Known Exploitation Status',whois_lookup:'Registration and Ownership',dnstwist_lookalike_domains:'Look-alike and Phishing Risk',
+  get_bgp:'Routing and Network Ownership',get_greynoise:'Scanner and Reputation Context',get_whois:'Registration Data',get_wikidata:'Identity and Background',get_opencorporates:'Corporate Records',
+  get_news_rss:'Related Coverage',get_gdelt:'Global Event Coverage',get_news_velocity:'Coverage Momentum',get_geocode:'Map and Coordinates',get_country_facts:'Country Overview',get_travel_advisories:'Travel and Safety',
+  get_arxiv:'Research Papers',get_opensanctions:'Global Sanctions Matches',get_sanctions:'OFAC Sanctions Matches',get_earthquakes:'Earthquake Activity',get_natural_events:'Active Natural Events',get_disaster_alerts:'Disaster Alerts',
+  get_cyber_news:'Cybersecurity Coverage',get_ransomware:'Ransomware Activity',get_threatfox:'Threat Indicators',get_maritime_news:'Maritime Coverage',get_chokepoints:'Chokepoint Status',get_ais_vessels:'Vessel Positions',
+  get_notams:'Airspace Notices',get_aviation_news:'Aviation Coverage',get_aircraft:'Aircraft Positions',get_crypto:'Market Prices',get_fear_greed:'Market Sentiment',get_stablecoins:'Stablecoin Market',
+  get_fmp_quote:'Market Quote',get_fmp_profile:'Company Profile',get_sec_filings:'Regulatory Filings',get_economic_macro:'Macroeconomic Snapshot',get_bis_rates:'Policy Rates',get_bis_fx:'Exchange Rates',
+  get_github_activity:'Public Repository Activity',get_satellite_snapshot:'Satellite Imagery Links',get_satellites:'Satellite Tracking',get_election_monitor:'Election Monitoring',get_health_advisories:'Health Advisories',
+  get_nuclear_status:'Nuclear and Arms-Control Updates',get_radiation_safecast:'Radiation Monitoring',get_energy_commodities_news:'Energy and Commodities Coverage',get_critical_minerals:'Critical Minerals',get_offshore_leaks:'Offshore Records',get_food_security:'Food-Security Conditions',
+  sherlock_username_search:'Username Matches',blackbird_username_search:'Additional Account Matches',holehe_email_search:'Email Account Presence',phoneinfoga_scan:'Phone Information',get_malwarebazaar:'Malware Records',omega_malware:'Malware Reputation'
+};
+function categoryForTool(tool){return categoryNames[tool.name]||sourceLabel(tool.name);}
+
+function relatedLinks(intentInfo,query){
+  let clean=query.replace(/^(?:https?:\/\/)/i,'').replace(/\/$/,'').trim();
+  clean=clean.replace(/^(?:location|city|country|organization|company|business|domain|website|news|current events?|academic|research)\s*(?::|-)?\s+/i,'').replace(/^(?:recent|latest|current|today'?s?)\s+/i,'').replace(/\s+(?:news|developments|updates)$/i,'').trim();
+  const encoded=encodeURIComponent(clean); const links=[];
+  if(intentInfo.id==='cve'){const cve=(clean.match(/CVE-\d{4}-\d+/i)||[])[0];if(cve)links.push({title:'NIST NVD record',url:`https://nvd.nist.gov/vuln/detail/${cve.toUpperCase()}`,description:'Official vulnerability record and references.'});}
+  if(intentInfo.id==='domain'){const domain=clean.split('/')[0];links.push({title:'Certificate Transparency',url:`https://crt.sh/?q=${encodeURIComponent('%.'.concat(domain))}`,description:'Certificates issued for this domain and its subdomains.'},{title:'ICANN lookup',url:`https://lookup.icann.org/en/lookup?name=${encodeURIComponent(domain)}`,description:'Domain registration lookup.'});}
+  if(intentInfo.id==='research')links.push({title:'Google Scholar',url:`https://scholar.google.com/scholar?q=${encoded}`,description:'Broader scholarly literature search.'},{title:'arXiv search',url:`https://arxiv.org/search/?query=${encoded}&searchtype=all`,description:'Preprints related to this topic.'});
+  if(intentInfo.id==='organization'||intentInfo.id==='offshore')links.push({title:'OpenCorporates search',url:`https://opencorporates.com/companies?q=${encoded}`,description:'Company registrations across jurisdictions.'});
+  if(intentInfo.id==='location')links.push({title:'OpenStreetMap',url:`https://www.openstreetmap.org/search?query=${encoded}`,description:'Map and geographic context.'});
+  if(intentInfo.id==='news')links.push({title:'Google News',url:`https://news.google.com/search?q=${encoded}`,description:'Additional current coverage.'});
+  if(!['email','phone','username'].includes(intentInfo.id))links.push({title:'Wikipedia search',url:`https://en.wikipedia.org/w/index.php?search=${encoded}`,description:'Background and linked references.'});
+  return links;
 }
 
 function argsForSearch(tool,query){
@@ -231,14 +274,15 @@ async function smartInvestigate(query){
   const tools=allTools(); if(!tools.length){state.history.unshift({title:query,time:new Date().toISOString(),server:'Demo workspace'});renderAll();showResult(query,{message:'Connect Open OSINT to run this investigation with live sources.',suggested_next_step:'Open MCP servers and connect http://127.0.0.1:8892/mcp'});return;}
   const intent=searchIntent(query);
   const selected=intent.tools.map(name=>tools.find(tool=>tool.name===name)).filter(Boolean).slice(0,3);
-  if(!selected.length){const fallback=tools.find(tool=>tool.name==='get_wikidata')||tools.find(tool=>tool.name==='get_hn_search')||tools[0];selected.push(fallback);}
-  toast(`Searching ${selected.length} relevant source${selected.length===1?'':'s'}…`);
+  if(!selected.length&&intent.id==='entity'){const fallback=tools.find(tool=>tool.name==='get_wikidata')||tools.find(tool=>tool.name==='get_hn_search')||tools[0];selected.push(fallback);}
+  toast(selected.length?`Searching ${selected.length} relevant source${selected.length===1?'':'s'}…`:'Relevant server is not connected');
   const settled=await Promise.allSettled(selected.map(async tool=>{
     const response=await callTool(tool,tool.serverId,argsForSearch(tool,query));
     if(response.error)throw new Error(response.error.message||'Tool call failed');
     return{tool,data:parseToolResult(response.result)};
   }));
   const report={}; const errors=[]; const servers=new Set();
+  if(!selected.length)errors.push({source:'Relevant MCP server',error:'No connected server currently provides the tools needed for this search category. Connect the matching server and try again.'});
   settled.forEach((outcome,index)=>{
     const tool=selected[index];
     if(outcome.status==='fulfilled'){
@@ -247,12 +291,19 @@ async function smartInvestigate(query){
       if(value?.error||value?.data?.error)errors.push({source:sourceLabel(tool.name),error:value.error||value.data.error});
       else{
         const data=value?.data??value;
-        if(hasUsefulData(data))report[tool.name]={description:tool.description||`Results from ${tool.serverName}`,data};
+        if(hasUsefulData(data)){
+          const category=categoryForTool(tool); let key=category;
+          if(report[key])key=`${category} — ${sourceLabel(tool.name)}`;
+          report[key]={eyebrow:`${tool.serverName} · ${sourceLabel(tool.name)}`,description:tool.description||`Results from ${tool.serverName}`,data};
+        }
         else errors.push({source:sourceLabel(tool.name),error:'No matching records returned for this subject.'});
       }
     }else errors.push({source:sourceLabel(tool.name),error:outcome.reason?.message||'Source unavailable'});
   });
-  const result={content:[{type:'text',text:JSON.stringify({description:`${intent.label} for “${query}”`,data:{query,modulesQueried:selected.length,modulesWithResults:Object.keys(report).length,durationMs:0,report,errors}})}]};
+  const links=relatedLinks(intent,query);
+  if(links.length)report['Related Links']={eyebrow:'FOLLOW-UP SOURCES',description:'Useful external sources for verifying and expanding this search.',data:{links}};
+  const findingCount=Object.keys(report).filter(key=>key!=='Related Links').length;
+  const result={content:[{type:'text',text:JSON.stringify({description:`${intent.label} for “${query}”`,data:{query,modulesQueried:selected.length,modulesWithResults:findingCount,durationMs:0,report,errors}})}]};
   const time=new Date().toISOString(); state.lastResult={title:query,result,time,server:[...servers].join(', ')||'Connected MCP'};
   state.history.unshift({title:query,time,server:state.lastResult.server}); renderAll(); showResult(query,result);
 }
