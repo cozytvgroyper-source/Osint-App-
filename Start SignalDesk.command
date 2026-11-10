@@ -50,6 +50,26 @@ if ! is_ready "http://127.0.0.1:8892/health"; then
 fi
 wait_for "MCP service" "http://127.0.0.1:8892/health" || exit 1
 
+if ! is_ready "http://127.0.0.1:8893/mcp"; then
+  echo "Starting OSINT Toolbox MCP bridge…"
+  (
+    cd "$APP_DIR"
+    PATH="$HOME/.local/bin:$PATH" "$HOME/.local/bin/uvx" --from 'fastmcp-slim[server]' fastmcp run \
+      "$APP_DIR/config/osint-toolbox-mcp.json" --transport http \
+      --host 127.0.0.1 --port 8893 --path /mcp --no-banner \
+      >"$LOG_DIR/osint-toolbox.log" 2>&1 &
+    echo $! >"$RUNTIME_DIR/osint-toolbox.pid"
+  )
+fi
+
+for _ in {1..40}; do
+  /usr/bin/curl -sS --max-time 2 -X POST "http://127.0.0.1:8893/mcp" \
+    -H 'content-type: application/json' -H 'accept: application/json, text/event-stream' \
+    --data '{"jsonrpc":"2.0","id":"startup","method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"SignalDesk Launcher","version":"1.0"}}}' \
+    >/dev/null 2>&1 && break
+  sleep 0.5
+done
+
 if ! is_ready "http://127.0.0.1:4173"; then
   echo "Starting SignalDesk…"
   (

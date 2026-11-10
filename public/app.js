@@ -1,10 +1,14 @@
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
-const bundledServer={ id: 'osint-local', name: 'Open OSINT', endpoint: 'http://127.0.0.1:8892/mcp', status: 'offline', tools: [] };
+const bundledServers=[
+  { id: 'osint-local', name: 'Open OSINT', endpoint: 'http://127.0.0.1:8892/mcp', status: 'offline', tools: [] },
+  { id: 'osint-toolbox-local', name: 'OSINT Toolbox', endpoint: 'http://127.0.0.1:8893/mcp', status: 'offline', tools: [] }
+];
 const storedServers=JSON.parse(localStorage.getItem('signaldesk.servers') || '[]');
-const startupServers=storedServers.some(server=>server.endpoint===bundledServer.endpoint)?storedServers:[bundledServer,...storedServers];
+const missingBundled=bundledServers.filter(bundled=>!storedServers.some(server=>server.endpoint===bundled.endpoint));
+const startupServers=[...missingBundled,...storedServers];
 const state = {
-  servers: startupServers.length?startupServers:[bundledServer],
+  servers: startupServers.length?startupServers:bundledServers,
   tokens: new Map(),
   history: JSON.parse(localStorage.getItem('signaldesk.history') || '[]'),
   evidence: JSON.parse(localStorage.getItem('signaldesk.evidence') || '[]'),
