@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#07110f" />
+  <title>SignalDesk — OSINT workspace</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="shell">
+    <aside class="rail">
+      <a class="brand" href="#" aria-label="SignalDesk home"><span class="brand-mark">S</span><span>SignalDesk</span></a>
+      <nav aria-label="Primary">
+        <button class="nav active" data-view="workspace"><span>⌁</span>Workspace</button>
+        <button class="nav" data-view="servers"><span>⌘</span>MCP servers</button>
+        <button class="nav" data-view="library"><span>◫</span>Tool library</button>
+        <button class="nav" data-view="evidence"><span>◇</span>Evidence</button>
+      </nav>
+      <div class="rail-foot">
+        <div class="privacy"><span class="pulse"></span><div><b>Local-first</b><small>Tokens stay in memory</small></div></div>
+        <button class="icon-button" id="themeToggle" aria-label="Toggle theme">☼</button>
+      </div>
+    </aside>
+
+    <main>
+      <header>
+        <div><p class="eyebrow">INVESTIGATION CONSOLE</p><h1 id="pageTitle">Good morning, analyst.</h1></div>
+        <div class="header-actions"><button class="ghost" id="cmdButton"><kbd>⌘</kbd><kbd>K</kbd> Quick command</button><button class="primary" id="newInvestigation">＋ New investigation</button></div>
+      </header>
+
+      <section id="workspace" class="view active-view">
+        <div class="hero-card">
+          <div class="hero-copy"><span class="status-pill"><i></i><span id="serverStatus">Demo workspace ready</span></span><h2>What do you want to investigate?</h2><p>Start with a person, organization, domain, vessel, aircraft, place, or current event.</p></div>
+          <form id="investigateForm" class="search-box">
+            <div class="search-row"><span class="search-icon">⌕</span><input id="query" autocomplete="off" placeholder="e.g. Map recent infrastructure outages in the Baltic region" /><button type="submit">Investigate <span>→</span></button></div>
+            <div class="chips" aria-label="Suggested investigations">
+              <button type="button" data-prompt="Find recent cyber threats affecting healthcare">Cyber threats</button>
+              <button type="button" data-prompt="Review sanctions exposure for an organization">Sanctions check</button>
+              <button type="button" data-prompt="Map recent earthquakes and natural hazards">Natural events</button>
+              <button type="button" data-prompt="Create a geopolitical intelligence brief">Intel brief</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="section-heading"><div><p class="eyebrow">QUICK START</p><h3>Common workflows</h3></div><button class="text-button" data-view-link="library">Browse all tools →</button></div>
+        <div class="workflow-grid" id="workflowGrid"></div>
+
+        <div class="lower-grid">
+          <section class="panel"><div class="panel-head"><div><p class="eyebrow">RECENT ACTIVITY</p><h3>Investigation history</h3></div><button class="icon-button" id="clearHistory" title="Clear history">⌫</button></div><div id="history" class="history"></div></section>
+          <section class="panel connection-panel"><div class="panel-head"><div><p class="eyebrow">CONNECTIONS</p><h3>MCP server health</h3></div><button class="text-button" data-view-link="servers">Manage →</button></div><div id="connectionSummary"></div></section>
+        </div>
+      </section>
+
+      <section id="servers" class="view">
+        <div class="section-heading"><div><p class="eyebrow">CONNECTIONS</p><h2>MCP servers</h2><p class="subtle">Connect any Streamable HTTP MCP server. Credentials are held only for this browser session.</p></div><button class="primary" id="addServer">＋ Add server</button></div>
+        <div id="serverList" class="server-grid"></div>
+      </section>
+
+      <section id="library" class="view">
+        <div class="section-heading"><div><p class="eyebrow">CAPABILITIES</p><h2>Tool library</h2><p class="subtle" id="toolCount">Connect a server to discover tools.</p></div><label class="filter"><span>⌕</span><input id="toolFilter" placeholder="Filter tools" /></label></div>
+        <div id="toolLibrary" class="tool-grid"></div>
+      </section>
+
+      <section id="evidence" class="view">
+        <div class="section-heading"><div><p class="eyebrow">CASE FILE</p><h2>Evidence notebook</h2><p class="subtle">Saved findings, sources, and tool outputs.</p></div><button class="ghost" id="exportEvidence">Export JSON</button></div>
+        <div id="evidenceList" class="evidence-list"></div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="serverDialog">
+    <form method="dialog" id="serverForm"><div class="dialog-head"><div><p class="eyebrow">NEW CONNECTION</p><h2>Add MCP server</h2></div><button value="cancel" class="icon-button" aria-label="Close">×</button></div>
+      <label>Name<input name="name" required placeholder="OSINT MCP" /></label>
+      <label>Endpoint<input name="endpoint" required type="url" value="http://127.0.0.1:8892/mcp" /></label>
+      <label>Bearer token <span>(optional)</span><input name="token" type="password" autocomplete="off" placeholder="Stored in this tab only" /></label>
+      <p class="form-note">SignalDesk uses MCP Streamable HTTP. For the nearby osint-mcp project, start Docker and use the prefilled endpoint.</p>
+      <div class="dialog-actions"><button value="cancel" class="ghost">Cancel</button><button value="default" class="primary" id="saveServer">Connect server</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="runDialog">
+    <form method="dialog" id="runForm"><div class="dialog-head"><div><p class="eyebrow">RUN TOOL</p><h2 id="runToolName">Tool</h2></div><button value="cancel" class="icon-button" aria-label="Close">×</button></div>
+      <p id="runToolDescription" class="subtle"></p><label>Arguments (JSON)<textarea id="runArgs" rows="9">{}</textarea></label><p id="runError" class="form-error"></p>
+      <div class="dialog-actions"><button value="cancel" class="ghost">Cancel</button><button value="default" class="primary" id="executeTool">Run tool</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="resultDialog" class="result-dialog"><div class="dialog-head"><div><p class="eyebrow">INVESTIGATION RESULT</p><h2 id="resultTitle">Result</h2></div><button class="icon-button" data-close-result aria-label="Close">×</button></div><div id="resultBody" class="result-body"></div><div class="dialog-actions"><button class="ghost" data-close-result>Close</button><button class="primary" id="saveEvidence">Save to evidence</button></div></dialog>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
