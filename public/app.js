@@ -98,8 +98,20 @@ function showResult(title,result){ $('#resultTitle').textContent=title; const co
 async function smartInvestigate(query){
   const tools=allTools(); if(!tools.length){state.history.unshift({title:query,time:new Date().toISOString(),server:'Demo workspace'});renderAll();showResult(query,{message:'Connect Open OSINT to run this investigation with live sources.',suggested_next_step:'Open MCP servers and connect http://127.0.0.1:8892/mcp'});return;}
   const rules=[[/sanction/i,/sanction|opensanctions|ofac/i],[/cyber|cve|ransom|threat/i,/cyber|cve|ransom|threat|intelligence_report/i],[/earthquake|hazard|disaster|storm/i,/earthquake|natural|disaster|gdacs/i],[/brief|geopolit|situation|report/i,/intelligence_report|query_modules|news/i],[/domain|ip|whois/i,/domain|whois|ip|bgp/i],[/vessel|ship|maritime/i,/vessel|maritime|ais/i],[/aircraft|flight/i,/aircraft|flight/i]];
-  const match=rules.find(([q])=>q.test(query)); const tool=tools.find(t=>(match?.[1]||/intelligence_report|query_modules|news/i).test(t.name))||tools[0];
-  const props=tool.inputSchema?.properties||{}; const args={}; const queryKey=['query','q','keyword','name','entity','place','symbol'].find(k=>props[k]); if(queryKey)args[queryKey]=query;
+  const match=rules.find(([q])=>q.test(query));
+  const reportTool=tools.find(t=>t.name==='intelligence_report');
+  const specializedTool=match&&tools.find(t=>match[1].test(t.name)&&t.name!=='query_modules');
+  const tool=specializedTool||reportTool||tools.find(t=>t.name==='query_modules')||tools[0];
+  const props=tool.inputSchema?.properties||{}; const required=tool.inputSchema?.required||[]; const args={};
+  const queryKey=['query','q','keyword','name','entity','place','symbol'].find(k=>props[k]);
+  if(queryKey)args[queryKey]=query;
+  if(tool.name==='intelligence_report')args.keywords=query;
+  if(tool.name==='query_modules')args.modules='news_world,regional_conflict_feeds,cyber_news';
+  for(const key of required){
+    if(args[key]!==undefined)continue;
+    const schema=props[key]||{};
+    args[key]=schema.type==='number'?1:schema.type==='boolean'?false:query;
+  }
   toast(`Running ${tool.name}…`); await runTool(tool,tool.serverId,args,query);
 }
 
