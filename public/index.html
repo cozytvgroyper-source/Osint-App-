@@ -71,19 +71,19 @@
   </div>
 
   <dialog id="serverDialog">
-    <form method="dialog" id="serverForm"><div class="dialog-head"><div><p class="eyebrow">NEW CONNECTION</p><h2>Add MCP server</h2></div><button value="cancel" class="icon-button" aria-label="Close">×</button></div>
+    <form method="dialog" id="serverForm"><div class="dialog-head"><div><p class="eyebrow">NEW CONNECTION</p><h2>Add MCP server</h2></div><button type="button" data-close-dialog class="icon-button" aria-label="Close">×</button></div>
       <label>Name<input name="name" required placeholder="OSINT MCP" /></label>
       <label>Endpoint<input name="endpoint" required type="url" value="http://127.0.0.1:8892/mcp" /></label>
       <label>Bearer token <span>(optional)</span><input name="token" type="password" autocomplete="off" placeholder="Stored in this tab only" /></label>
       <p class="form-note">SignalDesk uses MCP Streamable HTTP. For the nearby osint-mcp project, start Docker and use the prefilled endpoint.</p>
-      <div class="dialog-actions"><button value="cancel" class="ghost">Cancel</button><button value="default" class="primary" id="saveServer">Connect server</button></div>
+      <div class="dialog-actions"><button type="button" data-close-dialog class="ghost">Cancel</button><button value="default" class="primary" id="saveServer">Connect server</button></div>
     </form>
   </dialog>
 
   <dialog id="runDialog">
-    <form method="dialog" id="runForm"><div class="dialog-head"><div><p class="eyebrow">RUN TOOL</p><h2 id="runToolName">Tool</h2></div><button value="cancel" class="icon-button" aria-label="Close">×</button></div>
+    <form method="dialog" id="runForm"><div class="dialog-head"><div><p class="eyebrow">RUN TOOL</p><h2 id="runToolName">Tool</h2></div><button type="button" data-close-dialog class="icon-button" aria-label="Close">×</button></div>
       <p id="runToolDescription" class="subtle"></p><label>Arguments (JSON)<textarea id="runArgs" rows="9">{}</textarea></label><p id="runError" class="form-error"></p>
-      <div class="dialog-actions"><button value="cancel" class="ghost">Cancel</button><button value="default" class="primary" id="executeTool">Run tool</button></div>
+      <div class="dialog-actions"><button type="button" data-close-dialog class="ghost">Cancel</button><button value="default" class="primary" id="executeTool">Run tool</button></div>
     </form>
   </dialog>
 

@@ -185,6 +185,7 @@ $('#cmdButton').onclick=()=>{switchView('workspace');$('#query').focus();};
 $('#saveServer').addEventListener('click',e=>{e.preventDefault();const form=new FormData($('#serverForm'));const server={id:crypto.randomUUID(),name:form.get('name').trim(),endpoint:form.get('endpoint').trim(),status:'offline',tools:[]};if(!server.name||!server.endpoint)return;state.servers.push(server);state.tokens.set(server.id,form.get('token'));$('#serverDialog').close();renderAll();connect(server);});
 $('#executeTool').addEventListener('click',async e=>{e.preventDefault();try{const args=JSON.parse($('#runArgs').value);$('#runDialog').close();await runTool(state.activeTool.tool,state.activeTool.serverId,args);}catch(error){$('#runError').textContent=error.message;}});
 $$('[data-close-result]').forEach(b=>b.onclick=()=>$('#resultDialog').close());
+$$('[data-close-dialog]').forEach(button=>button.onclick=()=>button.closest('dialog')?.close());
 $('#saveEvidence').onclick=()=>{if(state.lastResult){state.evidence.unshift(state.lastResult);renderAll();toast('Saved to evidence');$('#resultDialog').close();}};
 $('#clearHistory').onclick=()=>{state.history=[];renderAll();};
 $('#toolFilter').oninput=renderTools;
