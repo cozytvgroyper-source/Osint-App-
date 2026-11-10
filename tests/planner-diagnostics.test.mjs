@@ -43,3 +43,10 @@ test('summarizes diagnostics for display without listing all 240 tools',()=>{
   assert.equal(summary.skippedBecause.reduce((total,item)=>total+item.tools,0),tools.length-6);
   assert.deepEqual(summary.skippedBecause.map(item=>item.tools),[...summary.skippedBecause.map(item=>item.tools)].sort((a,b)=>b-a));
 });
+
+test('near misses only list tools that matched a search or topic word',()=>{
+  const summary=summarizePlanDiagnostics(explain('jane.doe@example.com breach'));
+  const names=summary.nearMisses.map(item=>item.name);
+  for(const unrelated of ['version','health_check','list_modules','get_earthquakes'])assert.ok(!names.includes(unrelated),`${unrelated} listed: ${names.join(', ')}`);
+  assert.ok(summary.nearMisses.every(item=>item.matched),'each near miss says which words it matched');
+});
