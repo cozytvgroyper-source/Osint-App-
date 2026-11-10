@@ -74,9 +74,9 @@ export function explainSearchPlan({query,intentId,preferredNames=[],tools,maxToo
     if(/report|summary|briefing|dashboard/i.test(name)&&!preferred.has(tool.name))score-=5;
     const matched=[...new Set([...direct.matches,...thematic.matches])];
     const relevant=preferred.has(tool.name)||score>3&&direct.score>0;
-    if(!relevant)return{tool,score,status:'skipped',reason:'No match with the search words'};
+    if(!relevant)return{tool,score,matched,status:'skipped',reason:'No match with the search words'};
     const reason=preferred.has(tool.name)?`Primary ${intentId} source`:matched.length?`Matches ${matched.slice(0,4).join(', ')}`:`Related ${intentId} capability`;
-    return{tool,score,status:'candidate',reason};
+    return{tool,score,matched,status:'candidate',reason};
   });
   const ranked=entries.filter(entry=>entry.status==='candidate').sort((a,b)=>b.score-a.score||String(a.tool.name).localeCompare(String(b.tool.name)));
   const names=new Set();const serverCounts=new Map();let selectedCount=0;
@@ -108,7 +108,8 @@ export function summarizePlanDiagnostics(explained,{nearMisses=12}={}){
     searchWords:explained.queryTerms.join(', ')||'None',
     topicWords:explained.intentTerms.join(', '),
     selected:explained.selected.map(row),
-    nearMisses:skipped.filter(entry=>entry.score!==null&&entry.score>0).sort((a,b)=>b.score-a.score).slice(0,nearMisses).map(row),
+    // Tools that matched at least one word but were not chosen; a server bonus alone is not a near miss.
+    nearMisses:skipped.filter(entry=>entry.matched?.length).sort((a,b)=>b.score-a.score).slice(0,nearMisses).map(entry=>({...row(entry),matched:entry.matched.join(', ')})),
     skippedBecause:[...counts].map(([reason,tools])=>({name:reason,tools})).sort((a,b)=>b.tools-a.tools||a.name.localeCompare(b.name))
   };
 }
