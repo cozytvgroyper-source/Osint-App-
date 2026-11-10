@@ -12,7 +12,15 @@ function toolText(tool){
   const properties=Object.keys(tool.inputSchema?.properties||{}).join(' ');
   return `${tool.name||''} ${tool.description||''} ${tool.serverName||''} ${properties}`.toLowerCase();
 }
-function passiveCandidate(tool){return !ACTIVE_TOOL_NAMES.test(tool.name||'')&&!ACTIVE_LANGUAGE.test(tool.description||'');}
+// Omega's descriptions do not reliably reveal side effects (target probing, paid AI calls,
+// on-demand package installs, outbound webhooks), so automatic search may only use Omega
+// tools whose source was reviewed and found to query public lookup services alone.
+const OMEGA_AUTO_SEARCH_TOOLS=new Set(['omega_whois','omega_dns','omega_ipinfo','omega_crtsh','omega_wayback','omega_cve','omega_asn','omega_malware','omega_spoofcheck','omega_reverseip','omega_dorks','omega_threatfeed']);
+function isOmegaTool(tool){return tool.serverName==='Omega MCP'||/^omega_/i.test(tool.name||'');}
+function passiveCandidate(tool){
+  if(isOmegaTool(tool)&&!OMEGA_AUTO_SEARCH_TOOLS.has(tool.name))return false;
+  return !ACTIVE_TOOL_NAMES.test(tool.name||'')&&!ACTIVE_LANGUAGE.test(tool.description||'');
+}
 function compatibleTarget(tool,query){
   const constrained=new Set(tool.inputSchema?.required||[]);
   const value=String(query).trim();
