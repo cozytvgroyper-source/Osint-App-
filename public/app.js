@@ -26,6 +26,7 @@ const state = {
 const clientSessionId=sessionStorage.getItem('signaldesk.clientSessionId')||crypto.randomUUID();
 sessionStorage.setItem('signaldesk.clientSessionId',clientSessionId);
 const sessionKeyFor=serverId=>`${clientSessionId}:${serverId}`;
+const intelNews={events:[],metrics:null,categories:[],generatedAt:'',loaded:false,loading:false,error:''};
 
 function persist() {
   localStorage.setItem('signaldesk.servers', JSON.stringify(state.servers.map(({ tools, ...server }) => ({ ...server, status: 'offline' }))));
@@ -40,8 +41,36 @@ function iconFor(name='') { if(/cyber|cve|threat|domain|ip/i.test(name))return'�
 function switchView(id) {
   $$('.view').forEach(v => v.classList.toggle('active-view', v.id === id));
   $$('.nav').forEach(v => v.classList.toggle('active', v.dataset.view === id));
-  const labels={workspace:'Good morning, analyst.',servers:'Connection center',library:'Explore capabilities',evidence:'Evidence notebook'};
-  $('#pageTitle').textContent=labels[id]; window.scrollTo({top:0,behavior:'smooth'});
+  const labels={workspace:'Good morning, analyst.',servers:'Connection center',library:'Explore capabilities',news:'IntelMap news',evidence:'Evidence notebook'};
+  $('#pageTitle').textContent=labels[id]||'SignalDesk'; window.scrollTo({top:0,behavior:'smooth'});
+  if(id==='news'&&!intelNews.loaded&&!intelNews.loading)loadIntelNews();
+}
+
+function safeExternalUrl(value=''){
+  try{const url=new URL(value);return ['http:','https:'].includes(url.protocol)?url.href:'#';}catch{return'#';}
+}
+function relativeTime(value){
+  const seconds=Math.max(0,Math.floor((Date.now()-new Date(value).getTime())/1000));
+  if(seconds<60)return `${seconds}s ago`; if(seconds<3600)return `${Math.floor(seconds/60)}m ago`; if(seconds<86400)return `${Math.floor(seconds/3600)}h ago`; return `${Math.floor(seconds/86400)}d ago`;
+}
+function renderIntelNews(){
+  const list=$('#intelNewsList'); if(!list)return;
+  if(intelNews.loading){list.innerHTML='<div class="empty-state">Loading IntelMap JSON feed…</div>';return;}
+  if(intelNews.error){list.innerHTML=`<div class="empty-state">${escapeHtml(intelNews.error)} <button class="text-button" id="retryIntelNews">Try again</button></div>`;$('#retryIntelNews')?.addEventListener('click',()=>loadIntelNews(true));return;}
+  const filter=$('#intelNewsFilter').value.trim().toLowerCase(); const category=$('#intelNewsCategory').value;
+  const events=intelNews.events.filter(event=>(!category||event.category===category)&&(!filter||[event.title,event.description,event.source,event.country,event.region,event.category].some(value=>String(value||'').toLowerCase().includes(filter)))).slice(0,120);
+  const metrics=intelNews.metrics||{};
+  $('#intelNewsMetrics').innerHTML=[['Signal index',`${metrics.threatIndex??'—'} · ${metrics.threatLevel||'Unknown'}`],['Live signals',metrics.signals??intelNews.events.length],['High priority',metrics.highPriority??'—'],['Sources online',metrics.sourcesOnline!=null?`${metrics.sourcesOnline}/${metrics.sourcesTotal||metrics.sourcesOnline}`:'—']].map(([label,value])=>`<article><span>${escapeHtml(label)}</span><b>${escapeHtml(value)}</b></article>`).join('');
+  $('#intelNewsFreshness').textContent=intelNews.generatedAt?`Updated ${relativeTime(intelNews.generatedAt)} · showing ${events.length}`:`Showing ${events.length}`;
+  list.innerHTML=events.length?events.map(event=>`<article class="news-card"><div class="news-card-top"><span class="badge">${escapeHtml(event.category||event.kind||'signal')}</span><time title="${escapeHtml(event.timestamp||'')}">${escapeHtml(relativeTime(event.timestamp))}</time></div><h3>${escapeHtml(event.title||'Untitled signal')}</h3>${event.description?`<p>${escapeHtml(event.description)}</p>`:''}<div class="news-meta"><span>${escapeHtml(event.source||'Unknown source')}</span><span>${escapeHtml(event.country||event.region||'Global')}</span><span>P${escapeHtml(event.severity??'—')} · ${escapeHtml(event.confidence??'—')}% confidence</span></div><a class="text-button" href="${escapeHtml(safeExternalUrl(event.url))}" target="_blank" rel="noopener noreferrer">Open original source ↗</a></article>`).join(''):'<div class="empty-state">No IntelMap signals match these filters.</div>';
+}
+async function loadIntelNews(force=false){
+  if(intelNews.loading||(!force&&intelNews.loaded))return; intelNews.loading=true;intelNews.error='';renderIntelNews();
+  try{
+    const response=await fetch('https://intelmap.watch/api/feed/',{headers:{accept:'application/json'}}); if(!response.ok)throw new Error(`IntelMap returned ${response.status}`);
+    const data=await response.json(); intelNews.events=Array.isArray(data.events)?data.events:[];intelNews.metrics=data.metrics||null;intelNews.categories=Array.isArray(data.categories)?data.categories:[];intelNews.generatedAt=data.generatedAt||data.cacheTimestamp||new Date().toISOString();intelNews.loaded=true;
+    const select=$('#intelNewsCategory');const current=select.value;select.innerHTML='<option value="">All categories</option>'+intelNews.categories.map(item=>`<option value="${escapeHtml(item.name)}">${escapeHtml(humanize(item.name))} (${escapeHtml(item.count)})</option>`).join('');select.value=current;
+  }catch(error){intelNews.error=`Could not load IntelMap news: ${error.message}`;}finally{intelNews.loading=false;renderIntelNews();}
 }
 
 async function api(path, payload) {
@@ -357,6 +386,9 @@ $$('[data-close-dialog]').forEach(button=>button.onclick=()=>button.closest('dia
 $('#saveEvidence').onclick=()=>{if(state.lastResult){state.evidence.unshift(state.lastResult);renderAll();toast('Saved to evidence');$('#resultDialog').close();}};
 $('#clearHistory').onclick=()=>{state.history=[];renderAll();};
 $('#toolFilter').oninput=renderTools;
+$('#intelNewsFilter').oninput=renderIntelNews;
+$('#intelNewsCategory').onchange=renderIntelNews;
+$('#refreshIntelNews').onclick=()=>loadIntelNews(true);
 $('#exportEvidence').onclick=()=>{const blob=new Blob([JSON.stringify(state.evidence,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`signaldesk-evidence-${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href);};
 $('#themeToggle').onclick=()=>{const next=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=next;localStorage.setItem('signaldesk.theme',next);};
 document.documentElement.dataset.theme=localStorage.getItem('signaldesk.theme')||'light';

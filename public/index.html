@@ -7,7 +7,7 @@
   <title>SignalDesk — OSINT workspace</title>
   <link rel="stylesheet" href="/styles.css?v=13" />
   <link rel="stylesheet" href="/results.css?v=13" />
-  <link rel="stylesheet" href="/theme.css?v=15" />
+  <link rel="stylesheet" href="/theme.css?v=16" />
 </head>
 <body>
   <div class="shell">
@@ -17,6 +17,7 @@
         <button class="nav active" data-view="workspace"><span>⌁</span>Workspace</button>
         <button class="nav" data-view="servers"><span>⌘</span>MCP servers</button>
         <button class="nav" data-view="library"><span>◫</span>Tool library</button>
+        <button class="nav" data-view="news"><img class="nav-logo" src="/assets/intelmap-logo.svg" alt="" />News</button>
         <a class="nav nav-external" href="https://intelmap.watch/" target="_blank" rel="noopener noreferrer" aria-label="Open IntelMap in a new tab"><img class="nav-logo" src="/assets/intelmap-logo.svg" alt="" />IntelMap <i>↗</i></a>
         <a class="nav nav-external" href="https://situationroom.io/" target="_blank" rel="noopener noreferrer" aria-label="Open Situation Room in a new tab"><img class="nav-logo" src="/assets/situation-room-logo.svg" alt="" />Situation Room <i>↗</i></a>
         <button class="nav" data-view="evidence"><span>◇</span>Evidence</button>
@@ -67,6 +68,13 @@
         <div id="toolLibrary" class="tool-grid"></div>
       </section>
 
+      <section id="news" class="view">
+        <div class="section-heading news-heading"><div><p class="eyebrow">INTELMAP JSON</p><h2>News</h2><p class="subtle">Live public signals from IntelMap's official JSON API. Open original sources to verify consequential reporting.</p></div><div class="header-actions"><a class="ghost" href="https://intelmap.watch/" target="_blank" rel="noopener noreferrer">Open IntelMap ↗</a><button class="primary" id="refreshIntelNews">↻ Refresh</button></div></div>
+        <div class="news-toolbar"><label class="filter"><span>⌕</span><input id="intelNewsFilter" placeholder="Search title, source, country…" /></label><label class="news-category">Category<select id="intelNewsCategory"><option value="">All categories</option></select></label><span id="intelNewsFreshness" class="subtle">Not loaded</span></div>
+        <div id="intelNewsMetrics" class="news-metrics"></div>
+        <div id="intelNewsList" class="news-grid"><div class="empty-state">Open News to load IntelMap's public feed.</div></div>
+      </section>
+
       <section id="evidence" class="view">
         <div class="section-heading"><div><p class="eyebrow">CASE FILE</p><h2>Evidence notebook</h2><p class="subtle">Saved findings, sources, and tool outputs.</p></div><button class="ghost" id="exportEvidence">Export JSON</button></div>
         <div id="evidenceList" class="evidence-list"></div>
@@ -94,6 +102,6 @@
   <dialog id="resultDialog" class="result-dialog"><div class="dialog-head"><div><p class="eyebrow">INVESTIGATION RESULT</p><h2 id="resultTitle">Result</h2></div><button class="icon-button" data-close-result aria-label="Close">×</button></div><div id="resultBody" class="result-body"></div><div class="dialog-actions"><button class="ghost" data-close-result>Close</button><button class="primary" id="saveEvidence">Save to evidence</button></div></dialog>
 
   <div id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/app.js?v=17"></script>
+  <script type="module" src="/app.js?v=18"></script>
 </body>
 </html>
