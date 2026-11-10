@@ -4,7 +4,7 @@ set -u
 APP_DIR="${0:A:h}"
 RUNTIME_DIR="$APP_DIR/work/runtime"
 
-for service in signaldesk node-repl osint-toolbox mcp headless; do
+for service in signaldesk osint-toolbox mcp headless; do
   pid_file="$RUNTIME_DIR/$service.pid"
   if [[ -f "$pid_file" ]]; then
     pid="$(<"$pid_file")"

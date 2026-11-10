@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "node-repl": {
-      "command": "/Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node_repl",
-      "args": []
-    }
-  }
-}

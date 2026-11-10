@@ -70,18 +70,6 @@ for _ in {1..40}; do
   sleep 0.5
 done
 
-if [[ -x "/Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node_repl" ]]; then
-  echo "Starting Node REPL MCP bridge…"
-  (
-    cd "$APP_DIR"
-    PATH="$HOME/.local/bin:$PATH" "$HOME/.local/bin/uvx" --from 'fastmcp-slim[server]' fastmcp run \
-      "$APP_DIR/config/node-repl-mcp.json" --transport http \
-      --host 127.0.0.1 --port 8894 --path /mcp --no-banner \
-      >"$LOG_DIR/node-repl.log" 2>&1 &
-    echo $! >"$RUNTIME_DIR/node-repl.pid"
-  )
-fi
-
 if ! is_ready "http://127.0.0.1:4173"; then
   echo "Starting SignalDesk…"
   (
