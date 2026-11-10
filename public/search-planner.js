@@ -27,21 +27,25 @@ function isOmegaTool(tool){return tool.serverName==='Omega MCP'||/^omega_/i.test
 // Full enumeration tools that query dozens of sources and routinely exceed the 45-second request limit,
 // stalling the whole search. They stay available in Tool Library.
 const TOO_SLOW_FOR_AUTO_SEARCH=new Set(['subfinder_subdomain_search','theharvester_domain_search']);
-function passiveCandidate(tool){
-  if(TOO_SLOW_FOR_AUTO_SEARCH.has(tool.name))return false;
-  if(isOmegaTool(tool)&&!OMEGA_AUTO_SEARCH_TOOLS.has(tool.name))return false;
-  return !ACTIVE_TOOL_NAMES.test(tool.name||'')&&!ACTIVE_LANGUAGE.test(tool.description||'');
+// Why a tool may never be chosen automatically, or null when it may.
+function exclusionReason(tool){
+  if(TOO_SLOW_FOR_AUTO_SEARCH.has(tool.name))return 'Too slow for automatic search (Tool Library only)';
+  if(isOmegaTool(tool)&&!OMEGA_AUTO_SEARCH_TOOLS.has(tool.name))return 'Omega tool not reviewed for automatic search';
+  if(ACTIVE_TOOL_NAMES.test(tool.name||'')||ACTIVE_LANGUAGE.test(tool.description||''))return 'Active or side-effect tool (never auto-run)';
+  return null;
 }
-function compatibleTarget(tool,query,target){
+function passiveCandidate(tool){return exclusionReason(tool)===null;}
+// Why a tool cannot take this search's target, or null when it can.
+function targetMismatch(tool,query,target){
   const constrained=new Set(tool.inputSchema?.required||[]);
   const value=String(query).trim();
-  if(constrained.has('file_path')&&!/\.(?:jpe?g|png|gif|webp|heic|mp4|mov|pdf|docx?|txt|csv|json)$/i.test(value))return false;
-  if(constrained.has('domain')&&target?.type!=='domain')return false;
-  if(constrained.has('email')&&target?.type!=='email')return false;
-  if(constrained.has('username')&&!(target?.type==='username'||/\b(?:username|handle|account)\b/i.test(value)))return false;
-  if(constrained.has('number')&&target?.type!=='phone')return false;
-  if(constrained.has('bbox')&&!/\b(?:bbox|bounding box|over|near|region|area|coordinates?)\b/i.test(value))return false;
-  return true;
+  if(constrained.has('file_path')&&!/\.(?:jpe?g|png|gif|webp|heic|mp4|mov|pdf|docx?|txt|csv|json)$/i.test(value))return 'Needs a file';
+  if(constrained.has('domain')&&target?.type!=='domain')return 'Needs a domain';
+  if(constrained.has('email')&&target?.type!=='email')return 'Needs an email address';
+  if(constrained.has('username')&&!(target?.type==='username'||/\b(?:username|handle|account)\b/i.test(value)))return 'Needs a username';
+  if(constrained.has('number')&&target?.type!=='phone')return 'Needs a phone number';
+  if(constrained.has('bbox')&&!/\b(?:bbox|bounding box|over|near|region|area|coordinates?)\b/i.test(value))return 'Needs a map area';
+  return null;
 }
 function matchScore(terms,text,name){
   let score=0;const matches=[];
@@ -52,10 +56,14 @@ function matchScore(terms,text,name){
   return{score,matches:[...new Set(matches)]};
 }
 
-export function planSearchTools({query,intentId,preferredNames=[],tools,maxTools=6}){
+// Scores every connected tool for a search. Each entry is either selected or carries the reason it was not,
+// so the search and its diagnostics come from the same decision.
+export function explainSearchPlan({query,intentId,preferredNames=[],tools,maxTools=6}){
   const {text,target}=splitTarget(query);
   const queryTerms=[...new Set([...words(text),...(TARGET_TERMS[target?.type]||[])])];const intentTerms=INTENT_TERMS[intentId]||INTENT_TERMS.entity;const preferred=new Set(preferredNames);
-  const ranked=tools.filter(tool=>passiveCandidate(tool)&&compatibleTarget(tool,query,target)).map(tool=>{
+  const entries=tools.map(tool=>{
+    const blocked=exclusionReason(tool)||targetMismatch(tool,query,target);
+    if(blocked)return{tool,score:null,status:'skipped',reason:blocked};
     const text=toolText(tool);const name=String(tool.name||'').toLowerCase();
     const direct=matchScore(queryTerms,text,name);const thematic=matchScore(intentTerms,text,name);
     let score=direct.score*2+thematic.score;
@@ -65,18 +73,27 @@ export function planSearchTools({query,intentId,preferredNames=[],tools,maxTools
     else if(tool.serverName==='Omega MCP')score-=10;
     if(/report|summary|briefing|dashboard/i.test(name)&&!preferred.has(tool.name))score-=5;
     const matched=[...new Set([...direct.matches,...thematic.matches])];
+    const relevant=preferred.has(tool.name)||score>3&&direct.score>0;
+    if(!relevant)return{tool,score,status:'skipped',reason:'No match with the search words'};
     const reason=preferred.has(tool.name)?`Primary ${intentId} source`:matched.length?`Matches ${matched.slice(0,4).join(', ')}`:`Related ${intentId} capability`;
-    return{tool,score,reason};
-  }).filter(item=>preferred.has(item.tool.name)||item.score>3&&matchScore(queryTerms,toolText(item.tool),String(item.tool.name||'').toLowerCase()).score>0).sort((a,b)=>b.score-a.score||String(a.tool.name).localeCompare(String(b.tool.name)));
-  const selected=[];const names=new Set();const serverCounts=new Map();
-  for(const item of ranked){
-    if(names.has(item.tool.name))continue;
-    const count=serverCounts.get(item.tool.serverId)||0;
-    if(count>=4&&!preferred.has(item.tool.name))continue;
-    selected.push(item);names.add(item.tool.name);serverCounts.set(item.tool.serverId,count+1);
-    if(selected.length>=maxTools)break;
+    return{tool,score,status:'candidate',reason};
+  });
+  const ranked=entries.filter(entry=>entry.status==='candidate').sort((a,b)=>b.score-a.score||String(a.tool.name).localeCompare(String(b.tool.name)));
+  const names=new Set();const serverCounts=new Map();let selectedCount=0;
+  for(const entry of ranked){
+    if(selectedCount>=maxTools){entry.status='skipped';entry.reason=`Lower score than the ${maxTools} selected tools`;continue;}
+    if(names.has(entry.tool.name)){entry.status='skipped';entry.reason='Same tool name already selected';continue;}
+    const count=serverCounts.get(entry.tool.serverId)||0;
+    if(count>=4&&!preferred.has(entry.tool.name)){entry.status='skipped';entry.reason='Server already has 4 selected tools';continue;}
+    entry.status='selected';names.add(entry.tool.name);serverCounts.set(entry.tool.serverId,count+1);selectedCount++;
   }
-  return selected;
+  const order=new Map(ranked.map((entry,index)=>[entry,index]));
+  const selected=ranked.filter(entry=>entry.status==='selected');
+  return{target,queryTerms,intentTerms,selected,entries:entries.sort((a,b)=>(order.get(a)??Infinity)-(order.get(b)??Infinity))};
+}
+
+export function planSearchTools(options){
+  return explainSearchPlan(options).selected.map(({tool,score,reason})=>({tool,score,reason}));
 }
 
 export function isPassiveSearchTool(tool){return passiveCandidate(tool);}
