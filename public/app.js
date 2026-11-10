@@ -2,7 +2,8 @@ const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
 const bundledServers=[
   { id: 'osint-local', name: 'Open OSINT', endpoint: 'http://127.0.0.1:8892/mcp', status: 'offline', tools: [] },
-  { id: 'osint-toolbox-local', name: 'OSINT Toolbox', endpoint: 'http://127.0.0.1:8893/mcp', status: 'offline', tools: [] }
+  { id: 'osint-toolbox-local', name: 'OSINT Toolbox', endpoint: 'http://127.0.0.1:8893/mcp', status: 'offline', tools: [] },
+  { id: 'node-repl-local', name: 'Node REPL / Computer Control', endpoint: 'http://127.0.0.1:8894/mcp', status: 'offline', tools: [] }
 ];
 const storedServers=JSON.parse(localStorage.getItem('signaldesk.servers') || '[]');
 const missingBundled=bundledServers.filter(bundled=>!storedServers.some(server=>server.endpoint===bundled.endpoint));
