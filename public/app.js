@@ -98,7 +98,7 @@ function renderServers(){
 }
 function allTools(){ return state.servers.flatMap(server=>(server.tools||[]).map(tool=>({...tool,serverId:server.id,serverName:server.name}))); }
 function renderTools(){
-  const filter=$('#toolFilter').value.toLowerCase(); const tools=allTools().filter(t=>(t.name+' '+(t.description||'')).toLowerCase().includes(filter));
+  const filter=$('#toolFilter').value.trim().toLowerCase(); const tools=allTools().filter(t=>(t.name+' '+(t.description||'')+' '+(t.serverName||'')).toLowerCase().includes(filter));
   $('#toolCount').textContent=tools.length?`${tools.length} tools across ${new Set(tools.map(t=>t.serverId)).size} connected server(s).`:'Connect a server to discover tools.';
   $('#toolLibrary').innerHTML=tools.length?tools.map(t=>`<article class="tool-card"><div class="tool-card-head"><code>${escapeHtml(t.name)}</code><span class="badge">${escapeHtml(t.serverName)}</span></div><p>${escapeHtml(t.description||'No description provided.')}</p><button class="text-button" data-run="${escapeHtml(t.serverId)}::${escapeHtml(t.name)}">Run tool →</button></article>`).join(''):'<div class="empty-state">No tools to show yet.</div>';
 }
