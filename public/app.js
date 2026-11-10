@@ -48,7 +48,7 @@ function iconFor(name='') { if(/cyber|cve|threat|domain|ip/i.test(name))return'â
 function switchView(id) {
   $$('.view').forEach(v => v.classList.toggle('active-view', v.id === id));
   $$('.nav').forEach(v => v.classList.toggle('active', v.dataset.view === id));
-  const labels={workspace:'Good morning, analyst.',servers:'Connection center',library:'Explore capabilities',news:'IntelMap news',evidence:'Evidence notebook'};
+  const labels={workspace:'Hello Groyper',servers:'Connection center',library:'Explore capabilities',news:'IntelMap news',evidence:'Evidence notebook'};
   $('#pageTitle').textContent=labels[id]||'Public Desk'; window.scrollTo({top:0,behavior:'smooth'});
   if(id==='news'&&!intelNews.loaded&&!intelNews.loading)loadIntelNews();
 }
