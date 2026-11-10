@@ -1,5 +1,6 @@
 import {planSearchTools} from './search-planner.js';
 import {classifyToolResult,hasUsefulData,parseToolResult} from './result-classifier.js';
+import {recordToolHealth,serverConnectionLabel,toolCountLabel} from './tool-health.js';
 
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
@@ -22,6 +23,7 @@ const state = {
   tokens: new Map(),
   history: JSON.parse(localStorage.getItem('signaldesk.history') || '[]'),
   evidence: JSON.parse(localStorage.getItem('signaldesk.evidence') || '[]'),
+  toolHealth: JSON.parse(localStorage.getItem('signaldesk.toolHealth') || '{}'),
   activeTool: null,
   lastResult: null,
   pendingFile: null
@@ -35,6 +37,7 @@ function persist() {
   localStorage.setItem('signaldesk.servers', JSON.stringify(state.servers.map(({ tools, ...server }) => ({ ...server, status: 'offline' }))));
   localStorage.setItem('signaldesk.history', JSON.stringify(state.history.slice(0, 20)));
   localStorage.setItem('signaldesk.evidence', JSON.stringify(state.evidence));
+  localStorage.setItem('signaldesk.toolHealth', JSON.stringify(state.toolHealth));
 }
 
 function escapeHtml(value='') { return String(value).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
@@ -116,18 +119,18 @@ async function disconnect(server) {
 }
 
 function renderWorkflows(){
-  $('#workflowGrid').innerHTML=state.servers.length?state.servers.map(server=>`<article class="workflow server-workflow"><div class="server-workflow-head"><span class="workflow-icon">${server.name==='Open OSINT'?'◎':'⌘'}</span><span class="server-dot ${server.status==='connected'?'connected':''}"></span></div><b>${escapeHtml(server.name)}</b><small>${escapeHtml(server.endpoint)}</small><div class="server-workflow-foot"><span>${server.status==='connected'?`${server.tools.length} tools available`:server.status==='connecting'?'Connecting…':server.disconnected?'Disconnected':'Ready to connect'}</span><button class="text-button" ${server.status==='connected'?`data-disconnect="${server.id}"`:`data-connect="${server.id}"`}>${server.status==='connected'?'Disconnect':'Connect'} →</button></div></article>`).join(''):'<div class="empty-state">No MCP servers saved.</div>';
+  $('#workflowGrid').innerHTML=state.servers.length?state.servers.map(server=>`<article class="workflow server-workflow"><div class="server-workflow-head"><span class="workflow-icon">${server.name==='Open OSINT'?'◎':'⌘'}</span><span class="server-dot ${server.status==='connected'?'connected':''}"></span></div><b>${escapeHtml(server.name)}</b><small>${escapeHtml(server.endpoint)}</small><div class="server-workflow-foot"><span>${server.status==='connected'?toolCountHtml(server):server.status==='connecting'?'Connecting…':server.disconnected?'Disconnected':'Ready to connect'}</span><button class="text-button" ${server.status==='connected'?`data-disconnect="${server.id}"`:`data-connect="${server.id}"`}>${server.status==='connected'?'Disconnect':'Connect'} →</button></div></article>`).join(''):'<div class="empty-state">No MCP servers saved.</div>';
 }
 function renderHistory(){
   $('#history').innerHTML=state.history.length?state.history.slice(0,5).map(item=>`<div class="history-item"><span class="mini-icon">${iconFor(item.title)}</span><div><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.server||'Local workspace')}</small></div><time>${new Date(item.time).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</time></div>`).join(''):'<div class="history-empty">Your investigations will appear here.</div>';
 }
 function renderConnections(){
-  const connected=state.servers.filter(s=>s.status==='connected').length;
-  $('#serverStatus').textContent=connected?`${connected} MCP server${connected===1?'':'s'} connected`:'Demo workspace ready';
-  $('#connectionSummary').innerHTML=state.servers.map(s=>`<div class="connection"><div class="connection-name"><span class="server-dot ${s.status==='connected'?'connected':''}"></span><div><b>${escapeHtml(s.name)}</b><small>${s.status==='connected'?`${s.tools.length} tools available`:s.status==='connecting'?'Connecting…':s.disconnected?'Disconnected':'Ready to connect'}</small></div></div><button class="text-button" ${s.status==='connected'?`data-disconnect="${s.id}"`:`data-connect="${s.id}"`}>${s.status==='connected'?'Disconnect':'Connect'}</button></div>`).join('');
+  $('#serverStatus').textContent=serverConnectionLabel(state.servers);
+  $('#connectionCount').textContent=serverConnectionLabel(state.servers);
+  $('#connectionSummary').innerHTML=state.servers.map(s=>`<div class="connection"><div class="connection-name"><span class="server-dot ${s.status==='connected'?'connected':''}"></span><div><b>${escapeHtml(s.name)}</b><small>${s.status==='connected'?toolCountHtml(s):s.status==='connecting'?'Connecting…':s.disconnected?'Disconnected':'Ready to connect'}</small></div></div><button class="text-button" ${s.status==='connected'?`data-disconnect="${s.id}"`:`data-connect="${s.id}"`}>${s.status==='connected'?'Disconnect':'Connect'}</button></div>`).join('');
 }
 function renderServers(){
-  $('#serverList').innerHTML=state.servers.length?state.servers.map(s=>`<article class="server-card"><div class="server-card-top"><span class="badge">STREAMABLE HTTP</span><span class="server-dot ${s.status==='connected'?'connected':''}"></span></div><h3>${escapeHtml(s.name)}</h3><p class="endpoint">${escapeHtml(s.endpoint)}</p><p class="subtle">${s.status==='connected'?`${s.tools.length} tools discovered`:s.needsAuth?'Sign in is required to search academic research.':s.disconnected?'Disconnected':s.error?escapeHtml(s.error):'Not connected'}</p>${s.caution?`<p class="form-note">${escapeHtml(s.caution)}</p>`:''}<div class="server-actions"><button class="ghost" data-remove="${s.id}">Remove</button>${s.needsAuth?`<a class="primary" href="/api/oauth/consensus/start">Sign in to Consensus</a>`:s.status==='connected'?`<button class="ghost" data-disconnect="${s.id}">Disconnect</button><button class="primary" data-connect="${s.id}">Refresh</button>`:`<button class="primary" data-connect="${s.id}">${s.status==='connecting'?'Connecting…':'Connect'}</button>`}</div></article>`).join(''):'<div class="empty-state">Add your first MCP server to begin.</div>';
+  $('#serverList').innerHTML=state.servers.length?state.servers.map(s=>`<article class="server-card"><div class="server-card-top"><span class="badge">STREAMABLE HTTP</span><span class="server-dot ${s.status==='connected'?'connected':''}"></span></div><h3>${escapeHtml(s.name)}</h3><p class="endpoint">${escapeHtml(s.endpoint)}</p><p class="subtle">${s.status==='connected'?toolCountHtml(s):s.needsAuth?'Sign in is required to search academic research.':s.disconnected?'Disconnected':s.error?escapeHtml(s.error):'Not connected'}</p>${s.caution?`<p class="form-note">${escapeHtml(s.caution)}</p>`:''}<div class="server-actions"><button class="ghost" data-remove="${s.id}">Remove</button>${s.needsAuth?`<a class="primary" href="/api/oauth/consensus/start">Sign in to Consensus</a>`:s.status==='connected'?`<button class="ghost" data-disconnect="${s.id}">Disconnect</button><button class="primary" data-connect="${s.id}">Refresh</button>`:`<button class="primary" data-connect="${s.id}">${s.status==='connecting'?'Connecting…':'Connect'}</button>`}</div></article>`).join(''):'<div class="empty-state">Add your first MCP server to begin.</div>';
 }
 function allTools(){ return state.servers.flatMap(server=>(server.tools||[]).map(tool=>({...tool,serverId:server.id,serverName:server.name}))); }
 function renderTools(){
@@ -138,6 +141,9 @@ function renderTools(){
 function renderEvidence(){
   $('#evidenceList').innerHTML=state.evidence.length?state.evidence.map((item,index)=>`<article class="evidence-card"><div><p class="eyebrow">${new Date(item.time).toLocaleString()}</p><h3>${escapeHtml(item.title)}</h3><pre>${escapeHtml(JSON.stringify(item.result,null,2))}</pre></div><button class="icon-button" data-delete-evidence="${index}" title="Remove">×</button></article>`).join(''):'<div class="empty-state">Save a tool result to build a traceable case file.</div>';
 }
+// Keep each part ("116 tools", "98 working") on one line so narrow cards wrap only between parts.
+function toolCountHtml(server){return escapeHtml(toolCountLabel(server,state.toolHealth).replace(/(?<!·) (?!·)/g,'\u00a0'));}
+function noteToolHealth(serverId,toolName,kind){state.toolHealth=recordToolHealth(state.toolHealth,serverId,toolName,kind,new Date().toISOString());}
 function renderAll(){renderWorkflows();renderHistory();renderConnections();renderServers();renderTools();renderEvidence();persist();}
 
 function openTool(tool, serverId){
@@ -148,8 +154,9 @@ function openTool(tool, serverId){
 
 async function runTool(tool,serverId,args,title=tool.name){
   const server=state.servers.find(s=>s.id===serverId); if(!server)throw new Error('Server not found');
-  const response=await callTool(tool,serverId,args);
-  if(response.error)throw new Error(response.error.message||'Tool call failed');
+  const response=await callTool(tool,serverId,args).catch(error=>{noteToolHealth(serverId,tool.name,'error');renderAll();throw error;});
+  noteToolHealth(serverId,tool.name,response.error?'error':classifyToolResult(response.result).kind);
+  if(response.error){renderAll();throw new Error(response.error.message||'Tool call failed');}
   const result=response.result; state.lastResult={title,result,time:new Date().toISOString(),server:server.name};
   state.history.unshift({title,time:state.lastResult.time,server:server.name}); renderAll(); showResult(title,result); return result;
 }
@@ -330,6 +337,7 @@ async function smartInvestigate(query){
   if(!selected.length)errors.push({source:'Relevant MCP server',error:'No connected server currently provides the tools needed for this search category. Connect the matching server and try again.'});
   settled.forEach((outcome,index)=>{
     const tool=selected[index];
+    noteToolHealth(tool.serverId,tool.name,outcome.status==='fulfilled'?outcome.value.outcome.kind:'error');
     if(outcome.status==='fulfilled'){
       servers.add(tool.serverName);
       const result=outcome.value.outcome;

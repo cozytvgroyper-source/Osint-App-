@@ -54,7 +54,7 @@
 
         <div class="lower-grid">
           <section class="panel"><div class="panel-head"><div><p class="eyebrow">RECENT ACTIVITY</p><h3>Investigation history</h3></div><button class="icon-button" id="clearHistory" title="Clear history">⌫</button></div><div id="history" class="history"></div></section>
-          <section class="panel connection-panel"><div class="panel-head"><div><p class="eyebrow">CONNECTIONS</p><h3>MCP server health</h3></div><button class="text-button" data-view-link="servers">Manage →</button></div><div id="connectionSummary"></div></section>
+          <section class="panel connection-panel"><div class="panel-head"><div><p class="eyebrow">CONNECTIONS</p><h3>MCP server health</h3><p class="subtle" id="connectionCount"></p></div><button class="text-button" data-view-link="servers">Manage →</button></div><div id="connectionSummary"></div></section>
         </div>
       </section>
 
@@ -102,6 +102,6 @@
   <dialog id="resultDialog" class="result-dialog"><div class="dialog-head"><div><p class="eyebrow">INVESTIGATION RESULT</p><h2 id="resultTitle">Result</h2></div><button class="icon-button" data-close-result aria-label="Close">×</button></div><div id="resultBody" class="result-body"></div><div class="dialog-actions"><button class="ghost" data-close-result>Close</button><button class="primary" id="saveEvidence">Save to evidence</button></div></dialog>
 
   <div id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/app.js?v=20"></script>
+  <script type="module" src="/app.js?v=21"></script>
 </body>
 </html>
