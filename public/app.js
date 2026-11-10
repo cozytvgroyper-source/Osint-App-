@@ -11,6 +11,7 @@ const bundledServers=[
   { id: 'consensus', name: 'Consensus', endpoint: 'https://mcp.consensus.app/mcp', status: 'offline', tools: [], oauth: 'consensus' }
 ];
 const removedBundledEndpoints=new Set();
+// Storage keys keep the original 'signaldesk.' prefix so saved data survives the Public Desk rename.
 const storedServers=JSON.parse(localStorage.getItem('signaldesk.servers') || '[]');
 const retainedServers=storedServers.filter(server=>!removedBundledEndpoints.has(server.endpoint)).map(server=>{
   const bundled=bundledServers.find(candidate=>candidate.endpoint===server.endpoint);
@@ -48,7 +49,7 @@ function switchView(id) {
   $$('.view').forEach(v => v.classList.toggle('active-view', v.id === id));
   $$('.nav').forEach(v => v.classList.toggle('active', v.dataset.view === id));
   const labels={workspace:'Good morning, analyst.',servers:'Connection center',library:'Explore capabilities',news:'IntelMap news',evidence:'Evidence notebook'};
-  $('#pageTitle').textContent=labels[id]||'SignalDesk'; window.scrollTo({top:0,behavior:'smooth'});
+  $('#pageTitle').textContent=labels[id]||'Public Desk'; window.scrollTo({top:0,behavior:'smooth'});
   if(id==='news'&&!intelNews.loaded&&!intelNews.loading)loadIntelNews();
 }
 
@@ -333,7 +334,7 @@ async function smartInvestigate(query){
     return{tool,outcome:classifyToolResult(response.result)};
   }));
   const report={}; const errors=[]; const servers=new Set();
-  if(plan.length)report['Search Plan']={eyebrow:'DYNAMIC MCP ROUTING',description:'SignalDesk inspected every connected tool and selected the most relevant passive capabilities for this query.',data:plan.map(item=>({tool:item.tool.name,server:item.tool.serverName,reason:item.reason}))};
+  if(plan.length)report['Search Plan']={eyebrow:'DYNAMIC MCP ROUTING',description:'Public Desk inspected every connected tool and selected the most relevant passive capabilities for this query.',data:plan.map(item=>({tool:item.tool.name,server:item.tool.serverName,reason:item.reason}))};
   if(!selected.length)errors.push({source:'Relevant MCP server',error:'No connected server currently provides the tools needed for this search category. Connect the matching server and try again.'});
   settled.forEach((outcome,index)=>{
     const tool=selected[index];
@@ -385,7 +386,7 @@ $('#toolFilter').oninput=renderTools;
 $('#intelNewsFilter').oninput=renderIntelNews;
 $('#intelNewsCategory').onchange=renderIntelNews;
 $('#refreshIntelNews').onclick=()=>loadIntelNews(true);
-$('#exportEvidence').onclick=()=>{const blob=new Blob([JSON.stringify(state.evidence,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`signaldesk-evidence-${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href);};
+$('#exportEvidence').onclick=()=>{const blob=new Blob([JSON.stringify(state.evidence,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`public-desk-evidence-${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href);};
 $('#themeToggle').onclick=()=>{const next=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=next;localStorage.setItem('signaldesk.theme',next);};
 document.documentElement.dataset.theme=localStorage.getItem('signaldesk.theme')||'light';
 if(new URLSearchParams(location.search).get('consensus')==='connected'){

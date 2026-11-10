@@ -9,8 +9,8 @@ LOG_DIR="$APP_DIR/work/logs"
 mkdir -p "$RUNTIME_DIR" "$LOG_DIR"
 
 if [[ ! -d "$OSINT_ROOT/server/node_modules" || ! -x "$OSINT_ROOT/mcp/.venv/bin/osint-mcp" ]]; then
-  echo "SignalDesk dependencies are missing."
-  echo "Open this project in Codex and ask: Set up SignalDesk locally."
+  echo "Public Desk dependencies are missing."
+  echo "Ask your coding assistant to set up Public Desk locally."
   read -k 1 "?Press any key to close."
   exit 1
 fi
@@ -24,7 +24,7 @@ is_ready() {
 mcp_ready() {
   /usr/bin/curl -fsS --max-time 2 -X POST "$1" \
     -H 'content-type: application/json' -H 'accept: application/json, text/event-stream' \
-    --data '{"jsonrpc":"2.0","id":"startup","method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"SignalDesk Launcher","version":"1.0"}}}' \
+    --data '{"jsonrpc":"2.0","id":"startup","method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"Public Desk Launcher","version":"1.0"}}}' \
     >/dev/null 2>&1
 }
 
@@ -34,14 +34,14 @@ port_owner() {
   [[ -n "$pid" ]] && /bin/ps -o command= -p "$pid"
 }
 
-# Bridges started from another SignalDesk folder run that folder's config, so refuse to reuse them.
+# Bridges started from another Public Desk folder run that folder's config, so refuse to reuse them.
 require_own_bridge() {
   local name="$1" port="$2" config="$3" owner
   owner="$(port_owner "$port")"
   if [[ -n "$owner" && "$owner" != *"$config"* ]]; then
-    echo "$name on port $port belongs to another SignalDesk folder:"
+    echo "$name on port $port belongs to another Public Desk folder:"
     echo "  $owner"
-    echo "Double-click Stop SignalDesk.command in that folder, then start again."
+    echo "Double-click Stop Public Desk.command in that folder, then start again."
     read -k 1 "?Press any key to close."
     exit 1
   fi
@@ -84,13 +84,13 @@ signaldesk_pid="$(/usr/sbin/lsof -nP -tiTCP:4173 -sTCP:LISTEN 2>/dev/null | head
 if [[ -n "$signaldesk_pid" ]]; then
   signaldesk_dir="$(/usr/sbin/lsof -a -p "$signaldesk_pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p')"
   if [[ "$signaldesk_dir" != "$APP_DIR" ]]; then
-    echo "SignalDesk is already running from another folder:"
+    echo "Public Desk is already running from another folder:"
     echo "  $signaldesk_dir"
-    echo "Double-click Stop SignalDesk.command in that folder, then start again."
+    echo "Double-click Stop Public Desk.command in that folder, then start again."
     read -k 1 "?Press any key to close."
     exit 1
   fi
-  echo "SignalDesk is already running."
+  echo "Public Desk is already running."
 fi
 
 if ! is_ready "http://127.0.0.1:8080/health"; then
@@ -118,23 +118,23 @@ start_bridge "OSINT Toolbox MCP bridge" 8893 osint-toolbox
 start_bridge "Omega MCP bridge" 8894 omega
 
 if ! is_ready "http://127.0.0.1:4173"; then
-  echo "Starting SignalDesk…"
+  echo "Starting Public Desk…"
   (
     cd "$APP_DIR"
     node server.mjs >"$LOG_DIR/signaldesk.log" 2>&1 &
     echo $! >"$RUNTIME_DIR/signaldesk.pid"
   )
 fi
-wait_for "SignalDesk" "http://127.0.0.1:4173" || exit 1
+wait_for "Public Desk" "http://127.0.0.1:4173" || exit 1
 
-echo "SignalDesk is ready."
+echo "Public Desk is ready."
 open "http://127.0.0.1:4173"
-echo "Keep this window open while using SignalDesk."
-echo "Double-click Stop SignalDesk.command when finished."
+echo "Keep this window open while using Public Desk."
+echo "Double-click Stop Public Desk.command when finished."
 
 while is_ready "http://127.0.0.1:4173"; do
   sleep 5
 done
 
-echo "SignalDesk stopped."
+echo "Public Desk stopped."
 exit 0

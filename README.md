@@ -1,11 +1,11 @@
-# SignalDesk
+# Public Desk
 
 A local-first, user-friendly client for MCP servers and Open OSINT workflows.
 
 ## Run
 
-On this Mac, double-click **Start SignalDesk.command**. When finished, double-click
-**Stop SignalDesk.command**. All three services bind to localhost and are available
+On this Mac, double-click **Start Public Desk.command**. When finished, double-click
+**Stop Public Desk.command**. All three services bind to localhost and are available
 only on this computer.
 
 For a terminal launch of the interface only:
@@ -19,13 +19,13 @@ Open <http://127.0.0.1:4173>. No package installation is required.
 ## Connect Open OSINT
 
 The local launcher starts the adjacent `osint-mcp` data and MCP services automatically.
-SignalDesk connects to:
+Public Desk connects to:
 
 ```text
 http://127.0.0.1:8892/mcp
 ```
 
-SignalDesk supports MCP Streamable HTTP, tool discovery, JSON-schema-assisted arguments, tool execution, local investigation history, and evidence export. Bearer tokens remain in browser memory and are not persisted.
+Public Desk supports MCP Streamable HTTP, tool discovery, JSON-schema-assisted arguments, tool execution, local investigation history, and evidence export. Bearer tokens remain in browser memory and are not persisted.
 
 The main search also accepts photos, videos, PDFs, Office documents, text, CSV, and JSON files up to 50 MB. Files are analyzed locally with the OSINT Toolbox metadata tool and removed from the temporary upload folder after each analysis.
 
