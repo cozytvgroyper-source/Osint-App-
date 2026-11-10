@@ -1,3 +1,5 @@
+import {planSearchTools} from './search-planner.js';
+
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
 const bundledServers=[
@@ -327,15 +329,18 @@ async function analyzeSelectedFile(file,note=''){
 async function smartInvestigate(query){
   const tools=allTools(); if(!tools.length){state.history.unshift({title:query,time:new Date().toISOString(),server:'Demo workspace'});renderAll();showResult(query,{message:'Connect Open OSINT to run this investigation with live sources.',suggested_next_step:'Open MCP servers and connect http://127.0.0.1:8892/mcp'});return;}
   const intent=searchIntent(query);
-  const selected=intent.tools.map(name=>tools.find(tool=>tool.name===name)).filter(Boolean).slice(0,3);
-  if(!selected.length&&intent.id==='entity'){const fallback=tools.find(tool=>tool.name==='get_wikidata')||tools.find(tool=>tool.name==='get_hn_search')||tools[0];selected.push(fallback);}
-  toast(selected.length?`Searching ${selected.length} relevant source${selected.length===1?'':'s'}…`:'Relevant server is not connected');
+  const plan=planSearchTools({query,intentId:intent.id,preferredNames:intent.tools,tools,maxTools:6});
+  if(!plan.length&&intent.id==='entity'){const fallback=tools.find(tool=>tool.name==='get_wikidata')||tools.find(tool=>tool.name==='get_hn_search');if(fallback)plan.push({tool:fallback,score:1,reason:'General entity fallback'});}
+  const selected=plan.map(item=>item.tool);
+  const plannedServers=new Set(selected.map(tool=>tool.serverName));
+  toast(selected.length?`Searching ${selected.length} relevant tools across ${plannedServers.size} server${plannedServers.size===1?'':'s'}…`:'Relevant server is not connected');
   const settled=await Promise.allSettled(selected.map(async tool=>{
     const response=await callTool(tool,tool.serverId,argsForSearch(tool,query));
     if(response.error)throw new Error(response.error.message||'Tool call failed');
     return{tool,data:parseToolResult(response.result)};
   }));
   const report={}; const errors=[]; const servers=new Set();
+  if(plan.length)report['Search Plan']={eyebrow:'DYNAMIC MCP ROUTING',description:'SignalDesk inspected every connected tool and selected the most relevant passive capabilities for this query.',data:plan.map(item=>({tool:item.tool.name,server:item.tool.serverName,reason:item.reason}))};
   if(!selected.length)errors.push({source:'Relevant MCP server',error:'No connected server currently provides the tools needed for this search category. Connect the matching server and try again.'});
   settled.forEach((outcome,index)=>{
     const tool=selected[index];
@@ -356,7 +361,7 @@ async function smartInvestigate(query){
   });
   const links=relatedLinks(intent,query);
   if(links.length)report['Related Links']={eyebrow:'FOLLOW-UP SOURCES',description:'Useful external sources for verifying and expanding this search.',data:{links}};
-  const findingCount=Object.keys(report).filter(key=>key!=='Related Links').length;
+  const findingCount=Object.keys(report).filter(key=>!['Related Links','Search Plan'].includes(key)).length;
   const result={content:[{type:'text',text:JSON.stringify({description:`${intent.label} for “${query}”`,data:{query,modulesQueried:selected.length,modulesWithResults:findingCount,durationMs:0,report,errors}})}]};
   const time=new Date().toISOString(); state.lastResult={title:query,result,time,server:[...servers].join(', ')||'Connected MCP'};
   state.history.unshift({title:query,time,server:state.lastResult.server}); renderAll(); showResult(query,result);
