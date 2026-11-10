@@ -15,13 +15,6 @@ const clientSessionId=sessionStorage.getItem('signaldesk.clientSessionId')||cryp
 sessionStorage.setItem('signaldesk.clientSessionId',clientSessionId);
 const sessionKeyFor=serverId=>`${clientSessionId}:${serverId}`;
 
-const workflows = [
-  ['◎','Entity profile','People, companies & relationships','entity'],
-  ['⌁','Domain & IP','Infrastructure and threat signals','domain'],
-  ['◈','Geospatial scan','Places, vessels, aircraft & events','geo'],
-  ['▤','Intelligence brief','Multi-source situation report','brief']
-];
-
 function persist() {
   localStorage.setItem('signaldesk.servers', JSON.stringify(state.servers.map(({ tools, ...server }) => ({ ...server, status: 'offline' }))));
   localStorage.setItem('signaldesk.history', JSON.stringify(state.history.slice(0, 20)));
@@ -63,7 +56,9 @@ async function connect(server) {
   renderAll();
 }
 
-function renderWorkflows(){ $('#workflowGrid').innerHTML=workflows.map(([icon,title,desc,key])=>`<button class="workflow" data-workflow="${key}"><span class="workflow-icon">${icon}</span><b>${title}</b><small>${desc}</small></button>`).join(''); }
+function renderWorkflows(){
+  $('#workflowGrid').innerHTML=state.servers.length?state.servers.map(server=>`<article class="workflow server-workflow"><div class="server-workflow-head"><span class="workflow-icon">${server.name==='Open OSINT'?'◎':'⌘'}</span><span class="server-dot ${server.status==='connected'?'connected':''}"></span></div><b>${escapeHtml(server.name)}</b><small>${escapeHtml(server.endpoint)}</small><div class="server-workflow-foot"><span>${server.status==='connected'?`${server.tools.length} tools available`:server.status==='connecting'?'Connecting…':'Ready to connect'}</span><button class="text-button" data-connect="${server.id}">${server.status==='connected'?'Refresh':'Connect'} →</button></div></article>`).join(''):'<div class="empty-state">No MCP servers saved.</div>';
+}
 function renderHistory(){
   $('#history').innerHTML=state.history.length?state.history.slice(0,5).map(item=>`<div class="history-item"><span class="mini-icon">${iconFor(item.title)}</span><div><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.server||'Local workspace')}</small></div><time>${new Date(item.time).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</time></div>`).join(''):'<div class="history-empty">Your investigations will appear here.</div>';
 }
@@ -84,7 +79,7 @@ function renderTools(){
 function renderEvidence(){
   $('#evidenceList').innerHTML=state.evidence.length?state.evidence.map((item,index)=>`<article class="evidence-card"><div><p class="eyebrow">${new Date(item.time).toLocaleString()}</p><h3>${escapeHtml(item.title)}</h3><pre>${escapeHtml(JSON.stringify(item.result,null,2))}</pre></div><button class="icon-button" data-delete-evidence="${index}" title="Remove">×</button></article>`).join(''):'<div class="empty-state">Save a tool result to build a traceable case file.</div>';
 }
-function renderAll(){renderHistory();renderConnections();renderServers();renderTools();renderEvidence();persist();}
+function renderAll(){renderWorkflows();renderHistory();renderConnections();renderServers();renderTools();renderEvidence();persist();}
 
 function openTool(tool, serverId){
   state.activeTool={tool,serverId}; $('#runToolName').textContent=tool.name; $('#runToolDescription').textContent=tool.description||'';
@@ -178,7 +173,6 @@ document.addEventListener('click',async event=>{
   const nav=event.target.closest('[data-view]'); if(nav)switchView(nav.dataset.view);
   const link=event.target.closest('[data-view-link]'); if(link)switchView(link.dataset.viewLink);
   const prompt=event.target.closest('[data-prompt]'); if(prompt){$('#query').value=prompt.dataset.prompt;$('#query').focus();}
-  const workflow=event.target.closest('[data-workflow]'); if(workflow){const prompts={entity:'Build a source-backed profile for ',domain:'Investigate domain or IP ',geo:'Map recent events near ',brief:'Create an intelligence brief about '};$('#query').value=prompts[workflow.dataset.workflow];$('#query').focus();}
   const connectButton=event.target.closest('[data-connect]'); if(connectButton){const server=state.servers.find(s=>s.id===connectButton.dataset.connect);if(server)connect(server);}
   const remove=event.target.closest('[data-remove]'); if(remove){state.servers=state.servers.filter(s=>s.id!==remove.dataset.remove);renderAll();}
   const run=event.target.closest('[data-run]'); if(run){const [serverId,name]=run.dataset.run.split('::');const tool=allTools().find(t=>t.serverId===serverId&&t.name===name);if(tool)openTool(tool,serverId);}
@@ -199,5 +193,5 @@ $('#toolFilter').oninput=renderTools;
 $('#exportEvidence').onclick=()=>{const blob=new Blob([JSON.stringify(state.evidence,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`signaldesk-evidence-${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href);};
 $('#themeToggle').onclick=()=>{const next=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=next;localStorage.setItem('signaldesk.theme',next);};
 document.documentElement.dataset.theme=localStorage.getItem('signaldesk.theme')||'light';
-renderWorkflows();renderAll();
+renderAll();
 setTimeout(()=>state.servers.forEach(server=>connect(server)),100);
