@@ -31,6 +31,26 @@ The main search also accepts photos, videos, PDFs, Office documents, text, CSV, 
 
 The Mac launcher also starts the bundled OSINT Toolbox and Omega MCP bridges. Omega includes active reconnaissance utilities; run those only against systems you own or have explicit permission to test. Consensus is included as a remote academic-search server and uses its official OAuth sign-in flow.
 
+### Omega
+
+`config/omega-mcp.json` runs Omega with `uvx` from pinned commits of
+[omega-mcp-server](https://github.com/Ekoelogan/omega-mcp-server) and its toolkit
+[omega-cli](https://github.com/Ekoelogan/omega-cli), plus `mcp==1.30.0` (the server does not run on mcp 2.x).
+The `omega-cli` package on PyPI is an unrelated project; do not install it. The first launch downloads
+these packages and can take a minute or two, so Omega may show as offline until it finishes.
+
+All Omega tools appear in Tool Library. The main search only runs Omega tools whose source was reviewed
+and found to use public lookup services alone (WHOIS, DNS, IP info, crt.sh, Wayback, CVE, ASN, malware
+hash, SPF/DMARC, reverse IP, dorks, threat feeds). Running any other Omega tool from Tool Library can:
+
+- probe the target directly (port scans, crawling, fuzzing, brute forcing, typosquat checks);
+- call OpenAI and spend credits if `OPENAI_API_KEY` is set (AI summary, analyst, assistant, executive);
+- install software on first use (`omega_screenshot` installs Playwright and Chromium);
+- send findings to a webhook (`omega_notifier`) or load third-party plugins (`omega_plugin`).
+
+Omega reports some network failures as an empty successful result, so "no results" is not proof that
+nothing exists. `omega_monitor` is not implemented in omega-cli and always fails.
+
 ## Security notes
 
 - The UI is served only on `127.0.0.1` by default.

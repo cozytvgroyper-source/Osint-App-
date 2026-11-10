@@ -1,8 +1,16 @@
 {
   "mcpServers": {
     "omega": {
-      "command": "omega-mcp",
-      "args": []
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/Ekoelogan/omega-mcp-server@d52e7dc794b6488fed34ba00102da022b05accdf",
+        "--with",
+        "git+https://github.com/Ekoelogan/omega-cli@24767fb8794e0cfe6f608eee3407ba1f40b501cb",
+        "--with",
+        "mcp==1.30.0",
+        "omega-mcp"
+      ]
     }
   }
 }

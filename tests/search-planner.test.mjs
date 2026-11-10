@@ -25,6 +25,25 @@ test('does not automatically select active scanning capabilities',()=>{
   assert.deepEqual(plan.map(item=>item.tool.name),['get_cisa_kev']);
 });
 
+test('only automatically selects reviewed passive Omega tools',()=>{
+  const reviewed=tool('omega_whois','WHOIS lookup for a domain or IP','Omega MCP');
+  const unreviewed=[
+    tool('omega_aisummary','AI-generated summary of all collected OSINT data','Omega MCP'),
+    tool('omega_screenshot','Web page screenshot','Omega MCP'),
+    tool('omega_notifier','Alert notifications','Omega MCP'),
+    tool('omega_typosquat','Typosquatting detection','Omega MCP'),
+    tool('omega_subdomains','Subdomain enumeration via multiple sources','Omega MCP')
+  ];
+  assert.equal(isPassiveSearchTool(reviewed),true);
+  for(const candidate of unreviewed)assert.equal(isPassiveSearchTool(candidate),false,candidate.name);
+  const plan=planSearchTools({query:'whois lookup',intentId:'domain',preferredNames:unreviewed.map(item=>item.name),tools:[reviewed,...unreviewed]});
+  assert.deepEqual(plan.map(item=>item.tool.name),['omega_whois']);
+});
+
+test('treats omega-prefixed tools as Omega even under another server name',()=>{
+  assert.equal(isPassiveSearchTool(tool('omega_plugin','Plugin manager','Renamed Server')),false);
+});
+
 test('rejects tools whose required target type does not match the query',()=>{
   const domainTool={...tool('dnstwist_lookalike_domains','Find phishing lookalike domains','OSINT Toolbox'),inputSchema:{required:['domain'],properties:{domain:{type:'string'}}}};
   const newsTool=tool('get_cyber_news','Cybersecurity threat news');
