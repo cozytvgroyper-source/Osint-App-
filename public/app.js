@@ -8,7 +8,10 @@ const bundledServers=[
 ];
 const removedBundledEndpoints=new Set();
 const storedServers=JSON.parse(localStorage.getItem('signaldesk.servers') || '[]');
-const retainedServers=storedServers.filter(server=>!removedBundledEndpoints.has(server.endpoint));
+const retainedServers=storedServers.filter(server=>!removedBundledEndpoints.has(server.endpoint)).map(server=>{
+  const bundled=bundledServers.find(candidate=>candidate.endpoint===server.endpoint);
+  return {...bundled,...server,status:'offline',tools:[]};
+});
 const missingBundled=bundledServers.filter(bundled=>!retainedServers.some(server=>server.endpoint===bundled.endpoint));
 const startupServers=[...missingBundled,...retainedServers];
 const state = {
@@ -79,7 +82,7 @@ function renderConnections(){
 function renderServers(){
   $('#serverList').innerHTML=state.servers.length?state.servers.map(s=>`<article class="server-card"><div class="server-card-top"><span class="badge">STREAMABLE HTTP</span><span class="server-dot ${s.status==='connected'?'connected':''}"></span></div><h3>${escapeHtml(s.name)}</h3><p class="endpoint">${escapeHtml(s.endpoint)}</p><p class="subtle">${s.status==='connected'?`${s.tools.length} tools discovered`:s.needsAuth?'Sign in is required to search academic research.':s.error?escapeHtml(s.error):'Not connected'}</p>${s.caution?`<p class="form-note">${escapeHtml(s.caution)}</p>`:''}<div class="server-actions"><button class="ghost" data-remove="${s.id}">Remove</button>${s.needsAuth?`<a class="primary" href="/api/oauth/consensus/start">Sign in to Consensus</a>`:`<button class="primary" data-connect="${s.id}">${s.status==='connecting'?'Connecting…':s.status==='connected'?'Refresh':'Connect'}</button>`}</div></article>`).join(''):'<div class="empty-state">Add your first MCP server to begin.</div>';
 }
-function allTools(){ return state.servers.flatMap(server=>server.tools.map(tool=>({...tool,serverId:server.id,serverName:server.name}))); }
+function allTools(){ return state.servers.flatMap(server=>(server.tools||[]).map(tool=>({...tool,serverId:server.id,serverName:server.name}))); }
 function renderTools(){
   const filter=$('#toolFilter').value.toLowerCase(); const tools=allTools().filter(t=>(t.name+' '+(t.description||'')).toLowerCase().includes(filter));
   $('#toolCount').textContent=tools.length?`${tools.length} tools across ${new Set(tools.map(t=>t.serverId)).size} connected server(s).`:'Connect a server to discover tools.';
