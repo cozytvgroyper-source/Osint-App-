@@ -1,4 +1,4 @@
-// Tracks whether each MCP tool worked the last time SignalDesk ran it, so server cards can show
+// Tracks whether each MCP tool worked the last time Public Desk ran it, so server cards can show
 // exact working and failing counts instead of only how many tools a server advertises.
 
 const STATUS_FOR_KIND={data:'working',empty:'working',error:'failing'};

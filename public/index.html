@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#07110f" />
-  <title>SignalDesk — OSINT workspace</title>
+  <title>Public Desk — OSINT workspace</title>
   <link rel="stylesheet" href="/styles.css?v=13" />
   <link rel="stylesheet" href="/results.css?v=13" />
   <link rel="stylesheet" href="/theme.css?v=16" />
@@ -12,7 +12,7 @@
 <body>
   <div class="shell">
     <aside class="rail">
-      <a class="brand" href="#" aria-label="SignalDesk home"><span class="brand-mark">S</span><span>SignalDesk</span></a>
+      <a class="brand" href="#" aria-label="Public Desk home"><span class="brand-mark">P</span><span>Public Desk</span></a>
       <nav aria-label="Primary">
         <button class="nav active" data-view="workspace"><span>⌁</span>Workspace</button>
         <button class="nav" data-view="servers"><span>⌘</span>MCP servers</button>
@@ -30,7 +30,7 @@
 
     <main>
       <header>
-        <div><p class="eyebrow">INVESTIGATION CONSOLE</p><h1 id="pageTitle">Good morning, analyst.</h1></div>
+        <div><p class="eyebrow">INVESTIGATION CONSOLE</p><h1 id="pageTitle">Hello Groyper</h1></div>
         <div class="header-actions"><button class="ghost" id="cmdButton"><kbd>⌘</kbd><kbd>K</kbd> Quick command</button><button class="primary" id="newInvestigation">＋ New investigation</button></div>
       </header>
 
@@ -87,7 +87,7 @@
       <label>Name<input name="name" required placeholder="OSINT MCP" /></label>
       <label>Endpoint<input name="endpoint" required type="url" value="http://127.0.0.1:8892/mcp" /></label>
       <label>Bearer token <span>(optional)</span><input name="token" type="password" autocomplete="off" placeholder="Stored in this tab only" /></label>
-      <p class="form-note">SignalDesk uses MCP Streamable HTTP. For the nearby osint-mcp project, start Docker and use the prefilled endpoint.</p>
+      <p class="form-note">Public Desk uses MCP Streamable HTTP. For the nearby osint-mcp project, start Docker and use the prefilled endpoint.</p>
       <div class="dialog-actions"><button type="button" data-close-dialog class="ghost">Cancel</button><button value="default" class="primary" id="saveServer">Connect server</button></div>
     </form>
   </dialog>
@@ -102,6 +102,6 @@
   <dialog id="resultDialog" class="result-dialog"><div class="dialog-head"><div><p class="eyebrow">INVESTIGATION RESULT</p><h2 id="resultTitle">Result</h2></div><button class="icon-button" data-close-result aria-label="Close">×</button></div><div id="resultBody" class="result-body"></div><div class="dialog-actions"><button class="ghost" data-close-result>Close</button><button class="primary" id="saveEvidence">Save to evidence</button></div></dialog>
 
   <div id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/app.js?v=21"></script>
+  <script type="module" src="/app.js?v=23"></script>
 </body>
 </html>

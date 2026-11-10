@@ -16,5 +16,5 @@ for service in signaldesk omega osint-toolbox mcp headless; do
   fi
 done
 
-echo "SignalDesk services are stopped."
+echo "Public Desk services are stopped."
 sleep 1

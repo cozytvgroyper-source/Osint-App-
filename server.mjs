@@ -89,7 +89,7 @@ async function consensusClient() {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
-      client_name: 'SignalDesk Local',
+      client_name: 'Public Desk Local',
       redirect_uris: [CONSENSUS_REDIRECT],
       grant_types: ['authorization_code', 'refresh_token'],
       response_types: ['code'],
@@ -134,7 +134,7 @@ async function initialize(payload) {
     params: {
       protocolVersion: '2025-03-26',
       capabilities: {},
-      clientInfo: { name: 'SignalDesk', version: '1.0.0' }
+      clientInfo: { name: 'Public Desk', version: '1.0.0' }
     }
   });
   await mcpRequest({ ...payload, method: 'notifications/initialized', params: {} }).catch(() => {});
@@ -235,7 +235,7 @@ const server = http.createServer(async (req, res) => {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   server.listen(PORT, '127.0.0.1', () => {
-    console.log(`SignalDesk running at http://127.0.0.1:${PORT}`);
+    console.log(`Public Desk running at http://127.0.0.1:${PORT}`);
   });
 }
 
