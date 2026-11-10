@@ -115,13 +115,19 @@ function openTool(tool, serverId){
 
 async function runTool(tool,serverId,args,title=tool.name){
   const server=state.servers.find(s=>s.id===serverId); if(!server)throw new Error('Server not found');
-  const response=await api('/api/mcp',{endpoint:server.endpoint,token:state.tokens.get(server.id)||'',sessionKey:sessionKeyFor(server.id),method:'tools/call',params:{name:tool.name,arguments:args},initialize:server.status!=='connected'});
+  const response=await callTool(tool,serverId,args);
   if(response.error)throw new Error(response.error.message||'Tool call failed');
   const result=response.result; state.lastResult={title,result,time:new Date().toISOString(),server:server.name};
   state.history.unshift({title,time:state.lastResult.time,server:server.name}); renderAll(); showResult(title,result); return result;
 }
 
+async function callTool(tool,serverId,args){
+  const server=state.servers.find(s=>s.id===serverId); if(!server)throw new Error('Server not found');
+  return api('/api/mcp',{endpoint:server.endpoint,token:state.tokens.get(server.id)||'',sessionKey:sessionKeyFor(server.id),method:'tools/call',params:{name:tool.name,arguments:args},initialize:server.status!=='connected'});
+}
+
 function humanize(value=''){return String(value).replace(/([a-z0-9])([A-Z])/g,'$1 $2').replace(/[_-]+/g,' ').replace(/\b\w/g,c=>c.toUpperCase());}
+function sourceLabel(value=''){return humanize(String(value).replace(/^(?:get_|omega_)/,''));}
 function parseToolResult(result){
   const content=result?.content;
   if(Array.isArray(content)&&content.length===1&&typeof content[0]?.text==='string'){
@@ -160,7 +166,8 @@ function renderArray(items){
 function renderCategory(name,entry){
   const data=entry?.data??entry;
   const arrays=data&&typeof data==='object'?Object.entries(data).filter(([,value])=>Array.isArray(value)):[];
-  return `<section class="result-category"><div class="category-head"><div><p class="eyebrow">CATEGORY</p><h3>${escapeHtml(humanize(name))}</h3></div>${entry?.description?`<p>${escapeHtml(entry.description)}</p>`:''}</div>${renderRecord(data)}${arrays.map(([key,items])=>`<div class="result-subgroup"><h4>${escapeHtml(humanize(key))}</h4>${renderArray(items)}</div>`).join('')}</section>`;
+  const objects=data&&typeof data==='object'?Object.entries(data).filter(([,value])=>value&&typeof value==='object'&&!Array.isArray(value)):[];
+  return `<section class="result-category"><div class="category-head"><div><p class="eyebrow">SOURCE</p><h3>${escapeHtml(sourceLabel(name))}</h3></div>${entry?.description?`<p>${escapeHtml(entry.description)}</p>`:''}</div>${renderRecord(data)}${objects.map(([key,value])=>`<div class="result-subgroup"><h4>${escapeHtml(humanize(key))}</h4>${renderRecord(value)}</div>`).join('')}${arrays.map(([key,items])=>`<div class="result-subgroup"><h4>${escapeHtml(humanize(key))}</h4>${renderArray(items)}</div>`).join('')}</section>`;
 }
 function renderReadableResult(result){
   const parsed=parseToolResult(result); const payload=parsed?.data??parsed; const report=payload?.report;
@@ -175,24 +182,79 @@ function renderReadableResult(result){
 }
 function showResult(title,result){ $('#resultTitle').textContent=title; $('#resultBody').innerHTML=renderReadableResult(result); $('#resultDialog').showModal(); }
 
+function searchIntent(query){
+  const q=query.trim();
+  if(/\bCVE-\d{4}-\d+\b/i.test(q))return{label:'Vulnerability intelligence',tools:['get_nvd_cves','get_cisa_kev']};
+  if(/^(?:https?:\/\/)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/.*)?$/i.test(q)||/\b(domain|website|whois|certificate|dns)\b/i.test(q))return{label:'Domain intelligence',tools:['whois_lookup','dnstwist_lookalike_domains']};
+  if(/^@?[a-z0-9_.-]{2,32}$/i.test(q)&&(/^@/.test(q)||/\b(username|handle|account)\b/i.test(q)))return{label:'Public username presence',tools:['sherlock_username_search','blackbird_username_search']};
+  if(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(q))return{label:'Public email-account presence',tools:['holehe_email_search']};
+  if(/^\+?[\d\s().-]{8,}$/.test(q))return{label:'Public phone information',tools:['phoneinfoga_scan']};
+  if(/\b(sanction|ofac|sdn|pep|embargo)\b/i.test(q))return{label:'Sanctions screening',tools:['get_opensanctions','get_sanctions']};
+  if(/\b(earthquake|wildfire|hurricane|storm|flood|volcano|disaster|natural hazard)\b/i.test(q))return{label:'Natural hazard intelligence',tools:['get_earthquakes','get_natural_events','get_disaster_alerts']};
+  if(/\b(vessel|ship|maritime|port|chokepoint)\b/i.test(q))return{label:'Maritime intelligence',tools:['get_maritime_news','get_chokepoints']};
+  if(/\b(aircraft|flight|airport|aviation|notam)\b/i.test(q))return{label:'Aviation intelligence',tools:['get_notams','get_aviation_news','get_aircraft']};
+  if(/\b(cyber|ransomware|malware|threat actor|ioc)\b/i.test(q))return{label:'Cyber threat intelligence',tools:['get_cyber_news','get_ransomware','get_threatfox']};
+  if(/\b(paper|research|study|academic|arxiv)\b/i.test(q))return{label:'Research literature',tools:['get_arxiv']};
+  if(/\b(country|city|location|coordinates|geocode|travel advisory)\b/i.test(q))return{label:'Location and country context',tools:['get_geocode','get_country_facts','get_travel_advisories']};
+  if(/\b(company|corporation|business|ticker|filing|organization|hospital|university)\b/i.test(q))return{label:'Organization intelligence',tools:['get_wikidata','get_opencorporates','get_news_rss']};
+  if(/\b(latest|recent|news|current|today|event|developments)\b/i.test(q))return{label:'Current-event coverage',tools:['get_gdelt','get_news_velocity','get_news_rss']};
+  return{label:'Entity and news intelligence',tools:['get_wikidata','get_gdelt','get_hn_search']};
+}
+
+function argsForSearch(tool,query){
+  const props=tool.inputSchema?.properties||{}; const required=tool.inputSchema?.required||[]; const args={};
+  let clean=query.replace(/^(?:https?:\/\/)/i,'').replace(/^@/,'').replace(/\/$/,'').trim();
+  clean=clean.replace(/^(?:location|city|country|organization|company|business|domain|website|username|handle|news|current events?|academic|research)\s*(?::|-)?\s+/i,'');
+  clean=clean.replace(/^(?:recent|latest|current|today'?s?)\s+/i,'').replace(/\s+(?:news|developments|updates)$/i,'').trim();
+  const countryQuery=['get_country_facts','get_travel_advisories'].includes(tool.name)&&clean.includes(',')?clean.split(',').at(-1).trim():clean;
+  const queryKey=['query','target','keyword','username','email','number','identifier','domain','search','q'].find(key=>props[key]);
+  if(queryKey)args[queryKey]=countryQuery;
+  if(props.limit)args.limit=10;
+  if(props.timeout)args.timeout=25;
+  if(props.only_used)args.only_used=true;
+  if(props.registered_only)args.registered_only=true;
+  if(props.output_format)args.output_format='json';
+  if(props.format)args.format='json';
+  for(const key of required){if(args[key]!==undefined)continue;const schema=props[key]||{};args[key]=schema.type==='number'?10:schema.type==='boolean'?false:countryQuery;}
+  return args;
+}
+
+function hasUsefulData(value,key=''){
+  const metadata=/^(query|source|note|feedCount|filtered|totalBeforeFilter|jurisdiction|total|count)$/i;
+  if(value===null||value===undefined||value==='')return false;
+  if(Array.isArray(value))return value.length>0;
+  if(typeof value!=='object')return !metadata.test(key);
+  return Object.entries(value).some(([childKey,child])=>hasUsefulData(child,childKey));
+}
+
 async function smartInvestigate(query){
   const tools=allTools(); if(!tools.length){state.history.unshift({title:query,time:new Date().toISOString(),server:'Demo workspace'});renderAll();showResult(query,{message:'Connect Open OSINT to run this investigation with live sources.',suggested_next_step:'Open MCP servers and connect http://127.0.0.1:8892/mcp'});return;}
-  const rules=[[/sanction/i,/sanction|opensanctions|ofac/i],[/cyber|cve|ransom|threat/i,/cyber|cve|ransom|threat|intelligence_report/i],[/earthquake|hazard|disaster|storm/i,/earthquake|natural|disaster|gdacs/i],[/brief|geopolit|situation|report/i,/intelligence_report|query_modules|news/i],[/domain|ip|whois/i,/domain|whois|ip|bgp/i],[/vessel|ship|maritime/i,/vessel|maritime|ais/i],[/aircraft|flight/i,/aircraft|flight/i]];
-  const match=rules.find(([q])=>q.test(query));
-  const reportTool=tools.find(t=>t.name==='intelligence_report');
-  const specializedTool=match&&tools.find(t=>match[1].test(t.name)&&t.name!=='query_modules');
-  const tool=specializedTool||reportTool||tools.find(t=>t.name==='query_modules')||tools[0];
-  const props=tool.inputSchema?.properties||{}; const required=tool.inputSchema?.required||[]; const args={};
-  const queryKey=['query','q','keyword','name','entity','place','symbol'].find(k=>props[k]);
-  if(queryKey)args[queryKey]=query;
-  if(tool.name==='intelligence_report')args.keywords=query;
-  if(tool.name==='query_modules')args.modules='news_world,regional_conflict_feeds,cyber_news';
-  for(const key of required){
-    if(args[key]!==undefined)continue;
-    const schema=props[key]||{};
-    args[key]=schema.type==='number'?1:schema.type==='boolean'?false:query;
-  }
-  toast(`Running ${tool.name}…`); await runTool(tool,tool.serverId,args,query);
+  const intent=searchIntent(query);
+  const selected=intent.tools.map(name=>tools.find(tool=>tool.name===name)).filter(Boolean).slice(0,3);
+  if(!selected.length){const fallback=tools.find(tool=>tool.name==='get_wikidata')||tools.find(tool=>tool.name==='get_hn_search')||tools[0];selected.push(fallback);}
+  toast(`Searching ${selected.length} relevant source${selected.length===1?'':'s'}…`);
+  const settled=await Promise.allSettled(selected.map(async tool=>{
+    const response=await callTool(tool,tool.serverId,argsForSearch(tool,query));
+    if(response.error)throw new Error(response.error.message||'Tool call failed');
+    return{tool,data:parseToolResult(response.result)};
+  }));
+  const report={}; const errors=[]; const servers=new Set();
+  settled.forEach((outcome,index)=>{
+    const tool=selected[index];
+    if(outcome.status==='fulfilled'){
+      servers.add(tool.serverName);
+      const value=outcome.value.data;
+      if(value?.error||value?.data?.error)errors.push({source:sourceLabel(tool.name),error:value.error||value.data.error});
+      else{
+        const data=value?.data??value;
+        if(hasUsefulData(data))report[tool.name]={description:tool.description||`Results from ${tool.serverName}`,data};
+        else errors.push({source:sourceLabel(tool.name),error:'No matching records returned for this subject.'});
+      }
+    }else errors.push({source:sourceLabel(tool.name),error:outcome.reason?.message||'Source unavailable'});
+  });
+  const result={content:[{type:'text',text:JSON.stringify({description:`${intent.label} for “${query}”`,data:{query,modulesQueried:selected.length,modulesWithResults:Object.keys(report).length,durationMs:0,report,errors}})}]};
+  const time=new Date().toISOString(); state.lastResult={title:query,result,time,server:[...servers].join(', ')||'Connected MCP'};
+  state.history.unshift({title:query,time,server:state.lastResult.server}); renderAll(); showResult(query,result);
 }
 
 document.addEventListener('click',async event=>{
