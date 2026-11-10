@@ -1,13 +1,19 @@
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
+const bundledServer={ id: 'osint-local', name: 'Open OSINT', endpoint: 'http://127.0.0.1:8892/mcp', status: 'offline', tools: [] };
+const storedServers=JSON.parse(localStorage.getItem('signaldesk.servers') || '[]');
+const startupServers=storedServers.some(server=>server.endpoint===bundledServer.endpoint)?storedServers:[bundledServer,...storedServers];
 const state = {
-  servers: JSON.parse(localStorage.getItem('signaldesk.servers') || 'null') || [{ id: 'osint-local', name: 'Open OSINT', endpoint: 'http://127.0.0.1:8892/mcp', status: 'offline', tools: [] }],
+  servers: startupServers.length?startupServers:[bundledServer],
   tokens: new Map(),
   history: JSON.parse(localStorage.getItem('signaldesk.history') || '[]'),
   evidence: JSON.parse(localStorage.getItem('signaldesk.evidence') || '[]'),
   activeTool: null,
   lastResult: null
 };
+const clientSessionId=sessionStorage.getItem('signaldesk.clientSessionId')||crypto.randomUUID();
+sessionStorage.setItem('signaldesk.clientSessionId',clientSessionId);
+const sessionKeyFor=serverId=>`${clientSessionId}:${serverId}`;
 
 const workflows = [
   ['◎','Entity profile','People, companies & relationships','entity'],
@@ -41,9 +47,10 @@ async function api(path, payload) {
 }
 
 async function connect(server) {
+  if(server.status==='connecting')return;
   server.status='connecting'; renderServers(); renderConnections();
   try {
-    const payload={endpoint:server.endpoint,token:state.tokens.get(server.id)||'',sessionKey:server.id,method:'tools/list',params:{},initialize:true};
+    const payload={endpoint:server.endpoint,token:state.tokens.get(server.id)||'',sessionKey:sessionKeyFor(server.id),method:'tools/list',params:{},initialize:true};
     const response=await api('/api/mcp',payload);
     if(response.error) throw new Error(response.error.message || 'MCP error');
     server.tools=response.result?.tools || [];
@@ -87,7 +94,7 @@ function openTool(tool, serverId){
 
 async function runTool(tool,serverId,args,title=tool.name){
   const server=state.servers.find(s=>s.id===serverId); if(!server)throw new Error('Server not found');
-  const response=await api('/api/mcp',{endpoint:server.endpoint,token:state.tokens.get(server.id)||'',sessionKey:server.id,method:'tools/call',params:{name:tool.name,arguments:args},initialize:server.status!=='connected'});
+  const response=await api('/api/mcp',{endpoint:server.endpoint,token:state.tokens.get(server.id)||'',sessionKey:sessionKeyFor(server.id),method:'tools/call',params:{name:tool.name,arguments:args},initialize:server.status!=='connected'});
   if(response.error)throw new Error(response.error.message||'Tool call failed');
   const result=response.result; state.lastResult={title,result,time:new Date().toISOString(),server:server.name};
   state.history.unshift({title,time:state.lastResult.time,server:server.name}); renderAll(); showResult(title,result); return result;
@@ -193,5 +200,4 @@ $('#exportEvidence').onclick=()=>{const blob=new Blob([JSON.stringify(state.evid
 $('#themeToggle').onclick=()=>{const next=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=next;localStorage.setItem('signaldesk.theme',next);};
 document.documentElement.dataset.theme=localStorage.getItem('signaldesk.theme')||'light';
 renderWorkflows();renderAll();
-const bundledLocalServer=state.servers.find(server=>server.endpoint==='http://127.0.0.1:8892/mcp');
-if(bundledLocalServer)connect(bundledLocalServer);
+setTimeout(()=>state.servers.forEach(server=>connect(server)),100);

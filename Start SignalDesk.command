@@ -43,7 +43,7 @@ if ! is_ready "http://127.0.0.1:8892/health"; then
   echo "Starting MCP service…"
   (
     cd "$OSINT_ROOT/mcp"
-    HEADLESS_BASE_URL="http://127.0.0.1:8080" "$OSINT_ROOT/mcp/.venv/bin/osint-mcp" \
+    HEADLESS_BASE_URL="http://127.0.0.1:8080" PYTHONPATH="$OSINT_ROOT/mcp/src" "$HOME/.local/bin/uv" run osint-mcp \
       --transport http --host 127.0.0.1 --port 8892 >"$LOG_DIR/mcp.log" 2>&1 &
     echo $! >"$RUNTIME_DIR/mcp.pid"
   )
