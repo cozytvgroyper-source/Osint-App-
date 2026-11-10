@@ -1,0 +1,9260 @@
+[
+ {
+  "description": "Get osint-mcp version, git commit, tool counts, and system status.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {},
+   "type": "object"
+  },
+  "name": "version",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Verify connectivity to the worldosint-headless server.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {},
+   "type": "object"
+  },
+  "name": "health_check",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "List all available OSINT module IDs and descriptions.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {},
+   "type": "object"
+  },
+  "name": "list_modules",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Query arbitrary OSINT modules by ID. Pass comma-separated module IDs.\nsearch: text search across all result fields. filter: JSON field filters e.g. '{\"field\": \">value\"}'",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "modules": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "modules"
+   ],
+   "type": "object"
+  },
+  "name": "query_modules",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Generate a comprehensive intelligence report for a region or topic. Queries 14 OSINT modules in parallel (news, conflict, maritime, military, cyber, economic, infrastructure, aviation) and filters results by keywords. This is the most powerful single tool \u2014 use it for 'intelligence report on X' or 'OSINT on X' queries.\nsearch: text search across all result fields. filter: JSON field filters e.g. '{\"field\": \">value\"}'",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "keywords": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "intelligence_report",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get live aircraft positions from FlightRadar24 (400+ aircraft/region, includes origin/destination routes, military auto-tagged).\n\nLOCATION:\n  bbox: bounding box 'south,west,north,east' (e.g. '24,54,26,56' for UAE, '35,-10,60,30' for Europe)\n\nFILTERS (all optional, combine freely):\n  callsign: match callsign contains (e.g. 'UAE', 'RCH', 'ETD')\n  registration: match tail number contains (e.g. 'A6-', 'N12')\n  aircraft_type: match ICAO type code contains (e.g. 'B77', 'C17', 'A320')\n  squawk: exact squawk code (e.g. '7700' for emergency, '7600' comms failure)\n  airline: match callsign or registration contains\n  military: true = military only, false = civilian only\n  on_ground: true = on ground only, false = airborne only\n  min_altitude_ft / max_altitude_ft: altitude range in feet\n  min_speed_kts: minimum ground speed in knots\n  emergency: true = only aircraft declaring emergency\n\nEXAMPLES:\n  \"planes over UAE\" \u2192 bbox='22,51,27,57' (wide, includes overflights and transit traffic)\n  \"military over Europe\" \u2192 bbox='35,-10,60,30', military=true\n  \"Emirates flights\" \u2192 bbox='22,51,27,57', callsign='UAE'\n  \"aircraft squawking 7700\" \u2192 bbox='0,-180,90,180', squawk='7700'\n  \"what's landing at Dubai\" \u2192 bbox='24.5,54.5,25.5,55.5', max_altitude_ft=3000\n  \"planes over Riyadh\" \u2192 bbox='23,45,26,48'",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "aircraft_type": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "airline": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "bbox": {
+     "type": "string"
+    },
+    "callsign": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "emergency": {
+     "anyOf": [
+      {
+       "type": "boolean"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "max_altitude_ft": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "military": {
+     "anyOf": [
+      {
+       "type": "boolean"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "min_altitude_ft": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "min_speed_kts": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "on_ground": {
+     "anyOf": [
+      {
+       "type": "boolean"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "registration": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "squawk": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "bbox"
+   ],
+   "type": "object"
+  },
+  "name": "get_aircraft",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get USNI Fleet tracker report \u2014 US Navy ship deployments and movements worldwide.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_military_usni",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get cyber threat IOCs and alerts.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_cyber_threats",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get internet outage events from BGP monitoring.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_infrastructure_outages",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get service availability checks for major platforms.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_infrastructure_services",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get USGS earthquake data including magnitude, location, and depth.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_earthquakes",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get climate anomaly tracking data.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_climate_anomalies",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get active natural events from NASA EONET (volcanoes, storms, floods, landslides).",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_natural_events",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get GDACS global disaster alerts with severity levels.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_disaster_alerts",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get NOAA NHC active tropical cyclones and storm tracks.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_tropical_weather",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get active US weather alerts (severe/extreme) from NWS.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_weather_alerts",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get cryptocurrency quotes from CoinGecko.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_crypto",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get stablecoin market data (USDT, USDC, DAI).",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_stablecoins",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get Crypto Fear & Greed Index (30-day history).",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_fear_greed",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get Bitcoin network hashrate (1 month).",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_bitcoin_hashrate",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get FRED macro economic signals (GDP, unemployment, CPI, etc.).",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_economic_macro",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get BIS central bank policy rates for major economies.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_bis_rates",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get BIS exchange rates for major currencies.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_bis_fx",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get US federal spending data from USASpending.gov.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_us_spending",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get Monthly Treasury Statement data (receipts, outlays, deficit).",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_us_treasury",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get World Bank development indicators (GDP, population, etc.). Requires query (country code) and indicator (e.g. NY.GDP.MKTP.CD).",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "indicator": {
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query",
+    "indicator"
+   ],
+   "type": "object"
+  },
+  "name": "get_worldbank",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get IMF macroeconomic data (inflation, GDP growth, debt). Requires query (country code) and indicator (e.g. NGDP_RPCH).",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "indicator": {
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query",
+    "indicator"
+   ],
+   "type": "object"
+  },
+  "name": "get_imf_data",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get maritime chokepoint status (Suez, Panama, Hormuz, Malacca, etc.).",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_chokepoints",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get critical mineral supply data (lithium, cobalt, rare earths).",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_critical_minerals",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get aggregated RSS news feeds from BBC, Reuters, AP, CNN, Guardian, and more.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_news_rss",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Search GDELT global event database. Query with keywords like 'Iran conflict' or 'Dubai trade'.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_gdelt",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get news velocity scoring \u2014 article frequency per topic with anomaly detection.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_news_velocity",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get aviation industry news from multiple RSS feeds.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_aviation_news",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get military and defense news from multiple RSS feeds.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_defense_news",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get technology events and conferences.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_tech_events",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Search recent arXiv papers by topic. Query with keywords like 'large language models' or 'quantum computing'.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_arxiv",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get Hacker News top stories.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_hackernews",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Geocode a place name to coordinates. Requires query string.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_geocode",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Generate satellite imagery URLs for a location. Query is a place name (e.g. 'Kyiv', 'Dubai').",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_satellite_snapshot",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Search Sentinel-2 satellite imagery by bounding box. Requires bbox (west,south,east,north).",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "type": "string"
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "bbox"
+   ],
+   "type": "object"
+  },
+  "name": "get_satellite_search",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get UNHCR displacement data \u2014 refugees and internally displaced persons.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_displacement",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get WorldPop population exposure estimates for disaster-affected areas.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_population_exposure",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get philanthropic giving data and humanitarian funding summary.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_giving_summary",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Search OFAC SDN sanctions list by name, country, or program (e.g. 'Iran', 'RUSSIA', 'DPRK').",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_sanctions",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get government travel advisories from US State Dept, UK FCDO, NZ MFAT. Query filters by country name.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_travel_advisories",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get disease outbreaks and health advisories from CDC, ECDC, WHO.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_health_advisories",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get US Embassy security alerts for high-risk countries.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_embassy_alerts",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get country profile: demographics, languages, flag, Wikipedia summary. Requires country name or ISO code.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_country_facts",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get Safecast global citizen radiation sensor network data.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_radiation_safecast",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get FAA airport delay tracking data across US airports.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_aviation_delays",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get PizzINT status monitor \u2014 unconventional OSINT indicator.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_pizzint",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Search SEC EDGAR company filings (8-K, 10-K, 10-Q). Requires query (company name or ticker).",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_sec_filings",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get GitHub organization public events. Requires query (org name).",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_github_activity",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Search Hacker News stories. Requires query (search term).",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_hn_search",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get global undersea cable map \u2014 700+ cables. Use query to filter by name, owner, or region.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_submarine_cables",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Search CISA Known Exploited Vulnerabilities. Query by vendor, product, or CVE ID.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_cisa_kev",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get recent ransomware group victim posts from RansomLook \u2014 real-time extortion monitoring.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_ransomware",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get ThreatFox malware IOCs \u2014 C2 servers, malware URLs, hashes from abuse.ch.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_threatfox",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get FRED economic time series (GDP, unemployment, CPI, etc.). Requires FRED_API_KEY on server. Query is the series ID (e.g. 'UNRATE', 'GDP', 'CPIAUCSL').",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_fred_series",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get real-time stock quote by ticker symbol. Requires FMP_API_KEY on server. Query is the ticker (e.g. 'AAPL', 'MSFT').",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_fmp_quote",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get company profile by ticker symbol. Requires FMP_API_KEY on server. Query is the ticker (e.g. 'AAPL').",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_fmp_profile",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get trailing twelve month financial ratios by ticker. Requires FMP_API_KEY on server. Query is the ticker (e.g. 'AAPL').",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_fmp_ratios",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get analyst estimates by ticker. Requires FMP_API_KEY on server. Query is the ticker (e.g. 'AAPL').",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_fmp_estimates",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get GDELT global events (bulk, no rate limit). ~1500 structured events per 15-min window with actors, CAMEO codes, Goldstein stability scores, coordinates. Query by country code, keyword, or event type.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_gdelt_events",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get raw OSINT risk signals per country from 9 feeds (news, defense, travel advisories, embassy, disasters, health, cyber). No scoring \u2014 returns evidence for analysis. Query by country name or code.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_country_risk_signals",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get prioritized intelligence findings fused from 11 OSINT modules \u2014 CISA KEV, ransomware, cyber threats, earthquakes, GDACS disasters, weather, embassy alerts, health advisories.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_intelligence_findings",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Search global sanctions across 40+ lists (OFAC, EU, UN, UK, AU + PEPs) \u2014 78K+ entities. Query by name, country, or program.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_opensanctions",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get malware URL tracking from abuse.ch \u2014 phishing, malware distribution, C2 callback URLs.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_urlhaus_urls",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Search NIST NVD vulnerability database \u2014 CVEs with CVSS scores, severity, affected products. Query by keyword or CVE ID (e.g. 'apache', 'CVE-2026-1234').",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_nvd_cves",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get NOAA space weather \u2014 solar flare probability, geomagnetic storm level (G1-G5), radio blackouts (R1-R5), solar radiation storms, alerts.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_space_weather",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get internet outage detection from IODA (Georgia Tech) \u2014 BGP routing, Google traffic, active probing, darknet signals per country. Query by 2-letter country code.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_ioda_outages",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get current Tor exit relay nodes \u2014 IPs, bandwidth, country, flags. Query by IP or country code.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_tor_exit_nodes",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get civil defense and severe weather alerts from 95+ countries via WMO CAP protocol. Query by 2-letter country code for specific alerts, or omit for global overview.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_civil_defense_alerts",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get UN Comtrade international trade flows \u2014 imports/exports between countries by commodity. Query by reporter country code (e.g. 'US', 'CN').",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_trade_comtrade",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get World Bank WITS tariff rates \u2014 MFN applied tariff rates by country and product. Query by country code.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_tariff_rates",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get security & intelligence news \u2014 Bellingcat OSINT, Crisis Group conflict analysis, War on the Rocks, Oryx combat data, Jamestown Foundation, Foreign Policy.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_security_intel_feeds",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get defense & military news \u2014 Defense News, Military Times, Breaking Defense, USNI, DefenseOne, The War Zone, Task & Purpose, UK MOD. 9 sources.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_defense_military_feeds",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get cybersecurity news \u2014 Krebs on Security, The Hacker News, BleepingComputer, Ars Technica Security.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_cyber_news",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get maritime & shipping news \u2014 gCaptain, chokepoint disruptions, piracy, naval operations.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_maritime_news",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get NOTAMs (Notices to Air Missions) from FAA \u2014 airspace closures, hazards, facility changes. Query with ICAO airport code (e.g. 'OMDB' for Dubai, 'KJFK' for JFK, 'EGLL' for Heathrow).",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_notams",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get live vessel positions from AIS. Requires AISSTREAM_API_KEY (free at aisstream.io). Use bbox for region (e.g. '24,54,26,56' for UAE).",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "type": "string"
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "bbox"
+   ],
+   "type": "object"
+  },
+  "name": "get_ais_vessels",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get Telegram OSINT channel feed. Requires WS_RELAY_URL (Railway relay server running MTProto). Returns messages from curated OSINT channels.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_telegram_osint",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get energy & commodities news \u2014 oil/OPEC, natural gas/LNG, mining, metals, uranium. Critical for supply chain and geopolitical analysis.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_energy_commodities_news",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Satellite orbit tracking from CelesTrak \u2014 active sats, reconnaissance, GPS, Starlink, weather, military. Query by group (e.g. 'military', 'stations', 'starlink', 'active').",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_satellites",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "MITRE ATT&CK framework \u2014 search adversary tactics, techniques, groups, malware. Query by technique ID (T1566), group (APT28), or keyword (phishing).",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_mitre_attack",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "ICIJ Offshore Leaks \u2014 search Panama Papers, Paradise Papers, Pandora Papers for offshore entities and officers.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_offshore_leaks",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Certificate Transparency via crt.sh \u2014 find all SSL/TLS certificates ever issued for a domain. Detects phishing, infrastructure standup.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_certificates",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Domain and IP WHOIS/RDAP lookup \u2014 registrar, dates, nameservers, abuse contacts. Query with domain (example.com) or IP (8.8.8.8).",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_whois",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "BGP routing intelligence via RIPEstat \u2014 AS info, prefix announcements, routing status, geolocation, abuse contacts. Query with IP, prefix, or ASN.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_bgp",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "IMF economic datasets (CompactData API) \u2014 IFS, DOT, BOP, FSI, CPIS, CDIS, MFS, GFSMAB. Full time-series. Query: DATASET.COUNTRY.INDICATOR (e.g. 'IFS.US.NGDP_XDC', 'FSI.US').",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_imf_datasets",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "ACLED armed conflict events \u2014 battles, protests, riots, violence. Requires ACLED_ACCESS_TOKEN (free at acleddata.com). Query by country.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_acled_conflicts",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Intelligence X \u2014 search dark web, paste sites, data leaks for emails, domains, IPs. Requires INTELX_API_KEY (free tier at intelx.io).",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_intelx",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Check if an IP is a known mass scanner, bot, or benign crawler via GreyNoise. Free community API for IP lookups. Query with IP address (e.g. '8.8.8.8').",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_greynoise",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get policy & think tank analysis \u2014 CSIS, Arms Control Association, FAS, Bulletin of Atomic Scientists, MEI, Brookings, Carnegie, Chatham House.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_policy_feeds",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Get regional conflict news \u2014 BBC Middle East/Africa/Asia/LatAm, Sahel/Wagner, InSight Crime, India diplomacy, trade wars.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_regional_conflict_feeds",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "urlscan.io \u2014 search URL scans for malware, phishing, and malicious infrastructure. Returns verdicts, screenshots, detected tech, IP/domain associations. Query by domain, IP, URL fragment, or ASN. Free, no key.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_urlscan",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "OpenPhish community phishing feed \u2014 active phishing URLs targeting banks, PayPal, Microsoft, and crypto. Real-time, updated continuously. Query by keyword or brand to filter. Free.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_openphish",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "abuse.ch MalwareBazaar \u2014 malware sample database. Search by hash (MD5/SHA1/SHA256), tag (e.g. 'Emotet'), or file type. Get recent submissions. Returns signatures, YARA rules, reporter info. Free, no key.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_malwarebazaar",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "abuse.ch SSLBL \u2014 SSL certificate blacklist for botnet C2 infrastructure. SHA1 fingerprints, subjects, listing reason. Block these certs to stop malware C2 communication. Free, no key.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_sslbl",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "FIRST EPSS \u2014 Exploit Prediction Scoring System. Probability (0\u20131) that a CVE will be exploited in 30 days + percentile rank vs all ~200K CVEs. Query by CVE ID (e.g. 'CVE-2021-44228') or get top-scored. Free, no key.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_epss",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "HackerTarget DNS and host discovery \u2014 forward/reverse DNS lookups, subdomains on same IP, ASN prefix list, geolocation. Query with domain (example.com), IP (1.2.3.4), or ASN (AS15169). Free tier.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_hackertarget",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "GDELT v2 news volume timeline \u2014 tracks media attention over time for any topic/region. Detects attention spikes and anomalies. Query: 'Iran nuclear', 'Taiwan Strait', 'coup'. Free, no key.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_gdelt_timeline",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Nuclear & arms control intelligence \u2014 Bulletin of Atomic Scientists, Arms Control Association, FAS, NTI, SIPRI, IAEA news. Tracks proliferation, treaties (NPT, CTBT, New START), nuclear incidents. Free.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_nuclear_status",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Election monitoring intelligence \u2014 OSCE ODIHR, Carter Center, NDI, IFES, ReliefWeb reports on elections, fraud, observation missions, democratic backsliding. Query by country name or 'upcoming'. Free.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_election_monitor",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Food security intelligence \u2014 WFP HungerMap country data (IPC phases), FEWS NET alerts, FAO and ReliefWeb crisis reports. Query by country name/ISO or get global overview. Free, no key.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "name": "get_food_security",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Wikidata structured entity lookup \u2014 countries, people, organizations. Returns description, official languages, capital, population, coordinates, relations. Query: 'Iran', 'Vladimir Putin', 'NATO'. Free.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_wikidata",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "OpenCorporates \u2014 search 200M+ companies across 140 jurisdictions. Find company status, officers/directors, registration date, address. Useful for shell company OSINT, sanctions evasion, corporate intelligence. Free tier.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "bbox": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "format": {
+     "default": "json",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "query": {
+     "type": "string"
+    },
+    "search": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "get_opencorporates",
+  "serverId": "osint-local",
+  "serverName": "Open OSINT"
+ },
+ {
+  "description": "Find accounts that use a username on 400+ social networks and websites (Sherlock). Returns the sites where the username exists, with profile URLs.",
+  "inputSchema": {
+   "properties": {
+    "output_format": {
+     "description": "csv (default): site, profile URL, HTTP status and response time; txt: profile URLs only",
+     "enum": [
+      "csv",
+      "txt"
+     ],
+     "type": "string"
+    },
+    "sites": {
+     "description": "Only check these sites (Sherlock site names, e.g. GitHub)",
+     "items": {
+      "type": "string"
+     },
+     "type": "array"
+    },
+    "timeout": {
+     "description": "Seconds to wait for each site's response (the tool's default: 60)",
+     "maximum": 600,
+     "minimum": 1,
+     "type": "integer"
+    },
+    "username": {
+     "description": "Username to search for",
+     "type": "string"
+    }
+   },
+   "required": [
+    "username"
+   ],
+   "type": "object"
+  },
+  "name": "sherlock_username_search",
+  "serverId": "osint-toolbox-local",
+  "serverName": "OSINT Toolbox"
+ },
+ {
+  "description": "Check which of about 120 websites have an account registered to an email address (Holehe).",
+  "inputSchema": {
+   "properties": {
+    "email": {
+     "description": "Email address to check",
+     "type": "string"
+    },
+    "only_used": {
+     "description": "Report only the sites where the email is registered (default: true)",
+     "type": "boolean"
+    },
+    "timeout": {
+     "description": "Seconds to wait for each site's response (the tool's default: 10)",
+     "maximum": 600,
+     "minimum": 1,
+     "type": "integer"
+    }
+   },
+   "required": [
+    "email"
+   ],
+   "type": "object"
+  },
+  "name": "holehe_email_search",
+  "serverId": "osint-toolbox-local",
+  "serverName": "OSINT Toolbox"
+ },
+ {
+  "description": "Run a SpiderFoot scan: it detects the target type and runs the matching modules. Results are grouped by event type. A 'passive' scan takes minutes, 'all' can take 30+ minutes.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "description": "Domain, IP address, subnet (CIDR), email address, phone number, username, person name in double quotes (e.g. \"John Smith\"), Bitcoin address or BGP AS number",
+     "type": "string"
+    },
+    "use_case": {
+     "description": "Which modules run: passive (no direct contact with the target, fastest), footprint, investigate, or all (default, slowest)",
+     "enum": [
+      "all",
+      "footprint",
+      "investigate",
+      "passive"
+     ],
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "type": "object"
+  },
+  "name": "spiderfoot_scan",
+  "serverId": "osint-toolbox-local",
+  "serverName": "OSINT Toolbox"
+ },
+ {
+  "description": "Look up a Google account by email address or Gaia ID (GHunt): name, profile picture, Gaia ID, Maps reviews, calendar and other public data. Requires a one-time `ghunt login`.",
+  "inputSchema": {
+   "properties": {
+    "identifier": {
+     "description": "Google account email address, or numeric Gaia ID",
+     "type": "string"
+    }
+   },
+   "required": [
+    "identifier"
+   ],
+   "type": "object"
+  },
+  "name": "ghunt_google_search",
+  "serverId": "osint-toolbox-local",
+  "serverName": "OSINT Toolbox"
+ },
+ {
+  "description": "Search a username with Maigret: the 500 most popular sites by default, 3000+ with all_sites. Extracts profile data (names, links, IDs) and filters false positives.",
+  "inputSchema": {
+   "properties": {
+    "all_sites": {
+     "description": "Check every site in Maigret's database instead of the 500 most popular (much slower)",
+     "type": "boolean"
+    },
+    "timeout": {
+     "description": "Seconds to wait for each site's response (the tool's default: 30)",
+     "maximum": 600,
+     "minimum": 1,
+     "type": "integer"
+    },
+    "username": {
+     "description": "Username to search for",
+     "type": "string"
+    }
+   },
+   "required": [
+    "username"
+   ],
+   "type": "object"
+  },
+  "name": "maigret_username_search",
+  "serverId": "osint-toolbox-local",
+  "serverName": "OSINT Toolbox"
+ },
+ {
+  "description": "Collect email addresses, subdomains, hosts, IP addresses and URLs for a domain or company name from public sources (theHarvester).",
+  "inputSchema": {
+   "properties": {
+    "domain": {
+     "description": "Domain (example.com) or company name",
+     "type": "string"
+    },
+    "limit": {
+     "description": "Maximum number of results (default: 500)",
+     "maximum": 10000,
+     "minimum": 1,
+     "type": "integer"
+    },
+    "sources": {
+     "description": "Comma-separated sources, e.g. crtsh,duckduckgo,hackertarget (default: all; sources that need an API key are skipped unless the key is in theHarvester's api-keys.yaml)",
+     "type": "string"
+    }
+   },
+   "required": [
+    "domain"
+   ],
+   "type": "object"
+  },
+  "name": "theharvester_domain_search",
+  "serverId": "osint-toolbox-local",
+  "serverName": "OSINT Toolbox"
+ },
+ {
+  "description": "Search a username on the 700+ sites of the WhatsMyName list (Blackbird).",
+  "inputSchema": {
+   "properties": {
+    "timeout": {
+     "description": "Seconds to wait for each site's response (the tool's default: 30)",
+     "maximum": 600,
+     "minimum": 1,
+     "type": "integer"
+    },
+    "username": {
+     "description": "Username to search for",
+     "type": "string"
+    }
+   },
+   "required": [
+    "username"
+   ],
+   "type": "object"
+  },
+  "name": "blackbird_username_search",
+  "serverId": "osint-toolbox-local",
+  "serverName": "OSINT Toolbox"
+ },
+ {
+  "description": "Scan a phone number with PhoneInfoga: country, number formats, carrier and line type (with an API key), and search engine queries for it.",
+  "inputSchema": {
+   "properties": {
+    "number": {
+     "description": "Phone number in international (E.164) format, e.g. +14155552671",
+     "type": "string"
+    }
+   },
+   "required": [
+    "number"
+   ],
+   "type": "object"
+  },
+  "name": "phoneinfoga_scan",
+  "serverId": "osint-toolbox-local",
+  "serverName": "OSINT Toolbox"
+ },
+ {
+  "description": "Read the metadata of a local photo, video or document with ExifTool: GPS coordinates, camera, author, software and timestamps.",
+  "inputSchema": {
+   "properties": {
+    "file_path": {
+     "description": "Absolute path to the photo, video or document",
+     "type": "string"
+    }
+   },
+   "required": [
+    "file_path"
+   ],
+   "type": "object"
+  },
+  "name": "exiftool_metadata",
+  "serverId": "osint-toolbox-local",
+  "serverName": "OSINT Toolbox"
+ },
+ {
+  "description": "Find subdomains of a domain in passive sources such as certificate logs and DNS datasets (subfinder). Returns each subdomain with the sources that reported it.",
+  "inputSchema": {
+   "properties": {
+    "all_sources": {
+     "description": "Query every source instead of subfinder's fast default set (slower)",
+     "type": "boolean"
+    },
+    "domain": {
+     "description": "Domain name, e.g. example.com",
+     "type": "string"
+    },
+    "timeout": {
+     "description": "Seconds to wait for each source (subfinder's default: 30)",
+     "maximum": 600,
+     "minimum": 1,
+     "type": "integer"
+    }
+   },
+   "required": [
+    "domain"
+   ],
+   "type": "object"
+  },
+  "name": "subfinder_subdomain_search",
+  "serverId": "osint-toolbox-local",
+  "serverName": "OSINT Toolbox"
+ },
+ {
+  "description": "Generate lookalike domains (typos, homoglyphs, other TLDs) for a domain and check which are registered, with their A, MX and NS records (dnstwist). Useful to spot phishing domains.",
+  "inputSchema": {
+   "properties": {
+    "domain": {
+     "description": "Domain name, e.g. example.com",
+     "type": "string"
+    },
+    "registered_only": {
+     "description": "Return only lookalikes that are registered (default: true)",
+     "type": "boolean"
+    }
+   },
+   "required": [
+    "domain"
+   ],
+   "type": "object"
+  },
+  "name": "dnstwist_lookalike_domains",
+  "serverId": "osint-toolbox-local",
+  "serverName": "OSINT Toolbox"
+ },
+ {
+  "description": "DNS reconnaissance of a domain with dnsrecon: SOA, NS, MX, A, AAAA and SRV records, zone transfer attempts, DNSSEC zone walking and certificate-log names, depending on scan_type.",
+  "inputSchema": {
+   "properties": {
+    "domain": {
+     "description": "Domain name, e.g. example.com",
+     "type": "string"
+    },
+    "scan_type": {
+     "description": "std (default): standard records and a zone transfer attempt; srv: common SRV records; axfr: zone transfer against every name server; crt: names from crt.sh; zonewalk: DNSSEC NSEC walk",
+     "enum": [
+      "std",
+      "srv",
+      "axfr",
+      "crt",
+      "zonewalk"
+     ],
+     "type": "string"
+    }
+   },
+   "required": [
+    "domain"
+   ],
+   "type": "object"
+  },
+  "name": "dnsrecon_domain_scan",
+  "serverId": "osint-toolbox-local",
+  "serverName": "OSINT Toolbox"
+ },
+ {
+  "description": "Registration data for a domain, IP address, network or AS number: registrar, dates, name servers, holder and contacts where public. Uses RDAP, or WHOIS for registries without RDAP.",
+  "inputSchema": {
+   "properties": {
+    "query": {
+     "description": "Domain (example.com), IP address, CIDR network or AS number (AS13335)",
+     "type": "string"
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "whois_lookup",
+  "serverId": "osint-toolbox-local",
+  "serverName": "OSINT Toolbox"
+ },
+ {
+  "description": "DNS records of a name (A, AAAA, CNAME, MX, NS, TXT, SOA, CAA by default), or the reverse name of an IP address. Asks public DNS-over-HTTPS resolvers.",
+  "inputSchema": {
+   "properties": {
+    "name": {
+     "description": "Domain name, or an IP address for a reverse (PTR) lookup",
+     "type": "string"
+    },
+    "types": {
+     "description": "Record types to fetch",
+     "items": {
+      "enum": [
+       "A",
+       "NS",
+       "CNAME",
+       "SOA",
+       "PTR",
+       "MX",
+       "TXT",
+       "AAAA",
+       "SRV",
+       "DS",
+       "DNSKEY",
+       "CAA"
+      ],
+      "type": "string"
+     },
+     "type": "array"
+    }
+   },
+   "required": [
+    "name"
+   ],
+   "type": "object"
+  },
+  "name": "dns_lookup",
+  "serverId": "osint-toolbox-local",
+  "serverName": "OSINT Toolbox"
+ },
+ {
+  "description": "Host names (often unlisted subdomains) and email addresses found in TLS certificates issued for a domain, from the crt.sh certificate transparency log search.",
+  "inputSchema": {
+   "properties": {
+    "domain": {
+     "description": "Domain name, e.g. example.com",
+     "type": "string"
+    },
+    "include_expired": {
+     "description": "Include expired certificates (default: true)",
+     "type": "boolean"
+    }
+   },
+   "required": [
+    "domain"
+   ],
+   "type": "object"
+  },
+  "name": "crtsh_certificate_search",
+  "serverId": "osint-toolbox-local",
+  "serverName": "OSINT Toolbox"
+ },
+ {
+  "description": "Archived snapshots of a URL, a site or a domain in the Internet Archive's Wayback Machine, newest first, with links to view each one.",
+  "inputSchema": {
+   "properties": {
+    "from": {
+     "description": "Earliest date, e.g. 2019 or 20190131",
+     "type": "string"
+    },
+    "limit": {
+     "description": "Number of snapshots (default: 50)",
+     "maximum": 1000,
+     "minimum": 1,
+     "type": "integer"
+    },
+    "match": {
+     "description": "exact URL (default), every URL under it (prefix), the whole host, or the domain with subdomains",
+     "enum": [
+      "exact",
+      "prefix",
+      "host",
+      "domain"
+     ],
+     "type": "string"
+    },
+    "to": {
+     "description": "Latest date, e.g. 2021 or 20211231",
+     "type": "string"
+    },
+    "url": {
+     "description": "URL or domain, e.g. example.com/about",
+     "type": "string"
+    }
+   },
+   "required": [
+    "url"
+   ],
+   "type": "object"
+  },
+  "name": "wayback_snapshots",
+  "serverId": "osint-toolbox-local",
+  "serverName": "OSINT Toolbox"
+ },
+ {
+  "description": "Which OSINT tools this server can run on this machine, and how to install the missing ones. Call it when a tool you need is not available.",
+  "inputSchema": {
+   "properties": {},
+   "required": [],
+   "type": "object"
+  },
+  "name": "osint_toolbox_status",
+  "serverId": "osint-toolbox-local",
+  "serverName": "OSINT Toolbox"
+ },
+ {
+  "description": "WHOIS lookup for a domain or IP. Returns registrant, dates, nameservers.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_whoisArguments",
+   "type": "object"
+  },
+  "name": "omega_whois",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "DNS record enumeration. Returns A, AAAA, MX, NS, TXT, SOA, CNAME records.",
+  "inputSchema": {
+   "properties": {
+    "record_type": {
+     "default": "ALL",
+     "title": "Record Type",
+     "type": "string"
+    },
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_dnsArguments",
+   "type": "object"
+  },
+  "name": "omega_dns",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Subdomain enumeration via multiple sources (crt.sh, DNS brute, etc.).",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_subdomainsArguments",
+   "type": "object"
+  },
+  "name": "omega_subdomains",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "IP intelligence \u2014 geolocation, ASN, organization, abuse contacts.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_ipinfoArguments",
+   "type": "object"
+  },
+  "name": "omega_ipinfo",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "HTTP security header analysis. Checks CSP, HSTS, X-Frame-Options, etc.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_headersArguments",
+   "type": "object"
+  },
+  "name": "omega_headers",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "SSL/TLS certificate analysis \u2014 issuer, expiry, protocol, cipher suites.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_sslArguments",
+   "type": "object"
+  },
+  "name": "omega_ssl",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Port scanner \u2014 discovers open ports and services.",
+  "inputSchema": {
+   "properties": {
+    "port_range": {
+     "default": "common",
+     "title": "Port Range",
+     "type": "string"
+    },
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_portsArguments",
+   "type": "object"
+  },
+  "name": "omega_ports",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Certificate Transparency search via crt.sh \u2014 finds related domains/certs.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_crtshArguments",
+   "type": "object"
+  },
+  "name": "omega_crtsh",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Technology fingerprinting \u2014 identifies web frameworks, CMS, libraries.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_techArguments",
+   "type": "object"
+  },
+  "name": "omega_tech",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Google dorks generation \u2014 creates targeted search queries for OSINT.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_dorksArguments",
+   "type": "object"
+  },
+  "name": "omega_dorks",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Wayback Machine history \u2014 archived snapshots and URL patterns.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_waybackArguments",
+   "type": "object"
+  },
+  "name": "omega_wayback",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "CORS misconfiguration detection \u2014 checks cross-origin policies.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_corsArguments",
+   "type": "object"
+  },
+  "name": "omega_cors",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "JavaScript secret scanner \u2014 finds API keys, tokens in JS files.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_jscanArguments",
+   "type": "object"
+  },
+  "name": "omega_jscan",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Web crawler \u2014 discovers links, forms, endpoints on a website.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_crawlArguments",
+   "type": "object"
+  },
+  "name": "omega_crawl",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Web spider \u2014 deep link extraction and sitemap building.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_spiderArguments",
+   "type": "object"
+  },
+  "name": "omega_spider",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Email spoofing check \u2014 SPF, DKIM, DMARC validation.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_spoofcheckArguments",
+   "type": "object"
+  },
+  "name": "omega_spoofcheck",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Cloud asset discovery \u2014 S3 buckets, Azure blobs, GCP storage.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_cloudArguments",
+   "type": "object"
+  },
+  "name": "omega_cloud",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "S3 bucket enumeration and permission checking.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_bucketsArguments",
+   "type": "object"
+  },
+  "name": "omega_buckets",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "ASN reconnaissance \u2014 autonomous system lookup, IP ranges, peers.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_asnArguments",
+   "type": "object"
+  },
+  "name": "omega_asn",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Reverse IP lookup \u2014 finds other domains on the same server.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_reverseipArguments",
+   "type": "object"
+  },
+  "name": "omega_reverseip",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "CVE lookup \u2014 search NVD for vulnerabilities by keyword or CVE ID.",
+  "inputSchema": {
+   "properties": {
+    "keyword": {
+     "title": "Keyword",
+     "type": "string"
+    }
+   },
+   "required": [
+    "keyword"
+   ],
+   "title": "omega_cveArguments",
+   "type": "object"
+  },
+  "name": "omega_cve",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Vulnerability scanning \u2014 checks for common misconfigurations and CVEs.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_vulnArguments",
+   "type": "object"
+  },
+  "name": "omega_vuln",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "IOC extraction \u2014 extracts indicators of compromise from text/URLs.",
+  "inputSchema": {
+   "properties": {
+    "source": {
+     "title": "Source",
+     "type": "string"
+    }
+   },
+   "required": [
+    "source"
+   ],
+   "title": "omega_iocArguments",
+   "type": "object"
+  },
+  "name": "omega_ioc",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Threat hunting \u2014 MITRE ATT&CK TTP mapping from findings.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_huntArguments",
+   "type": "object"
+  },
+  "name": "omega_hunt",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Malware analysis \u2014 VirusTotal lookup, hash reputation check.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_malwareArguments",
+   "type": "object"
+  },
+  "name": "omega_malware",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Email OSINT \u2014 breach checks, reputation, related accounts.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_emailArguments",
+   "type": "object"
+  },
+  "name": "omega_email",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Username search \u2014 check presence across 100+ platforms.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_usernameArguments",
+   "type": "object"
+  },
+  "name": "omega_username",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Social media OSINT \u2014 Reddit, HackerNews, Pastebin, Twitter/X.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_socialArguments",
+   "type": "object"
+  },
+  "name": "omega_social",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Breach/leak check \u2014 searches HIBP and other breach databases.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_breachArguments",
+   "type": "object"
+  },
+  "name": "omega_breach",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Full automated recon \u2014 runs all passive modules and generates report.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_autoArguments",
+   "type": "object"
+  },
+  "name": "omega_auto",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Quick reconnaissance \u2014 WHOIS + DNS + IP info summary.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_reconArguments",
+   "type": "object"
+  },
+  "name": "omega_recon",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Run a specialist AI agent (recon-agent, web-agent, vuln-agent, cloud-agent, etc.).",
+  "inputSchema": {
+   "properties": {
+    "agent_name": {
+     "title": "Agent Name",
+     "type": "string"
+    },
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "agent_name",
+    "target"
+   ],
+   "title": "omega_agent_runArguments",
+   "type": "object"
+  },
+  "name": "omega_agent_run",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Run multi-agent AI autopilot workflow. Tasks: recon, bug-bounty, pentest, osint, threat-hunt.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    },
+    "task": {
+     "title": "Task",
+     "type": "string"
+    }
+   },
+   "required": [
+    "task",
+    "target"
+   ],
+   "title": "omega_autopilotArguments",
+   "type": "object"
+  },
+  "name": "omega_autopilot",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "List all available AI agents and their capabilities.",
+  "inputSchema": {
+   "properties": {},
+   "title": "omega_agents_listArguments",
+   "type": "object"
+  },
+  "name": "omega_agents_list",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Search agent memory for past findings matching a query.",
+  "inputSchema": {
+   "properties": {
+    "query": {
+     "title": "Query",
+     "type": "string"
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "title": "omega_memory_searchArguments",
+   "type": "object"
+  },
+  "name": "omega_memory_search",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "AI-powered analysis of OSINT findings for a target.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_ai_analystArguments",
+   "type": "object"
+  },
+  "name": "omega_ai_analyst",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "AI assistant for OSINT operations \u2014 suggests next steps and findings.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_aiassistArguments",
+   "type": "object"
+  },
+  "name": "omega_aiassist",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "AI-generated summary of all collected OSINT data.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_aisummaryArguments",
+   "type": "object"
+  },
+  "name": "omega_aisummary",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "ML-based anomaly and threat detection from scan results.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_mldetectArguments",
+   "type": "object"
+  },
+  "name": "omega_mldetect",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "API-based OSINT gathering \u2014 aggregates data from public APIs.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_apiosintArguments",
+   "type": "object"
+  },
+  "name": "omega_apiosint",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Web archive snapshot retrieval and analysis.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_archiveArguments",
+   "type": "object"
+  },
+  "name": "omega_archive",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Asset mapping \u2014 builds inventory of discovered hosts and services.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_assetmapArguments",
+   "type": "object"
+  },
+  "name": "omega_assetmap",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Infrastructure analysis \u2014 hosting, CDN, WAF, load balancer detection.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_infraArguments",
+   "type": "object"
+  },
+  "name": "omega_infra",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Network topology analysis \u2014 traceroute, hop mapping, latency.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_networkArguments",
+   "type": "object"
+  },
+  "name": "omega_network",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Satellite and geospatial infrastructure reconnaissance.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_satelliteArguments",
+   "type": "object"
+  },
+  "name": "omega_satellite",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Attack surface mapping \u2014 visualizes potential attack vectors.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_attackmapArguments",
+   "type": "object"
+  },
+  "name": "omega_attackmap",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "C2 infrastructure detection \u2014 identifies command-and-control indicators.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_c2Arguments",
+   "type": "object"
+  },
+  "name": "omega_c2",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Deception and honeypot detection \u2014 identifies decoy services.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_deceptionArguments",
+   "type": "object"
+  },
+  "name": "omega_deception",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Red team reconnaissance \u2014 attack path analysis and enumeration.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_redteamArguments",
+   "type": "object"
+  },
+  "name": "omega_redteam",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Web fuzzer \u2014 discovers hidden paths, parameters, and endpoints.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_fuzzerArguments",
+   "type": "object"
+  },
+  "name": "omega_fuzzer",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Auto-correlation \u2014 links findings across modules to surface patterns.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_autocorrArguments",
+   "type": "object"
+  },
+  "name": "omega_autocorr",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Chained module execution \u2014 runs a sequence of modules in pipeline.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_chainArguments",
+   "type": "object"
+  },
+  "name": "omega_chain",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Compare scan results \u2014 diffs findings between runs for change detection.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_compareArguments",
+   "type": "object"
+  },
+  "name": "omega_compare",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Intelligence briefing generation \u2014 structured threat summary.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_briefingArguments",
+   "type": "object"
+  },
+  "name": "omega_briefing",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Executive summary \u2014 high-level risk overview for stakeholders.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_executiveArguments",
+   "type": "object"
+  },
+  "name": "omega_executive",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "PDF report generation from collected findings.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_pdfreportArguments",
+   "type": "object"
+  },
+  "name": "omega_pdfreport",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "General report generation \u2014 markdown/text format.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_reportgenArguments",
+   "type": "object"
+  },
+  "name": "omega_reportgen",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "HTML report generation with interactive charts and tables.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_reporthtmlArguments",
+   "type": "object"
+  },
+  "name": "omega_reporthtml",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Dashboard data generation \u2014 metrics and KPIs for visualization.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_dashboardArguments",
+   "type": "object"
+  },
+  "name": "omega_dashboard",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Live dashboard \u2014 real-time scan progress and findings stream.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_livedashArguments",
+   "type": "object"
+  },
+  "name": "omega_livedash",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Certificate hunting \u2014 discovers certs across CT logs and hosts.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_certhuntArguments",
+   "type": "object"
+  },
+  "name": "omega_certhunt",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Cryptographic analysis \u2014 cipher strength, key exchange evaluation.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_cryptoArguments",
+   "type": "object"
+  },
+  "name": "omega_crypto",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Cryptocurrency OSINT \u2014 wallet tracing, blockchain analysis.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_cryptoosintArguments",
+   "type": "object"
+  },
+  "name": "omega_cryptoosint",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Advanced cloud recon \u2014 multi-provider asset discovery and analysis.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_cloud2Arguments",
+   "type": "object"
+  },
+  "name": "omega_cloud2",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Code tracing \u2014 finds code repos, commits, and developer footprints.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_codetraceArguments",
+   "type": "object"
+  },
+  "name": "omega_codetrace",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Credential discovery \u2014 finds exposed credentials in public sources.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_credsArguments",
+   "type": "object"
+  },
+  "name": "omega_creds",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Secret scanning \u2014 API keys, tokens, and passwords in repos and pages.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_secretsArguments",
+   "type": "object"
+  },
+  "name": "omega_secrets",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Leaked data search \u2014 finds exposed data in paste sites and dumps.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_leakedArguments",
+   "type": "object"
+  },
+  "name": "omega_leaked",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "CVE mapping \u2014 maps discovered services and tech to known CVEs.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_cvemapArguments",
+   "type": "object"
+  },
+  "name": "omega_cvemap",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "CVSS ranking \u2014 scores and prioritizes vulnerabilities by severity.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_cvssrankArguments",
+   "type": "object"
+  },
+  "name": "omega_cvssrank",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Dark web intelligence \u2014 searches .onion sites and dark web sources.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_darkArguments",
+   "type": "object"
+  },
+  "name": "omega_dark",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Deep web search \u2014 discovers content not indexed by search engines.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_deepwebArguments",
+   "type": "object"
+  },
+  "name": "omega_deepweb",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Tor network check \u2014 detects Tor exit nodes and hidden services.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_torcheckArguments",
+   "type": "object"
+  },
+  "name": "omega_torcheck",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "DNS brute forcing \u2014 discovers subdomains via wordlist enumeration.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_dnsbruteArguments",
+   "type": "object"
+  },
+  "name": "omega_dnsbrute",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Document OSINT \u2014 extracts metadata from PDFs, Office docs, images.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_docosintArguments",
+   "type": "object"
+  },
+  "name": "omega_docosint",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Image OSINT \u2014 EXIF extraction, reverse image search, geolocation.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_imgosintArguments",
+   "type": "object"
+  },
+  "name": "omega_imgosint",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Target dossier \u2014 comprehensive profile compilation from all sources.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_dossierArguments",
+   "type": "object"
+  },
+  "name": "omega_dossier",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "IP dossier \u2014 detailed intelligence report for an IP address.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_ipdossierArguments",
+   "type": "object"
+  },
+  "name": "omega_ipdossier",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Intelligence gathering \u2014 aggregated threat and context data.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_intelArguments",
+   "type": "object"
+  },
+  "name": "omega_intel",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "OSINT database \u2014 stores and queries collected intelligence.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_osintdbArguments",
+   "type": "object"
+  },
+  "name": "omega_osintdb",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Mail security analysis \u2014 SPF, DKIM, DMARC, MTA-STS evaluation.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_mailsecArguments",
+   "type": "object"
+  },
+  "name": "omega_mailsec",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Phone number OSINT \u2014 carrier, location, VoIP detection.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_phoneosintArguments",
+   "type": "object"
+  },
+  "name": "omega_phoneosint",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Phishing detection \u2014 checks URLs and domains for phishing indicators.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_phishcheckArguments",
+   "type": "object"
+  },
+  "name": "omega_phishcheck",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Financial OSINT \u2014 company filings, SEC data, financial records.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_financeArguments",
+   "type": "object"
+  },
+  "name": "omega_finance",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Firmware analysis \u2014 extracts and analyzes embedded device firmware.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_firmwareArguments",
+   "type": "object"
+  },
+  "name": "omega_firmware",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Mobile app analysis \u2014 APK/IPA scanning for secrets and endpoints.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_mobileArguments",
+   "type": "object"
+  },
+  "name": "omega_mobile",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Geolocation intelligence \u2014 IP geolocation, physical site mapping.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_geointArguments",
+   "type": "object"
+  },
+  "name": "omega_geoint",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Git repository recon \u2014 exposed repos, commit history, author info.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_gitreconArguments",
+   "type": "object"
+  },
+  "name": "omega_gitrecon",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Relationship graphing \u2014 entity links, infrastructure connections.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_graphArguments",
+   "type": "object"
+  },
+  "name": "omega_graph",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Data visualization \u2014 generates charts and visual summaries.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_vizArguments",
+   "type": "object"
+  },
+  "name": "omega_viz",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Timeline generation \u2014 chronological view of events and findings.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_timelineArguments",
+   "type": "object"
+  },
+  "name": "omega_timeline",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "3D timeline visualization \u2014 interactive temporal event mapping.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_timeline3dArguments",
+   "type": "object"
+  },
+  "name": "omega_timeline3d",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Email and subdomain harvester \u2014 gathers contacts and hosts.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_harvesterArguments",
+   "type": "object"
+  },
+  "name": "omega_harvester",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Identity resolution \u2014 correlates identities across platforms.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_identityArguments",
+   "type": "object"
+  },
+  "name": "omega_identity",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Persona profiling \u2014 builds composite profile from OSINT data.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_personaArguments",
+   "type": "object"
+  },
+  "name": "omega_persona",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Organization intelligence \u2014 org structure, employees, tech stack.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_orgArguments",
+   "type": "object"
+  },
+  "name": "omega_org",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Continuous monitoring \u2014 tracks changes to target infrastructure.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_monitorArguments",
+   "type": "object"
+  },
+  "name": "omega_monitor",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Web change watcher \u2014 detects content and configuration changes.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_watcherArguments",
+   "type": "object"
+  },
+  "name": "omega_watcher",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Paste site monitoring \u2014 watches Pastebin and similar for leaks.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_pastewatchArguments",
+   "type": "object"
+  },
+  "name": "omega_pastewatch",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Alert notifications \u2014 sends alerts when new findings are detected.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_notifierArguments",
+   "type": "object"
+  },
+  "name": "omega_notifier",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Operations security check \u2014 evaluates target's OPSEC posture.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_opsecArguments",
+   "type": "object"
+  },
+  "name": "omega_opsec",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Data exfiltration detection \u2014 identifies potential data leak channels.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_exfilArguments",
+   "type": "object"
+  },
+  "name": "omega_exfil",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Pivot analysis \u2014 discovers lateral movement paths between assets.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_pivotArguments",
+   "type": "object"
+  },
+  "name": "omega_pivot",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Plugin manager \u2014 loads and runs community omega plugins.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_pluginArguments",
+   "type": "object"
+  },
+  "name": "omega_plugin",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Proxy and anonymization tools \u2014 route scans through proxies.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_proxyArguments",
+   "type": "object"
+  },
+  "name": "omega_proxy",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Risk scoring engine \u2014 calculates aggregate risk score from findings.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_riskcoreArguments",
+   "type": "object"
+  },
+  "name": "omega_riskcore",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Web page screenshot \u2014 captures visual snapshots of target pages.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_screenshotArguments",
+   "type": "object"
+  },
+  "name": "omega_screenshot",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Shodan search \u2014 internet-wide scan data for hosts and services.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_shodanArguments",
+   "type": "object"
+  },
+  "name": "omega_shodan",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Social media intelligence \u2014 deep platform analysis and profiling.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_socmintArguments",
+   "type": "object"
+  },
+  "name": "omega_socmint",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "STIX format export \u2014 converts findings to STIX 2.1 threat intel.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_stixArguments",
+   "type": "object"
+  },
+  "name": "omega_stix",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Supply chain analysis \u2014 third-party risk and dependency mapping.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_supplyArguments",
+   "type": "object"
+  },
+  "name": "omega_supply",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Threat feed integration \u2014 checks target against threat intelligence feeds.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_threatfeedArguments",
+   "type": "object"
+  },
+  "name": "omega_threatfeed",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Threat intelligence \u2014 comprehensive threat context and attribution.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_threatintelArguments",
+   "type": "object"
+  },
+  "name": "omega_threatintel",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Typosquatting detection \u2014 finds look-alike and misspelled domains.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_typosquatArguments",
+   "type": "object"
+  },
+  "name": "omega_typosquat",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Advanced web crawling \u2014 recursive site crawl with content extraction.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_webcrawlArguments",
+   "type": "object"
+  },
+  "name": "omega_webcrawl",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ },
+ {
+  "description": "Wordlist generation \u2014 builds custom wordlists from target content.",
+  "inputSchema": {
+   "properties": {
+    "target": {
+     "title": "Target",
+     "type": "string"
+    }
+   },
+   "required": [
+    "target"
+   ],
+   "title": "omega_wordlistArguments",
+   "type": "object"
+  },
+  "name": "omega_wordlist",
+  "serverId": "omega-local",
+  "serverName": "Omega MCP"
+ }
+]

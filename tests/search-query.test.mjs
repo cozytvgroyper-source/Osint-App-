@@ -1,0 +1,79 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {argsForSearch,extractTarget,searchIntent} from '../public/search-query.js';
+import {planSearchTools} from '../public/search-planner.js';
+
+// Real tool definitions captured from the bundled Open OSINT, OSINT Toolbox and Omega servers.
+const tools=JSON.parse(fs.readFileSync(new URL('./fixtures/mcp-tools.json',import.meta.url),'utf8'));
+const byName=name=>{const found=tools.find(tool=>tool.name===name);assert.ok(found,`fixture is missing ${name}`);return found;};
+const plan=query=>{const found=searchIntent(query);return planSearchTools({query,intentId:found.id,preferredNames:found.tools,tools,maxTools:6});};
+
+test('extracts the target from surrounding words',()=>{
+  assert.deepEqual(extractTarget('example.com whois'),{type:'domain',value:'example.com'});
+  assert.deepEqual(extractTarget('https://www.example.com/login?next=1'),{type:'domain',value:'www.example.com'});
+  assert.deepEqual(extractTarget('8.8.8.8 abuse reports'),{type:'ip',value:'8.8.8.8'});
+  assert.deepEqual(extractTarget('jane.doe@example.com breach'),{type:'email',value:'jane.doe@example.com'});
+  assert.deepEqual(extractTarget('@jack username'),{type:'username',value:'jack'});
+  assert.deepEqual(extractTarget('username: jack_smith'),{type:'username',value:'jack_smith'});
+  assert.deepEqual(extractTarget('cve-2021-44228 exploitation'),{type:'cve',value:'CVE-2021-44228'});
+  assert.equal(extractTarget('999.1.1.1')?.type,undefined);
+  assert.equal(extractTarget('latest healthcare cyber threats'),null);
+});
+
+test('chooses the intent from the target even with extra words',()=>{
+  assert.equal(searchIntent('8.8.8.8 abuse reports').id,'network');
+  assert.equal(searchIntent('jane.doe@example.com breach').id,'email');
+  assert.equal(searchIntent('@jack username').id,'username');
+  assert.equal(searchIntent('example.com whois').id,'domain');
+});
+
+test('recognises plural topic words',()=>{
+  assert.equal(searchIntent('sanctions Rosneft').id,'sanctions');
+  assert.equal(searchIntent('recent earthquakes in Chile').id,'hazard');
+  assert.equal(searchIntent('vessels near Hormuz').id,'maritime');
+});
+
+test('sends only the target to tools, not the surrounding words',()=>{
+  assert.deepEqual(argsForSearch(byName('get_whois'),'example.com whois').query,'example.com');
+  assert.deepEqual(argsForSearch(byName('dnstwist_lookalike_domains'),'https://example.com/login').domain,'example.com');
+  assert.deepEqual(argsForSearch(byName('sherlock_username_search'),'@jack username').username,'jack');
+  assert.deepEqual(argsForSearch(byName('holehe_email_search'),'jane.doe@example.com breach').email,'jane.doe@example.com');
+});
+
+test('leaves searches without a target unchanged',()=>{
+  assert.equal(argsForSearch(byName('get_cyber_news'),'latest healthcare cyber threats').search,'healthcare cyber threats');
+  assert.equal(argsForSearch(byName('get_country_facts'),'Lyon, France').query,'France');
+});
+
+test('domain and email fragments no longer pull in unrelated tools',()=>{
+  const unrelated=['get_energy_commodities_news','get_trade_comtrade'];
+  for(const query of ['example.com whois','example.com','jane.doe@example.com']){
+    const names=plan(query).map(item=>item.tool.name);
+    for(const name of unrelated)assert.ok(!names.includes(name),`${query} selected ${name}: ${names.join(', ')}`);
+  }
+});
+
+test('real searches still reach the right sources',()=>{
+  const names=query=>plan(query).map(item=>item.tool.name);
+  assert.ok(names('example.com whois').includes('get_whois'));
+  assert.ok(names('jane.doe@example.com breach').includes('holehe_email_search'));
+  assert.ok(names('8.8.8.8 abuse reports').includes('get_bgp'));
+  assert.ok(names('sanctions Rosneft').includes('get_opensanctions'));
+  assert.deepEqual(new Set(names('latest healthcare cyber threats')),new Set(['get_cyber_news','get_threatfox','get_ransomware','get_cyber_threats']));
+});
+
+test('never auto-selects tools that probe the target, such as DNS zone transfers',()=>{
+  for(const query of ['example.com whois','example.com','https://example.com/login']){
+    assert.ok(!plan(query).some(item=>item.tool.name==='dnsrecon_domain_scan'),query);
+  }
+});
+
+test('request words like "reports" do not pull in unrelated tools',()=>{
+  assert.ok(!plan('8.8.8.8 abuse reports').some(item=>item.tool.name==='get_food_security'));
+});
+
+test('skips enumeration tools too slow for the automatic search',()=>{
+  const names=plan('example.com whois').map(item=>item.tool.name);
+  for(const name of ['subfinder_subdomain_search','theharvester_domain_search'])assert.ok(!names.includes(name),names.join(', '));
+});
