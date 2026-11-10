@@ -1,5 +1,5 @@
 /* Tropical broadcast palette: ocean blue, deep navy, chrome white and crimson. */
-.nav-external{text-decoration:none}.nav-external i{margin-left:auto;font:700 10px var(--mono);opacity:.55}
+.nav-external{text-decoration:none}.nav-external i{margin-left:auto;font:700 10px var(--mono);opacity:.55}.nav-logo{width:22px;height:22px;flex:0 0 22px;border-radius:5px;object-fit:contain}
 body{background:linear-gradient(145deg,var(--bg),color-mix(in srgb,var(--cyan) 11%,var(--bg)) 55%,var(--bg))}
 .rail{border-right-color:rgba(255,255,255,.18);background:linear-gradient(180deg,#082767 0%,#041744 58%,#020c2b 100%);box-shadow:10px 0 35px rgba(2,20,63,.13)}
 .brand{color:#fff}.brand-mark{background:linear-gradient(145deg,#fff,#aebbd3 45%,#fff);color:#082767;box-shadow:0 4px 14px rgba(0,0,0,.25)}
