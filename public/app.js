@@ -1,4 +1,5 @@
 import {planSearchTools} from './search-planner.js';
+import {classifyToolResult,hasUsefulData,parseToolResult} from './result-classifier.js';
 
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
@@ -160,13 +161,6 @@ async function callTool(tool,serverId,args){
 
 function humanize(value=''){return String(value).replace(/([a-z0-9])([A-Z])/g,'$1 $2').replace(/[_-]+/g,' ').replace(/\b\w/g,c=>c.toUpperCase());}
 function sourceLabel(value=''){return humanize(String(value).replace(/^(?:get_|omega_)/,''));}
-function parseToolResult(result){
-  const content=result?.content;
-  if(Array.isArray(content)&&content.length===1&&typeof content[0]?.text==='string'){
-    try{return JSON.parse(content[0].text);}catch{return content[0].text;}
-  }
-  return result?.structuredContent??result;
-}
 function readableValue(key,value){
   if(value===null||value===undefined||value==='')return 'Not reported';
   if(typeof value==='boolean')return value?'Yes':'No';
@@ -294,14 +288,6 @@ function argsForSearch(tool,query){
   return args;
 }
 
-function hasUsefulData(value,key=''){
-  const metadata=/^(query|source|note|feedCount|filtered|totalBeforeFilter|jurisdiction|total|count)$/i;
-  if(value===null||value===undefined||value==='')return false;
-  if(Array.isArray(value))return value.length>0;
-  if(typeof value!=='object')return !metadata.test(key);
-  return Object.entries(value).some(([childKey,child])=>hasUsefulData(child,childKey));
-}
-
 function formatBytes(bytes){if(bytes<1024)return `${bytes} B`;if(bytes<1024**2)return `${(bytes/1024).toFixed(1)} KB`;return `${(bytes/1024**2).toFixed(1)} MB`;}
 function fileAsDataUrl(file){return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error('Could not read the selected file'));reader.readAsDataURL(file);});}
 function clearSelectedFile(){state.pendingFile=null;$('#fileInput').value='';$('#fileSelection').hidden=true;$('#fileName').textContent='';$('#fileDetails').textContent='';}
@@ -337,7 +323,7 @@ async function smartInvestigate(query){
   const settled=await Promise.allSettled(selected.map(async tool=>{
     const response=await callTool(tool,tool.serverId,argsForSearch(tool,query));
     if(response.error)throw new Error(response.error.message||'Tool call failed');
-    return{tool,data:parseToolResult(response.result)};
+    return{tool,outcome:classifyToolResult(response.result)};
   }));
   const report={}; const errors=[]; const servers=new Set();
   if(plan.length)report['Search Plan']={eyebrow:'DYNAMIC MCP ROUTING',description:'SignalDesk inspected every connected tool and selected the most relevant passive capabilities for this query.',data:plan.map(item=>({tool:item.tool.name,server:item.tool.serverName,reason:item.reason}))};
@@ -346,16 +332,13 @@ async function smartInvestigate(query){
     const tool=selected[index];
     if(outcome.status==='fulfilled'){
       servers.add(tool.serverName);
-      const value=outcome.value.data;
-      if(value?.error||value?.data?.error)errors.push({source:sourceLabel(tool.name),error:value.error||value.data.error});
+      const result=outcome.value.outcome;
+      if(result.kind==='error')errors.push({source:sourceLabel(tool.name),error:result.error});
+      else if(result.kind==='empty')errors.push({source:sourceLabel(tool.name),error:'No matching records returned for this subject.'});
       else{
-        const data=value?.data??value;
-        if(hasUsefulData(data)){
-          const category=categoryForTool(tool); let key=category;
-          if(report[key])key=`${category} — ${sourceLabel(tool.name)}`;
-          report[key]={eyebrow:`${tool.serverName} · ${sourceLabel(tool.name)}`,description:tool.description||`Results from ${tool.serverName}`,data};
-        }
-        else errors.push({source:sourceLabel(tool.name),error:'No matching records returned for this subject.'});
+        const category=categoryForTool(tool); let key=category;
+        if(report[key])key=`${category} — ${sourceLabel(tool.name)}`;
+        report[key]={eyebrow:`${tool.serverName} · ${sourceLabel(tool.name)}`,description:tool.description||`Results from ${tool.serverName}`,data:result.data};
       }
     }else errors.push({source:sourceLabel(tool.name),error:outcome.reason?.message||'Source unavailable'});
   });
