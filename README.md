@@ -29,7 +29,7 @@ Public Desk connects to:
 http://127.0.0.1:8892/mcp
 ```
 
-Public Desk supports MCP Streamable HTTP, tool discovery, JSON-schema-assisted arguments, tool execution, local investigation history, and evidence export. Bearer tokens remain in browser memory and are not persisted.
+Public Desk supports MCP Streamable HTTP, tool discovery, JSON-schema-assisted arguments, tool execution, local investigation history, and evidence export. Bearer tokens you enter for a server remain in browser memory and are not persisted.
 
 The main search also accepts photos, videos, PDFs, Office documents, text, CSV, and JSON files up to 50 MB. Files are analyzed locally with the OSINT Toolbox metadata tool and removed from the temporary upload folder after each analysis.
 
@@ -61,3 +61,6 @@ nothing exists. `omega_monitor` is not implemented in omega-cli and always fails
 - Embedded URL credentials and common cloud metadata endpoints are blocked.
 - Remote endpoints receive only requests explicitly initiated through the app.
 - Review source terms and legal constraints before collecting or retaining OSINT data.
+- The Consensus sign-in is remembered across restarts: after you sign in, its refresh token and app
+  registration are saved to `work/consensus-auth.json` (git-ignored, readable only by your user). Access tokens
+  stay in memory. Delete that file to sign out; it is also removed automatically if Consensus rejects it.

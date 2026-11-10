@@ -1,5 +1,6 @@
 import http from 'node:http';
-import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
+import { dirname } from 'node:path';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pathToFileURL } from 'node:url';
@@ -14,6 +15,8 @@ const consensusOAuth = { client: null, accessToken: '', refreshToken: '', expire
 const CONSENSUS_ENDPOINT = 'https://mcp.consensus.app/mcp';
 const CONSENSUS_ISSUER = 'https://consensus.app';
 const CONSENSUS_REDIRECT = `http://127.0.0.1:${PORT}/api/oauth/consensus/callback`;
+// Keeps the Consensus sign-in across restarts. work/ is git-ignored; the file is readable only by this user.
+const CONSENSUS_AUTH_FILE = fileURLToPath(new URL('./work/consensus-auth.json', import.meta.url));
 
 const mime = {
   '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8',
@@ -83,6 +86,36 @@ function base64url(value) {
   return Buffer.from(value).toString('base64url');
 }
 
+// Only the app registration and refresh token are saved; access tokens stay in memory and expire within an hour.
+async function saveConsensusAuth(file, auth) {
+  await mkdir(dirname(file), { recursive: true, mode: 0o700 });
+  await chmod(dirname(file), 0o700);
+  await writeFile(file, JSON.stringify(auth), { mode: 0o600 });
+  await chmod(file, 0o600);
+}
+
+async function loadConsensusAuth(file, redirectUri) {
+  try {
+    const auth = JSON.parse(await readFile(file, 'utf8'));
+    const usable = auth?.redirectUri === redirectUri && typeof auth.client?.client_id === 'string' && typeof auth.refreshToken === 'string' && auth.refreshToken;
+    return usable ? auth : null;
+  } catch {
+    return null;
+  }
+}
+
+async function clearConsensusAuth(file) {
+  await unlink(file).catch(error => { if (error?.code !== 'ENOENT') throw error; });
+}
+
+async function restoreConsensusSignIn() {
+  const auth = await loadConsensusAuth(CONSENSUS_AUTH_FILE, CONSENSUS_REDIRECT);
+  if (!auth) return false;
+  consensusOAuth.client = auth.client;
+  consensusOAuth.refreshToken = auth.refreshToken;
+  return true;
+}
+
 async function consensusClient() {
   if (consensusOAuth.client) return consensusOAuth.client;
   const response = await fetch(`${CONSENSUS_ISSUER}/oauth/register/`, {
@@ -110,21 +143,39 @@ async function consensusToken(form) {
     signal: AbortSignal.timeout(15_000)
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error_description || `Consensus token request failed (${response.status})`);
+  if (!response.ok) {
+    const error = new Error(data.error_description || `Consensus token request failed (${response.status})`);
+    error.status = response.status;
+    throw error;
+  }
   consensusOAuth.accessToken = data.access_token;
   consensusOAuth.refreshToken = data.refresh_token || consensusOAuth.refreshToken;
   consensusOAuth.expiresAt = Date.now() + Math.max(0, (Number(data.expires_in) || 3600) - 60) * 1000;
+  if (consensusOAuth.refreshToken) {
+    await saveConsensusAuth(CONSENSUS_AUTH_FILE, { redirectUri: CONSENSUS_REDIRECT, client: consensusOAuth.client, refreshToken: consensusOAuth.refreshToken })
+      .catch(error => console.error(`Could not save the Consensus sign-in: ${error.message}`));
+  }
   return data.access_token;
 }
 
 async function consensusAccessToken() {
   if (consensusOAuth.accessToken && Date.now() < consensusOAuth.expiresAt) return consensusOAuth.accessToken;
   if (!consensusOAuth.refreshToken || !consensusOAuth.client?.client_id) return '';
-  return consensusToken({
-    grant_type: 'refresh_token',
-    refresh_token: consensusOAuth.refreshToken,
-    client_id: consensusOAuth.client.client_id
-  });
+  try {
+    return await consensusToken({
+      grant_type: 'refresh_token',
+      refresh_token: consensusOAuth.refreshToken,
+      client_id: consensusOAuth.client.client_id
+    });
+  } catch (error) {
+    // A rejected refresh token means the sign-in is gone; forget it so the app asks to sign in again.
+    if (error.status === 400 || error.status === 401) {
+      consensusOAuth.refreshToken = '';
+      await clearConsensusAuth(CONSENSUS_AUTH_FILE).catch(() => {});
+      return '';
+    }
+    throw error;
+  }
 }
 
 async function initialize(payload) {
@@ -234,9 +285,11 @@ const server = http.createServer(async (req, res) => {
 });
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const restored = await restoreConsensusSignIn();
   server.listen(PORT, '127.0.0.1', () => {
     console.log(`Public Desk running at http://127.0.0.1:${PORT}`);
+    if (restored) console.log('Restored the saved Consensus sign-in.');
   });
 }
 
-export { validatedEndpoint, parseMcpResponse };
+export { validatedEndpoint, parseMcpResponse, loadConsensusAuth, saveConsensusAuth, clearConsensusAuth };
