@@ -1,0 +1,8 @@
+# Opens a pull request when a GitHub Action used by CI has a new version. The app has no package dependencies
+# (package.json lists none), and the Python tools are pinned in config/ and the launcher, so only Actions are watched.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
