@@ -36,6 +36,7 @@ sessionStorage.setItem('signaldesk.clientSessionId',clientSessionId);
 const sessionKeyFor=serverId=>`${clientSessionId}:${serverId}`;
 // Development mode: open Public Desk at /?diagnostics to see why the planner chose each tool.
 const diagnosticsEnabled=new URLSearchParams(location.search).has('diagnostics');
+let latestSearchId=0;
 const intelNews={events:[],metrics:null,categories:[],generatedAt:'',loaded:false,loading:false,error:''};
 
 function persist() {
@@ -218,7 +219,15 @@ function renderReadableResult(result){
   if(payload&&typeof payload==='object')return `<section class="result-category"><div class="category-head"><div><p class="eyebrow">RESULT</p><h3>Findings</h3></div></div>${renderRecord(payload)}${Object.entries(payload).filter(([,value])=>Array.isArray(value)).map(([key,items])=>`<div class="result-subgroup"><h4>${escapeHtml(humanize(key))}</h4>${renderArray(items)}</div>`).join('')}</section><details class="raw-result"><summary>Technical details</summary><pre>${escapeHtml(JSON.stringify(parsed,null,2))}</pre></details>`;
   return `<div class="plain-result">${escapeHtml(String(payload??'No result returned.'))}</div>`;
 }
-function showResult(title,result){ $('#resultTitle').textContent=title; $('#resultBody').innerHTML=renderReadableResult(result); $('#resultDialog').showModal(); }
+function showResult(title,result){
+  const dialog=$('#resultDialog'); const refresh=dialog.open&&$('#resultTitle').textContent===title;
+  const scroll=refresh?[dialog.scrollTop,$('#resultBody').scrollTop]:[0,0];
+  $('#resultTitle').textContent=title; $('#resultBody').innerHTML=renderReadableResult(result);
+  if(refresh){dialog.scrollTop=scroll[0];$('#resultBody').scrollTop=scroll[1];}
+  if(!dialog.open)dialog.showModal();
+}
+// Refreshes a search that is still running without reopening the window if the user has closed it.
+function updateOpenResult(title,result){if($('#resultDialog').open&&$('#resultTitle').textContent===title)showResult(title,result);}
 
 const categoryNames={
   get_nvd_cves:'Vulnerability Details',get_cisa_kev:'Known Exploitation Status',whois_lookup:'Registration and Ownership',dnstwist_lookalike_domains:'Look-alike and Phishing Risk',
@@ -281,15 +290,29 @@ async function smartInvestigate(query){
   const selected=plan.map(item=>item.tool);
   const plannedServers=new Set(selected.map(tool=>tool.serverName));
   toast(selected.length?`Searching ${selected.length} relevant tools across ${plannedServers.size} server${plannedServers.size===1?'':'s'}…`:'Relevant server is not connected');
-  const settled=await Promise.allSettled(selected.map(async tool=>{
-    const response=await callTool(tool,tool.serverId,argsForSearch(tool,query));
-    if(response.error)throw new Error(response.error.message||'Tool call failed');
-    return{tool,outcome:classifyToolResult(response.result)};
+  // Each source's results are shown as soon as it answers; a newer search makes this one's late answers stale.
+  const searchId=++latestSearchId; const startedAt=performance.now(); const outcomes=new Array(selected.length);
+  const reportOptions={query,intent,plan,outcomes,diagnostics:diagnosticsEnabled?summarizePlanDiagnostics(explained):null,links:relatedLinks(intent,query),categoryForTool,sourceLabel};
+  const show=()=>{
+    if(searchId!==latestSearchId)return null;
+    const built=buildSearchReport({...reportOptions,elapsedMs:Math.round(performance.now()-startedAt)});
+    state.lastResult={title:query,result:built.result,time:new Date().toISOString(),server:[...built.servers].join(', ')||'Connected MCP'};
+    if(built.finished)showResult(query,built.result);else updateOpenResult(query,built.result);
+    return built;
+  };
+  if(selected.length)showResult(query,buildSearchReport(reportOptions).result);
+  await Promise.allSettled(selected.map(async(tool,index)=>{
+    try{
+      const response=await callTool(tool,tool.serverId,argsForSearch(tool,query));
+      if(response.error)throw new Error(response.error.message||'Tool call failed');
+      const outcome=classifyToolResult(response.result);
+      outcomes[index]={status:'fulfilled',value:{tool,outcome}};noteToolHealth(tool.serverId,tool.name,outcome.kind);
+    }catch(error){outcomes[index]={status:'rejected',reason:error};noteToolHealth(tool.serverId,tool.name,'error');}
+    show();
   }));
-  settled.forEach((outcome,index)=>{const tool=selected[index];noteToolHealth(tool.serverId,tool.name,outcome.status==='fulfilled'?outcome.value.outcome.kind:'error');});
-  const {result,servers}=buildSearchReport({query,intent,plan,outcomes:settled,diagnostics:diagnosticsEnabled?summarizePlanDiagnostics(explained):null,links:relatedLinks(intent,query),categoryForTool,sourceLabel});
-  const time=new Date().toISOString(); state.lastResult={title:query,result,time,server:[...servers].join(', ')||'Connected MCP'};
-  state.history.unshift({title:query,time,server:state.lastResult.server}); renderAll(); showResult(query,result);
+  const final=show();
+  if(!final)return;
+  state.history.unshift({title:query,time:state.lastResult.time,server:state.lastResult.server}); renderAll();
 }
 
 document.addEventListener('click',async event=>{
