@@ -5,6 +5,7 @@ import {recordToolHealth,serverConnectionLabel,toolCountLabel} from './tool-heal
 import {argsForSearch,extractTarget,searchIntent} from './search-query.js';
 import {loadStoredState,mergeStoredServers,persistStoredState} from './browser-storage.js';
 import {groupToolsByTier,runRequirements,toolRisk,toolUsage} from './tool-tiers.js';
+import {resultPivot} from './result-pivots.js?v=1';
 
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
@@ -258,18 +259,22 @@ function readableValue(key,value){
   }
   return escapeHtml(JSON.stringify(value));
 }
+function pivotButton(value){
+  const pivot=resultPivot(value);
+  return pivot?`<button type="button" class="pivot-button" data-pivot="${escapeHtml(pivot.target)}" aria-label="${escapeHtml(`${pivot.label}: ${pivot.target}`)}">Pivot →</button>`:'';
+}
 function renderRecord(data){
   if(!data||typeof data!=='object')return `<p>${readableValue('',data)}</p>`;
   const scalarEntries=Object.entries(data).filter(([,value])=>!Array.isArray(value)&&(typeof value!=='object'||value===null));
-  return scalarEntries.length?`<dl class="fact-list">${scalarEntries.map(([key,value])=>`<div><dt>${escapeHtml(humanize(key))}</dt><dd>${readableValue(key,value)}</dd></div>`).join('')}</dl>`:'';
+  return scalarEntries.length?`<dl class="fact-list">${scalarEntries.map(([key,value])=>`<div><dt>${escapeHtml(humanize(key))}</dt><dd>${readableValue(key,value)}${pivotButton(value)}</dd></div>`).join('')}</dl>`:'';
 }
 function renderArray(items){
   if(!items.length)return '<p class="empty-copy">No matching items reported.</p>';
   return `<div class="result-items">${items.slice(0,25).map((item,index)=>{
-    if(typeof item!=='object'||item===null)return `<div class="result-item"><b>${index+1}.</b> ${readableValue('',item)}</div>`;
+    if(typeof item!=='object'||item===null)return `<div class="result-item"><b>${index+1}.</b> ${readableValue('',item)}${pivotButton(item)}</div>`;
     const title=item.title||item.name||item.place||item.headline||item.id||`Item ${index+1}`;
     const rest=Object.fromEntries(Object.entries(item).filter(([key])=>!['title','name','place','headline','id'].includes(key)));
-    return `<article class="result-item"><h4>${escapeHtml(title)}</h4>${renderRecord(rest)}</article>`;
+    return `<article class="result-item"><div class="result-item-title"><h4>${escapeHtml(title)}</h4>${pivotButton(title)}</div>${renderRecord(rest)}</article>`;
   }).join('')}</div>${items.length>25?`<p class="result-note">Showing 25 of ${items.length.toLocaleString()} items.</p>`:''}`;
 }
 function renderCategory(name,entry){
@@ -399,6 +404,7 @@ async function smartInvestigate(query){
 }
 
 document.addEventListener('click',async event=>{
+  const pivot=event.target.closest('[data-pivot]');if(pivot){event.preventDefault();const target=pivot.dataset.pivot;$('#resultDialog').close();switchView('workspace');$('#query').value=target;$('#query').focus();try{await smartInvestigate(target);}catch(error){toast(error.message);}return;}
   const nav=event.target.closest('[data-view]'); if(nav)switchView(nav.dataset.view);
   const link=event.target.closest('[data-view-link]'); if(link)switchView(link.dataset.viewLink);
   const prompt=event.target.closest('[data-prompt]'); if(prompt){$('#query').value=prompt.dataset.prompt;$('#query').focus();}

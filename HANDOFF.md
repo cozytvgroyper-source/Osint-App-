@@ -129,6 +129,8 @@ Keep them when changing the server or launcher.
    **Sources** log and then Related Links. The source log records each
    tool's server, risk tier, planner reason, exact arguments, start and finish times, and data/empty/error outcome;
    it is retained in saved evidence and investigation history. A newer search makes an older one's late answers stale.
+7. Exact domain, IP-address and email values in findings have a **Pivot** button. It closes the current result and
+   runs that value through the same passive main-search planner; it never bypasses the passive-tool boundary.
 
 Never auto-run, but still available in Tool Library:
 
@@ -222,8 +224,9 @@ another folder, naming the folder to stop. Every service port is checked by fold
 
 1. **Search overhaul:** follow `docs/search-overhaul.md`. Step 1 (risk tiers in Tool Library) is merged (PR #33), and
    the owner decided A–D on 2026-11-11: Sources panel inline, Intrusive included in Deep Search, no saved scope list,
-   all 14 best-guess tiers confirmed. The inline Sources log and duplicate finding consolidation are implemented;
-   the remaining Step 2 work is pivot buttons for IPs, emails and domains.
+   all 14 best-guess tiers confirmed. Step 2 is complete: inline Sources, duplicate consolidation and passive pivots
+   for IPs, emails and domains are implemented. Next is Step 3, beginning with server-side run grants before the
+   Deep Search interface.
 2. Decide with the user whether cyber searches should mix sources instead of strict severity order, so OTX shows
    up in short result lists (another patch to the feed's sort). The user chose not to do this for now.
 3. subfinder can only rejoin the automatic search if `osint-toolbox-mcp` exposes subfinder's `-max-time` (an

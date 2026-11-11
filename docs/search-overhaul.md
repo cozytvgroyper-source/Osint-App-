@@ -1,6 +1,6 @@
 # Search overhaul: risk tiers, a Sources panel and Deep Search
 
-Status: agreed 2026-11-11. Step 1 is merged (PR #33); steps 2–4 are not built. The owner decided A–D on 2026-11-11
+Status: agreed 2026-11-11. Steps 1 and 2 are built; steps 3–4 are not built. The owner decided A–D on 2026-11-11
 (see Decisions at the end).
 Where this document and the code disagree, the code wins: `public/tool-tiers.js` is the source of truth for tiers.
 
@@ -83,7 +83,7 @@ owner requirement that completed searches show only findings and Related Links (
 Requirements); findings still come first.
 
 Also in this step: merge duplicate findings across tools (implemented for simple domain, host, email, IP and URL
-lists, with every contributing source named), pivot buttons on IPs, emails and domains in results (not yet built),
+lists, with every contributing source named), passive one-click pivot searches on exact IP, email and domain values,
 and the source log saved with each search in history and evidence.
 
 ## Step 3: Deep Search page
