@@ -31,15 +31,15 @@ const OMEGA = {
   omega_whois: t(0), omega_dns: t(0), omega_ipinfo: t(0), omega_crtsh: t(0), omega_dorks: t(0), omega_wayback: t(0),
   omega_spoofcheck: t(0), omega_asn: t(0), omega_reverseip: t(0), omega_cve: t(0), omega_hunt: t(0), omega_malware: t(0),
   omega_email: t(0), omega_username: t(0), omega_social: t(0), omega_breach: t(0),
-  omega_agents_list: t(0), omega_memory_search: t(0), omega_apiosint: t(0), omega_satellite: t(0),
+  omega_agents_list: t(0), omega_memory_search: t(0), omega_satellite: t(0),
   omega_autocorr: t(0), omega_compare: t(0), omega_briefing: t(0), omega_executive: t(0), omega_cryptoosint: t(0),
-  omega_codetrace: t(0), omega_leaked: t(0), omega_cvemap: t(0), omega_cvssrank: t(0), omega_dark: t(0),
+  omega_codetrace: t(0), omega_leaked: t(0), omega_cvssrank: t(0), omega_dark: t(0),
   omega_deepweb: t(0), omega_torcheck: t(0), omega_imgosint: t(0), omega_ipdossier: t(0), omega_intel: t(0),
   omega_phoneosint: t(0), omega_finance: t(0), omega_geoint: t(0), omega_gitrecon: t(0), omega_graph: t(0),
-  omega_viz: t(0), omega_timeline: t(0), omega_timeline3d: t(0), omega_harvester: t(0), omega_identity: t(0),
+  omega_viz: t(0), omega_timeline: t(0), omega_timeline3d: t(0), omega_identity: t(0),
   omega_persona: t(0), omega_org: t(0), omega_riskcore: t(0), omega_shodan: t(0), omega_socmint: t(0),
   omega_stix: t(0), omega_supply: t(0), omega_threatfeed: t(0), omega_threatintel: t(0), omega_typosquat: t(0),
-  omega_c2: t(0), omega_mldetect: t(0),
+  omega_mldetect: t(0),
   omega_osintdb: t(0, 'side-effects'), omega_dashboard: t(0, 'side-effects'), omega_livedash: t(0, 'side-effects'),
   omega_pdfreport: t(0, 'side-effects'), omega_reportgen: t(0, 'side-effects'), omega_reporthtml: t(0, 'side-effects'),
   omega_pastewatch: t(0, 'side-effects'), omega_notifier: t(0, 'side-effects'),
@@ -47,6 +47,8 @@ const OMEGA = {
   omega_archive: t(0, 'side-effects'),
   omega_ai_analyst: t(0, 'credits'), omega_aiassist: t(0, 'credits'), omega_aisummary: t(0, 'credits'),
   // Tier 1: connects to the target like a visitor (fetches pages, headers, certificates, DNS for its mail policy).
+  // Source review (2026-11-11): harvester fetches the target's own pages; cvemap runs techfp against the target.
+  omega_harvester: t(1), omega_cvemap: t(1),
   omega_headers: t(1), omega_ssl: t(1), omega_tech: t(1), omega_cors: t(1), omega_mailsec: t(1), omega_infra: t(1),
   omega_crypto: t(1), omega_screenshot: t(1), omega_certhunt: t(1), omega_ioc: t(1),
   omega_docosint: t(1), omega_phishcheck: t(1), omega_opsec: t(1),
@@ -55,6 +57,8 @@ const OMEGA = {
   // Tier 2: probing and enumeration that shows in the target's logs.
   // omega_recon's captured output (2026-11-11) included a port scan, subdomain brute force and HTTP/SSL probes.
   omega_recon: t(2),
+  // Source review (2026-11-11): c2 runs a JARM TLS fingerprint and banner grabs; apiosint requests API paths on the target.
+  omega_c2: t(2), omega_apiosint: t(2),
   omega_ports: t(2), omega_jscan: t(2), omega_crawl: t(2), omega_spider: t(2), omega_webcrawl: t(2), omega_dnsbrute: t(2),
   omega_buckets: t(2), omega_cloud: t(2), omega_cloud2: t(2), omega_subdomains: t(2), omega_assetmap: t(2),
   omega_attackmap: t(2), omega_wordlist: t(2), omega_secrets: t(2), omega_auto: t(2), omega_deception: t(2),
