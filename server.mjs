@@ -1,5 +1,5 @@
 import http from 'node:http';
-import { chmod, mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
+import { chmod, lstat, mkdir, readFile, readdir, rename, unlink, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -13,6 +13,8 @@ const PORT = Number(process.env.PORT || 4173);
 const MAX_MCP_RESPONSE_BYTES = 5_000_000;
 const MAX_MCP_SSE_EVENTS = 1_000;
 const MAX_MCP_SSE_EVENT_BYTES = 1_000_000;
+const UPLOAD_TTL_MS = 30 * 60_000;
+const UPLOAD_NAME_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}-/i;
 const sessions = new Map();
 const uploads = new Map();
 const consensusOAuth = { client: null, accessToken: '', refreshToken: '', expiresAt: 0, pending: new Map() };
@@ -63,6 +65,37 @@ async function body(req, limit = 1_000_000) {
     chunks.push(chunk);
   }
   return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+}
+
+async function cleanupStaleUploads(root = UPLOAD_ROOT, { now = Date.now(), maxAge = UPLOAD_TTL_MS } = {}) {
+  let entries;
+  try { entries = await readdir(root, { withFileTypes: true }); }
+  catch (error) { if (error?.code === 'ENOENT') return 0; throw error; }
+  let removed = 0;
+  for (const entry of entries) {
+    if (!entry.isFile() || !UPLOAD_NAME_PATTERN.test(entry.name)) continue;
+    const path = join(root, entry.name);
+    const info = await lstat(path);
+    if (!info.isFile() || now - info.mtimeMs <= maxAge) continue;
+    await unlink(path);
+    removed += 1;
+  }
+  return removed;
+}
+
+async function deleteTrackedUpload(id, uploadMap = uploads) {
+  const upload = uploadMap.get(id);
+  if (!upload) return false;
+  uploadMap.delete(id);
+  clearTimeout(upload.timer);
+  await unlink(upload.path).catch(() => {});
+  return true;
+}
+
+function trackUpload(id, path, uploadMap = uploads, ttl = UPLOAD_TTL_MS) {
+  const timer = setTimeout(() => { void deleteTrackedUpload(id, uploadMap); }, ttl);
+  timer.unref?.();
+  uploadMap.set(id, { path, timer });
 }
 
 // Public Desk only serves its own page. Browsers let any website send simple cross-site requests to
@@ -392,17 +425,17 @@ const server = http.createServer(async (req, res) => {
       const data = Buffer.from(encoded, 'base64');
       if (!data.length || data.length > 50_000_000) return json(res, 400, { error: 'File must be between 1 byte and 50 MB' });
       const id = crypto.randomUUID();
-      await mkdir(UPLOAD_ROOT, { recursive: true });
+      await mkdir(UPLOAD_ROOT, { recursive: true, mode: 0o700 });
+      await chmod(UPLOAD_ROOT, 0o700);
       const path = join(UPLOAD_ROOT, `${id}-${name}`);
       await writeFile(path, data, { flag: 'wx', mode: 0o600 });
-      uploads.set(id, path);
+      trackUpload(id, path);
       return json(res, 200, { id, path, name, size: data.length, type: String(payload.type || 'application/octet-stream') });
     }
     if (req.method === 'POST' && url.pathname === '/api/upload/delete') {
       const payload = await body(req);
-      const path = uploads.get(payload.id);
-      if (path) { await unlink(path).catch(() => {}); uploads.delete(payload.id); }
-      return json(res, 200, { deleted: Boolean(path) });
+      const deleted = await deleteTrackedUpload(payload.id);
+      return json(res, 200, { deleted });
     }
     if (req.method === 'POST' && url.pathname === '/api/mcp/disconnect') {
       const payload = await body(req);
@@ -442,10 +475,12 @@ const server = http.createServer(async (req, res) => {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const restored = await restoreConsensusSignIn();
+  const removedUploads = await cleanupStaleUploads().catch(error => { console.warn(`Could not clean temporary uploads: ${error.message}`); return 0; });
   server.listen(PORT, '127.0.0.1', () => {
     console.log(`Public Desk running at http://127.0.0.1:${PORT}`);
     if (restored) console.log('Restored the saved Consensus sign-in.');
+    if (removedUploads) console.log(`Removed ${removedUploads} expired temporary upload${removedUploads === 1 ? '' : 's'}.`);
   });
 }
 
-export { validatedEndpoint, parseMcpResponse, readLimitedResponse, loadConsensusAuth, saveConsensusAuth, clearConsensusAuth, SECURITY_HEADERS, requestGuard, prunePendingSignIns, dataSourcesAction };
+export { validatedEndpoint, parseMcpResponse, readLimitedResponse, cleanupStaleUploads, trackUpload, deleteTrackedUpload, loadConsensusAuth, saveConsensusAuth, clearConsensusAuth, SECURITY_HEADERS, requestGuard, prunePendingSignIns, dataSourcesAction };

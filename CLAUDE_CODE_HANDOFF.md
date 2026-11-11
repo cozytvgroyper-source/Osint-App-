@@ -22,7 +22,7 @@ The worktree was clean when this handoff was written.
 | 2 Make browser state recoverable and bounded | Completed | `fix/browser-state-durability` | Safe typed recovery, evidence count and byte limits, quota handling, token stripping, and focused tests added; full suite passes 107 tests. |
 | 3 Verify process ownership before reuse or stop | Completed | `fix/service-ownership` | Shared folder and command-marker checks cover all five ports and every saved PID; foreign-process tests added; full suite passes 111 tests. |
 | 4 Bound MCP responses | Completed | `fix/mcp-response-limits` | Decoded streaming limit, early length rejection, SSE count and event limits, and boundary tests added; full suite passes 115 tests. |
-| 5 Expire abandoned uploads | Not started | - | - |
+| 5 Expire abandoned uploads | Completed | `fix/upload-expiration` | Thirty-minute server leases, startup stale-file sweep, private upload directory, and containment tests added; full suite passes 118 tests. |
 | 6 Harden custom MCP destinations | Not started | - | - |
 | Interface and documentation cleanup | Not started | - | - |
 
