@@ -1,6 +1,7 @@
 # Search overhaul: risk tiers, a Sources panel and Deep Search
 
-Status: proposed 2026-11-11. Step 1 is in PR #33; steps 2–4 are not built. Decisions marked **Open** need the owner.
+Status: agreed 2026-11-11. Step 1 is merged (PR #33); steps 2–4 are not built. The owner decided A–D on 2026-11-11
+(see Decisions at the end).
 Where this document and the code disagree, the code wins: `public/tool-tiers.js` is the source of truth for tiers.
 
 ## Goals
@@ -41,10 +42,10 @@ service; none takes a target to crawl or probe) and **Consensus** (research pape
 - **Tier 3:** `omega_vuln`, `omega_fuzzer`, `omega_redteam`, `omega_pivot`, `omega_exfil`, `omega_chain`,
   `omega_plugin`, `omega_proxy`, `omega_autopilot`, `omega_agent_run`.
 
-### Needs review (Open)
+### Reviewed by the owner
 
-Omega's descriptions are one line long. These 14 tiers are best guesses, marked "needs review" in Tool Library.
-Confirm or correct them; each correction is a one-line change in `tool-tiers.js`.
+Omega's descriptions are one line long, so these 14 tiers were set from best guesses. The owner confirmed all of them
+on 2026-11-11 (decision D); the table keeps the reasoning. A correction is a one-line change in `tool-tiers.js`.
 
 | Tool | Set to | Description | Why, and the doubt |
 |---|---|---|---|
@@ -77,9 +78,9 @@ Confirm or correct them; each correction is a one-line change in `tool-tiers.js`
 Every search records, per tool: server, tier, why it was chosen, the exact value sent (e.g. `Rosneft`), start and
 finish times, and the outcome (data, empty, error).
 
-**Open A: where the panel goes.** The owner previously required completed searches to show **only findings and
-Related Links** (recorded in `CLAUDE_CODE_HANDOFF.md`). Proposed: keep that, and put Sources in a collapsible tab or
-drawer below the findings. Alternative: show it inline.
+**Decision A: the panel is shown inline** in the completed result, after the findings. This replaces the earlier
+owner requirement that completed searches show only findings and Related Links (`CLAUDE_CODE_HANDOFF.md`, Owner
+Requirements); findings still come first.
 
 Also in this step: merge duplicate findings across tools (one subdomain list from crt.sh, theHarvester and
 HackerTarget, with "found by 3 sources"), pivot buttons on IPs, emails and domains in results, and the source log
@@ -90,10 +91,10 @@ saved with each search in history and evidence.
 A separate page with amber/red styling, never mixed with the main search.
 
 1. **Level selector:** Passive · Light touch · Active · Intrusive. Each level includes the ones below it. Default:
-   Light touch. **Open B: should Intrusive exist at all**, or should Tier 3 tools stay Tool-Library-only?
+   Light touch. **Decision B: Intrusive is included**, behind the typed confirmation in step 3.
 2. **Scope:** the target is typed explicitly, never inferred from a phrase. Every run needs "I own this target or
-   have written permission to test it". **Open C:** should Active and Intrusive also require the target to be on a
-   saved authorized-scope list (domains and IP ranges), refusing anything outside it? Proposed: yes.
+   have written permission to test it". **Decision C: no saved scope list** is required for Active or Intrusive;
+   the per-run confirmation, the typed confirmation for Intrusive and the audit log are the safeguards.
 3. **Plan preview:** lists each tool with its tier, what it does, whether the target will notice, and its expected
    time. Tools can be unticked. Nothing runs until Run is pressed; Intrusive also asks for the target name typed.
 4. **Execution:** one tool at a time, with a live log and Cancel. Time limits are longer than the main search's 45 s
@@ -109,8 +110,8 @@ legitimate route, so the server must decide too:
 - The server resolves each tool call's tier with the same table (`tool-tiers.js` is shared by the page and server).
 - Tier 0 calls pass as today.
 - Tier 1+ calls require a short-lived **run grant** the server issued for a confirmed Deep Search run (or a Tool
-  Library confirmation). The grant names the target, level and tool list; the call must match all three, and Tier 2+
-  targets must be in scope (if Open C is accepted).
+  Library confirmation). The grant names the target, level and tool list, and the call must match all three. There is
+  no scope list (decision C).
 - Calls without a matching grant are refused with HTTP 403 and a clear reason.
 - Tests cover: the main search cannot run Tier 1+; a grant for one target cannot be reused for another; expired
   grants fail.
@@ -121,11 +122,11 @@ Re-check Omega's 79 Tier 0 tools against real output and add the useful ones to 
 (`OMEGA_AUTO_SEARCH_TOOLS`), for example `omega_breach`, `omega_archive` and `omega_threatintel`. The Tier 0 invariant
 test keeps this safe.
 
-## Open decisions
+## Decisions (owner, 2026-11-11)
 
-| | Question | Proposed |
+| | Question | Decision |
 |---|---|---|
-| A | Sources panel inline, or a collapsible tab? | Collapsible tab, findings first |
-| B | Include Intrusive in Deep Search? | Owner's call; if yes, behind typed confirmation and scope |
-| C | Require a saved scope list for Active and Intrusive? | Yes |
-| D | Confirm or correct the 14 "needs review" tiers | Owner review |
+| A | Sources panel inline, or a collapsible tab? | **Inline**, after the findings |
+| B | Include Intrusive in Deep Search? | **Yes**, behind the typed confirmation |
+| C | Require a saved scope list for Active and Intrusive? | **No** |
+| D | Confirm or correct the 14 best-guess tiers | **Confirmed** as set |

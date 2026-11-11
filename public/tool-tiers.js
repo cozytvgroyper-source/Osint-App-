@@ -11,7 +11,8 @@ export const TIERS = Object.freeze([
 ]);
 
 // Flags: 'credits' spends paid AI credits; 'side-effects' sends, stores, schedules or loads something beyond a lookup;
-// 'review' marks a call made from a one-line description that the owner should confirm (docs/search-overhaul.md).
+// 'review' marks a call made from a one-line description that the owner has not confirmed yet (docs/search-overhaul.md).
+// The owner confirmed every such call on 2026-11-11, so none is flagged now.
 const t = (level, ...flags) => ({level, flags});
 
 // OSINT Toolbox: well-known open-source tools, so their behaviour is documented.
@@ -24,7 +25,7 @@ const TOOLBOX = {
   dnsrecon_domain_scan: t(2) // attempts zone transfers and zone walking against the target's name servers
 };
 
-// Omega MCP: tiers from each tool's description; ambiguous ones are flagged for review.
+// Omega MCP: tiers from each tool's description, all confirmed by the owner on 2026-11-11.
 const OMEGA = {
   // Tier 0: third-party data, public records, or analysis of findings already collected.
   omega_whois: t(0), omega_dns: t(0), omega_ipinfo: t(0), omega_crtsh: t(0), omega_dorks: t(0), omega_wayback: t(0),
@@ -38,24 +39,24 @@ const OMEGA = {
   omega_viz: t(0), omega_timeline: t(0), omega_timeline3d: t(0), omega_harvester: t(0), omega_identity: t(0),
   omega_persona: t(0), omega_org: t(0), omega_riskcore: t(0), omega_shodan: t(0), omega_socmint: t(0),
   omega_stix: t(0), omega_supply: t(0), omega_threatfeed: t(0), omega_threatintel: t(0), omega_typosquat: t(0),
-  omega_c2: t(0, 'review'), omega_mldetect: t(0, 'review'),
+  omega_c2: t(0), omega_mldetect: t(0),
   omega_osintdb: t(0, 'side-effects'), omega_dashboard: t(0, 'side-effects'), omega_livedash: t(0, 'side-effects'),
   omega_pdfreport: t(0, 'side-effects'), omega_reportgen: t(0, 'side-effects'), omega_reporthtml: t(0, 'side-effects'),
   omega_pastewatch: t(0, 'side-effects'), omega_notifier: t(0, 'side-effects'),
   omega_ai_analyst: t(0, 'credits'), omega_aiassist: t(0, 'credits'), omega_aisummary: t(0, 'credits'),
   // Tier 1: connects to the target like a visitor (fetches pages, headers, certificates, DNS for its mail policy).
   omega_headers: t(1), omega_ssl: t(1), omega_tech: t(1), omega_cors: t(1), omega_mailsec: t(1), omega_infra: t(1),
-  omega_crypto: t(1), omega_screenshot: t(1), omega_certhunt: t(1, 'review'), omega_ioc: t(1, 'review'),
-  omega_docosint: t(1, 'review'), omega_phishcheck: t(1, 'review'), omega_opsec: t(1, 'review'),
-  omega_dossier: t(1, 'review'), omega_network: t(1, 'review'), omega_firmware: t(1, 'review'), omega_mobile: t(1, 'review'),
+  omega_crypto: t(1), omega_screenshot: t(1), omega_certhunt: t(1), omega_ioc: t(1),
+  omega_docosint: t(1), omega_phishcheck: t(1), omega_opsec: t(1),
+  omega_dossier: t(1), omega_network: t(1), omega_firmware: t(1), omega_mobile: t(1),
   omega_watcher: t(1, 'side-effects'), omega_monitor: t(1, 'side-effects'),
   // Tier 2: probing and enumeration that shows in the target's logs.
   omega_ports: t(2), omega_jscan: t(2), omega_crawl: t(2), omega_spider: t(2), omega_webcrawl: t(2), omega_dnsbrute: t(2),
   omega_buckets: t(2), omega_cloud: t(2), omega_cloud2: t(2), omega_subdomains: t(2), omega_assetmap: t(2),
-  omega_attackmap: t(2), omega_wordlist: t(2), omega_secrets: t(2), omega_auto: t(2), omega_deception: t(2, 'review'),
-  omega_creds: t(2, 'review'),
+  omega_attackmap: t(2), omega_wordlist: t(2), omega_secrets: t(2), omega_auto: t(2), omega_deception: t(2),
+  omega_creds: t(2),
   // Tier 3: attack-style testing, autonomous attack workflows, or arbitrary code.
-  omega_vuln: t(3), omega_fuzzer: t(3), omega_redteam: t(3), omega_pivot: t(3), omega_exfil: t(3, 'review'),
+  omega_vuln: t(3), omega_fuzzer: t(3), omega_redteam: t(3), omega_pivot: t(3), omega_exfil: t(3),
   omega_proxy: t(3, 'side-effects'), omega_chain: t(3), omega_plugin: t(3, 'side-effects'),
   omega_autopilot: t(3, 'credits'), omega_agent_run: t(3, 'credits')
 };
