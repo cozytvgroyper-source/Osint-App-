@@ -8,7 +8,7 @@ import {spawnSync} from 'node:child_process';
 // The launcher reads work/api-keys.env with scripts/load-api-keys.zsh and passes the keys to the Open OSINT data
 // service only. These tests run the loader under zsh with fake values and report what it exported.
 const loader=new URL('../scripts/load-api-keys.zsh',import.meta.url).pathname;
-const names=['AISSTREAM_API_KEY','OTX_API_KEY','ABUSEIPDB_API_KEY','INTELX_API_KEY','GROQ_API_KEY','NOT_A_SOURCE','PATH_LIKE'];
+const names=['AISSTREAM_API_KEY','OTX_API_KEY','ABUSEIPDB_API_KEY','INTELX_API_KEY','INTELX_API_ORIGIN','GROQ_API_KEY','NOT_A_SOURCE','PATH_LIKE'];
 
 function load(contents,{create=true}={}){
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'public-desk-keys-'));
@@ -47,6 +47,10 @@ test('never runs text from the file as a command',()=>{
   const {exported}=load(`OTX_API_KEY=$(touch ${marker})\ntouch ${marker}\nINTELX_API_KEY=\`touch ${marker}\`\n`);
   assert.equal(fs.existsSync(marker),false);
   assert.equal(exported.OTX_API_KEY,`$(touch ${marker})`);
+});
+
+test('passes the Intelligence X server setting for paid keys',()=>{
+  assert.equal(load('INTELX_API_ORIGIN=https://2.intelx.io\n').exported.INTELX_API_ORIGIN,'https://2.intelx.io');
 });
 
 test('keeps an equals sign inside a value',()=>{

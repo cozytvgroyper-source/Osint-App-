@@ -111,9 +111,10 @@ if ! is_ready "http://127.0.0.1:8080/health"; then
     cd "$OSINT_ROOT/server"
     # The data service calls listen(8080) with no address, which listens on every network interface.
     # bind-loopback.mjs keeps it on this Mac only. default-user-agent.mjs replaces fetch's "node" User-Agent,
-    # which some sources (rdap.org, behind get_whois) refuse with HTTP 403.
+    # which some sources (rdap.org, behind get_whois) refuse with HTTP 403. intelx-host.mjs sends get_intelx to
+    # Intelligence X's free server, because the module hardcodes the paid one (401 for free keys).
     node --import tsx --import "$APP_DIR/scripts/bind-loopback.mjs" --import "$APP_DIR/scripts/default-user-agent.mjs" \
-      server.mjs >"$LOG_DIR/headless.log" 2>&1 &
+      --import "$APP_DIR/scripts/intelx-host.mjs" server.mjs >"$LOG_DIR/headless.log" 2>&1 &
     echo $! >"$RUNTIME_DIR/headless.pid"
   )
 fi

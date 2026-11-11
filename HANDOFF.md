@@ -49,6 +49,7 @@ a browser and report what you observed.
 | `scripts/bind-loopback.mjs` | `node --import` preload: servers that name no address listen on 127.0.0.1 only |
 | `scripts/load-api-keys.zsh` | Reads `work/api-keys.env` (KEY=value, never sourced) and exports allowlisted data-source keys |
 | `config/api-keys.env.example` | Template the launcher copies to `work/api-keys.env` on first start |
+| `scripts/intelx-host.mjs` | `node --import` preload: sends `get_intelx` from `2.intelx.io` (paid) to `INTELX_API_ORIGIN`, default `free.intelx.io` |
 | `scripts/default-user-agent.mjs` | `node --import` preload: `fetch` calls with no User-Agent send `PublicDesk/1.0` instead of `node` |
 | `scripts/run-osint-mcp-guarded.py` | Starts Open OSINT's MCP server with a Host-header check (FastMCP 3.x has no setting) |
 | `Start/Stop Public Desk.command` | Mac launcher; see the launcher section below |
@@ -83,7 +84,8 @@ Keep them when changing the server or launcher.
   before raising it. Open OSINT runs through `run-osint-mcp-guarded.py` (forged Host → 400).
 - **Data service:** started with `bind-loopback.mjs`, because its own code calls `listen(8080)` with no address,
   and with `default-user-agent.mjs`, because rdap.org (behind `get_whois`) answers Node's default `node`
-  User-Agent with HTTP 403. About 22 of its 37 fetching modules set no User-Agent of their own.
+  User-Agent with HTTP 403. About 22 of its 37 fetching modules set no User-Agent of their own. It also loads
+  `intelx-host.mjs`, because free Intelligence X keys get 401 from the hardcoded `2.intelx.io`.
 - **Upload and sign-in:** uploads are size-limited, renamed, written 0600 and deleted after analysis; pending
   Consensus sign-ins expire after 10 minutes (at most 20, oldest dropped).
 - **API keys:** the user's keys live in `work/api-keys.env` (0600, git-ignored; `work/` is 0700). The launcher
@@ -159,6 +161,9 @@ another folder, naming the folder to stop. `Stop Public Desk.command` stops the 
   - ThreatFox intermittently errors.
 - **API keys:** none are filled in by default; see `config/api-keys.env.example` for each source and where to
   get a free key. OTX and AbuseIPDB feed `get_cyber_threats`; Intelligence X feeds `get_intelx`.
+- **Cyber threats drop most of their data:** Open OSINT's threat feed was built for a map. It geolocates each IP
+  through free ipinfo.io / freeipapi.com lookups (at most 250, 15 s overall) and discards every threat it could not
+  place. With valid OTX and AbuseIPDB keys (OTX alone returns 1,000 indicators) `get_cyber_threats` returned 1.
 - **AISStream is broken upstream:** Open OSINT's `ais_vessels` module calls `api.aisstream.io`, which does not
   resolve; AISStream only offers a WebSocket stream (`stream.aisstream.io`). A key changes the error from "not
   configured" to "fetch failed" but returns no vessels.
@@ -175,8 +180,8 @@ another folder, naming the folder to stop. `Stop Public Desk.command` stops the 
 
 ## Recommended next work
 
-1. The user is signing up for OTX, AbuseIPDB and Intelligence X keys; once they are in `work/api-keys.env`, restart
-   and check `get_cyber_threats` and `get_intelx` in a search.
+1. Keep threats without coordinates in `get_cyber_threats` (an Open OSINT change, or a Public Desk-side call to the
+   OTX and AbuseIPDB feeds), so the configured keys add their data to cyber searches.
 2. subfinder can only rejoin the automatic search if `osint-toolbox-mcp` exposes subfinder's `-max-time` (an
    upstream change; its `timeout` limits each request, not the run).
 3. Vessel positions need Open OSINT's `ais_vessels` module rewritten for AISStream's WebSocket stream.
