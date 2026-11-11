@@ -10,6 +10,9 @@ import { DATA_SOURCES, parseKeyFile, sourceStatuses, updateKeyFile, validateKeyV
 const ROOT = fileURLToPath(new URL('./public/', import.meta.url));
 const UPLOAD_ROOT = fileURLToPath(new URL('./work/uploads/', import.meta.url));
 const PORT = Number(process.env.PORT || 4173);
+const MAX_MCP_RESPONSE_BYTES = 5_000_000;
+const MAX_MCP_SSE_EVENTS = 1_000;
+const MAX_MCP_SSE_EVENT_BYTES = 1_000_000;
 const sessions = new Map();
 const uploads = new Map();
 const consensusOAuth = { client: null, accessToken: '', refreshToken: '', expiresAt: 0, pending: new Map() };
@@ -101,9 +104,40 @@ function validatedEndpoint(value) {
   return url;
 }
 
-function parseMcpResponse(text, contentType) {
+async function readLimitedResponse(response, limit = MAX_MCP_RESPONSE_BYTES) {
+  const declared = Number(response.headers.get('content-length'));
+  if (Number.isFinite(declared) && declared > limit) throw new Error(`MCP response exceeded the ${Math.round(limit / 1_000_000)} MB limit`);
+  if (!response.body) return '';
+  const reader = response.body.getReader();
+  const chunks = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > limit) {
+        await reader.cancel('Response size limit exceeded').catch(() => {});
+        throw new Error(`MCP response exceeded the ${Math.round(limit / 1_000_000)} MB limit`);
+      }
+      chunks.push(Buffer.from(value));
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return Buffer.concat(chunks, size).toString('utf8');
+}
+
+function parseMcpResponse(text, contentType, { maxSseEvents = MAX_MCP_SSE_EVENTS, maxSseEventBytes = MAX_MCP_SSE_EVENT_BYTES } = {}) {
   if (contentType.includes('text/event-stream')) {
-    const payloads = text.split('\n').filter(line => line.startsWith('data:')).map(line => line.slice(5).trim());
+    const payloads = [];
+    for (const line of text.split('\n')) {
+      if (!line.startsWith('data:')) continue;
+      if (payloads.length >= maxSseEvents) throw new Error('MCP event stream contained too many events');
+      const payload = line.slice(5).trim();
+      if (Buffer.byteLength(payload, 'utf8') > maxSseEventBytes) throw new Error('MCP event stream contained an oversized event');
+      payloads.push(payload);
+    }
     const last = payloads.filter(Boolean).at(-1);
     return last ? JSON.parse(last) : { error: { message: 'Empty MCP event stream' } };
   }
@@ -129,7 +163,7 @@ async function mcpRequest({ endpoint, token, method, params = {}, sessionKey }) 
   });
   const sessionId = response.headers.get('mcp-session-id');
   if (sessionId && sessionKey) sessions.set(sessionKey, sessionId);
-  const text = await response.text();
+  const text = await readLimitedResponse(response);
   if (!response.ok) throw new Error(`MCP server returned ${response.status}: ${text.slice(0, 240)}`);
   if (isNotification && !text) return { accepted: true };
   return parseMcpResponse(text, response.headers.get('content-type') || '');
@@ -414,4 +448,4 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   });
 }
 
-export { validatedEndpoint, parseMcpResponse, loadConsensusAuth, saveConsensusAuth, clearConsensusAuth, SECURITY_HEADERS, requestGuard, prunePendingSignIns, dataSourcesAction };
+export { validatedEndpoint, parseMcpResponse, readLimitedResponse, loadConsensusAuth, saveConsensusAuth, clearConsensusAuth, SECURITY_HEADERS, requestGuard, prunePendingSignIns, dataSourcesAction };

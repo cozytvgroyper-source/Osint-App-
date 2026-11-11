@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validatedEndpoint, parseMcpResponse } from '../server.mjs';
+import { validatedEndpoint, parseMcpResponse, readLimitedResponse } from '../server.mjs';
 
 test('accepts HTTP MCP endpoints',()=>assert.equal(validatedEndpoint('http://127.0.0.1:8892/mcp').pathname,'/mcp'));
 test('blocks embedded credentials and metadata endpoints',()=>{
@@ -10,6 +10,26 @@ test('blocks embedded credentials and metadata endpoints',()=>{
 test('parses JSON and SSE MCP responses',()=>{
   assert.deepEqual(parseMcpResponse('{"result":{"tools":[]}}','application/json'),{result:{tools:[]}});
   assert.deepEqual(parseMcpResponse('event: message\ndata: {"result":{"ok":true}}\n','text/event-stream'),{result:{ok:true}});
+});
+
+test('reads a normal MCP response below the byte limit',async()=>{
+  const response=new Response('{"result":{"ok":true}}',{headers:{'content-type':'application/json'}});
+  assert.equal(await readLimitedResponse(response,100),'{"result":{"ok":true}}');
+});
+
+test('rejects an oversized declared MCP response before reading it',async()=>{
+  const response=new Response('small',{headers:{'content-length':'101'}});
+  await assert.rejects(()=>readLimitedResponse(response,100),/exceeded/);
+});
+
+test('rejects a streamed MCP response that grows beyond the limit',async()=>{
+  const stream=new ReadableStream({start(controller){controller.enqueue(new Uint8Array(80));controller.enqueue(new Uint8Array(30));controller.close();}});
+  await assert.rejects(()=>readLimitedResponse(new Response(stream),100),/exceeded/);
+});
+
+test('bounds SSE event count and individual event size',()=>{
+  assert.throws(()=>parseMcpResponse('data: {}\ndata: {}\n','text/event-stream',{maxSseEvents:1,maxSseEventBytes:100}),/too many events/);
+  assert.throws(()=>parseMcpResponse(`data: {"value":"${'x'.repeat(40)}"}\n`,'text/event-stream',{maxSseEvents:10,maxSseEventBytes:20}),/oversized event/);
 });
 
 test('saves the Consensus sign-in privately and loads it back',async()=>{
