@@ -59,6 +59,7 @@ a browser and report what you observed.
 | `config/api-keys.env.example` | Template the launcher copies to `work/api-keys.env` on first start |
 | `scripts/apply-open-osint-patches.zsh` | Applies `patches/*.patch` to the Open OSINT checkout before its data service starts; skips applied ones, warns on ones that no longer fit |
 | `patches/` | Public Desk's fixes to Open OSINT's own code (see Known limitations: cyber threats) |
+| `scripts/abuse-ch-auth.mjs` | `node --import` preload: adds the saved abuse.ch key to MalwareBazaar and ThreatFox requests |
 | `scripts/intelx-host.mjs` | `node --import` preload: sends `get_intelx` from `2.intelx.io` (paid) to `INTELX_API_ORIGIN`, default `free.intelx.io` |
 | `scripts/default-user-agent.mjs` | `node --import` preload: `fetch` calls with no User-Agent send `PublicDesk/1.0` instead of `node` |
 | `scripts/run-osint-mcp-guarded.py` | Starts Open OSINT's MCP server with a Host-header check (FastMCP 3.x has no setting) |
@@ -184,8 +185,7 @@ another folder, naming the folder to stop. Every service port is checked by fold
   (public OSINT data). It is no longer reachable from the network.
 - **Upstream failures, not app bugs:**
   - GreyNoise returns 404 for IPs it has no record of.
-  - MalwareBazaar needs an API key (401).
-  - ThreatFox intermittently errors.
+  - MalwareBazaar and ThreatFox answer 401 until an abuse.ch key is connected in Data sources.
 - **API keys:** none are filled in by default; connect them in the Data sources panel, which links each source's
   sign-up page. OTX and AbuseIPDB feed `get_cyber_threats`; Intelligence X feeds `get_intelx`.
 - **Cyber threats (patched):** two launcher-applied patches fix Open OSINT's threat feed. Its `cyber_threats` tool sent
@@ -199,7 +199,8 @@ another folder, naming the folder to stop. Every service port is checked by fold
 - **AISStream is broken upstream:** Open OSINT's `ais_vessels` module calls `api.aisstream.io`, which does not
   resolve; AISStream only offers a WebSocket stream (`stream.aisstream.io`). A key changes the error from "not
   configured" to "fetch failed" but returns no vessels.
-- **MalwareBazaar** answers 401 because its module never sends the abuse.ch Auth-Key, even if one is configured.
+- **abuse.ch:** Open OSINT sends the Auth-Key only for URLhaus; `scripts/abuse-ch-auth.mjs` (a data-service preload)
+  adds the saved `URLHAUS_AUTH_KEY` to MalwareBazaar and ThreatFox API requests, and never to other hosts.
 - **Omega quirks:** Omega turns some network failures into an empty "ok" result, so "no results" isn't proof.
   `omega_monitor` always fails (not implemented in omega-cli).
 - **Domain-like words:** tokens such as "node.js" are treated as domain targets.
@@ -217,8 +218,6 @@ another folder, naming the folder to stop. Every service port is checked by fold
 2. subfinder can only rejoin the automatic search if `osint-toolbox-mcp` exposes subfinder's `-max-time` (an
    upstream change; its `timeout` limits each request, not the run).
 3. Vessel positions need Open OSINT's `ais_vessels` module rewritten for AISStream's WebSocket stream.
-4. MalwareBazaar needs its module (or a preload, like `default-user-agent.mjs`) to send `Auth-Key` from
-   `URLHAUS_AUTH_KEY`; one abuse.ch key covers URLhaus, MalwareBazaar and ThreatFox.
 
 ## Working rules from the user
 
