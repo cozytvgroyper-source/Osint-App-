@@ -123,7 +123,7 @@ when the browser cancels, and appends the final outcome to `work/deep-search-aud
 
 ## Step 4: Review Omega for passive coverage (complete)
 
-Re-check Omega's 79 Tier 0 tools against real output and add the useful ones to the main search's reviewed list
+Re-check Omega's Tier 0 tools (79 when this step began; 60 after the source review re-tiered the rest) against real output and add the useful ones to the main search's reviewed list
 (`OMEGA_AUTO_SEARCH_TOOLS`), for example `omega_breach`, `omega_archive` and `omega_threatintel`. The Tier 0 invariant
 test keeps this safe.
 
@@ -180,7 +180,7 @@ were run live:
 | `omega_apiosint` | Requests a list of common API paths (Swagger, GraphQL…) on the target | **Re-tiered to Active (2)** |
 | `omega_intel` | AlienVault OTX pulses and reputation; for IPs also GreyNoise (AbuseIPDB needs a key it lacks); ~2–4 s | **Approved** for domain and IP searches |
 | `omega_org` | Third parties only, but returned just "No job postings" for `example.com` and `github.com`; its GitHub and domain lookups need arguments the MCP wrapper never passes | Manual |
-| `omega_supply`, `omega_satellite`, `omega_leaked`, `omega_codetrace` | Passive, but take package names, aircraft IDs, emails or usernames | Left for later batches |
+| `omega_supply`, `omega_satellite`, `omega_leaked`, `omega_codetrace` | Passive, but take package names, aircraft IDs, emails or usernames | Decided in the full review below: all kept manual |
 
 Caveat for `omega_intel`: OTX pulses often list widely used, harmless domains (`example.com` appears in 50, some with
 alarming titles). A pulse count is a lead, not a verdict; the reputation score is the more meaningful line.

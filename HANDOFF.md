@@ -239,7 +239,8 @@ another folder, naming the folder to stop. Every service port is checked by fold
    all 14 best-guess tiers confirmed. Step 2 is complete: inline Sources, duplicate consolidation and passive pivots
    for IPs, emails and domains are implemented. Step 3 is complete: Deep Search has explicit scope and level controls,
    a selectable plan, authorization and typed Intrusive confirmation, sequential execution, Cancel, server-enforced
-   grants and the private local audit log. Step 4 has started: `omega_breach` is approved for automatic search after
+   grants and the private local audit log. Step 4 is complete; the history follows, and
+   `docs/omega-tool-review.md` has the current result for every tool. `omega_breach` is approved for automatic search after
    a live structured response; `omega_archive` and `omega_threatintel` returned only `completed` and remain manual.
    The identity batch also approved `omega_email` and `omega_gitrecon`; `omega_username` currently errors and
    `omega_phoneosint` returns only `completed`. The network batch (recon, ipdossier, geoint, torcheck, typosquat,
