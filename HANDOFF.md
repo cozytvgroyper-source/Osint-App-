@@ -2,7 +2,7 @@
 
 Updated 2026-11-11 (security hardening, CI, progressive results, topic-word trimming, Codex's hardening pass).
 `CLAUDE_CODE_HANDOFF.md` records the plan and verification of Codex's hardening pass; this file is the current
-reference. First written 2026-11-10; it replaces the original Codex handoff, which lived outside the repo and is now out of date.
+reference. `CODEX_HANDOFF.md` briefs Codex on the work since then and its next task (search overhaul step 2). First written 2026-11-10; it replaces the original Codex handoff, which lived outside the repo and is now out of date.
 
 ## Objective
 
