@@ -124,7 +124,9 @@ Keep them when changing the server or launcher.
 5. `classifyToolResult` sorts each response; only real data becomes a result category. When there are no findings,
    errors and empty answers appear under Unavailable Sources with their actual reason.
 6. The result window opens at once with a **Still Running** list, and each source's findings appear as it answers.
-   Findings come first, followed by an inline **Sources** log and then Related Links. The source log records each
+   Repeated simple domain, host, email, IP and URL lists are consolidated across tools, with every contributing
+   source named; rich certificate and registration records stay intact. Findings are followed by an inline
+   **Sources** log and then Related Links. The source log records each
    tool's server, risk tier, planner reason, exact arguments, start and finish times, and data/empty/error outcome;
    it is retained in saved evidence and investigation history. A newer search makes an older one's late answers stale.
 
@@ -220,8 +222,8 @@ another folder, naming the folder to stop. Every service port is checked by fold
 
 1. **Search overhaul:** follow `docs/search-overhaul.md`. Step 1 (risk tiers in Tool Library) is merged (PR #33), and
    the owner decided A–D on 2026-11-11: Sources panel inline, Intrusive included in Deep Search, no saved scope list,
-   all 14 best-guess tiers confirmed. The inline Sources log is implemented; the remaining Step 2 work is duplicate
-   finding consolidation and pivot buttons for IPs, emails and domains, each in its own PR.
+   all 14 best-guess tiers confirmed. The inline Sources log and duplicate finding consolidation are implemented;
+   the remaining Step 2 work is pivot buttons for IPs, emails and domains.
 2. Decide with the user whether cyber searches should mix sources instead of strict severity order, so OTX shows
    up in short result lists (another patch to the feed's sort). The user chose not to do this for now.
 3. subfinder can only rejoin the automatic search if `osint-toolbox-mcp` exposes subfinder's `-max-time` (an
