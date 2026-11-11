@@ -1,4 +1,4 @@
-import {splitTarget} from './search-query.js';
+import {extractMapArea,splitTarget} from './search-query.js';
 
 // Includes request words ("reports", "info", "lookup") that describe the ask rather than the subject.
 const STOP_WORDS=new Set(['a','an','and','are','as','at','be','by','for','from','how','in','is','it','of','on','or','the','to','what','when','where','which','report','reports','info','information','data','details','lookup','check','find','search','who','with']);
@@ -44,7 +44,7 @@ function targetMismatch(tool,query,target){
   if(constrained.has('email')&&target?.type!=='email')return 'Needs an email address';
   if(constrained.has('username')&&!(target?.type==='username'||/\b(?:username|handle|account)\b/i.test(value)))return 'Needs a username';
   if(constrained.has('number')&&target?.type!=='phone')return 'Needs a phone number';
-  if(constrained.has('bbox')&&!/\b(?:bbox|bounding box|over|near|region|area|coordinates?)\b/i.test(value))return 'Needs a map area';
+  if(constrained.has('bbox')&&!extractMapArea(value))return 'Needs a map area';
   return null;
 }
 function matchScore(terms,text,name){

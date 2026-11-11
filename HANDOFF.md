@@ -102,6 +102,9 @@ Never auto-run, but still available in Tool Library:
 - tools whose name or description indicates active probing (port scans, fuzzing, brute force, zone transfer or zone walk, crawling, and similar);
 - Omega tools outside the reviewed passive allowlist (`OMEGA_AUTO_SEARCH_TOOLS`);
 - `subfinder` and `theHarvester`, which exceed the 45 s request limit.
+- map-area tools (`get_ais_vessels`, `get_aircraft`, `get_satellite_search`) unless the search contains four
+  comma-separated coordinates (e.g. `vessels 24,54,26,56`). They then receive only those numbers, in the order typed;
+  the order is tool-specific (`get_aircraft` documents south,west,north,east). Other tools never filter on them.
 
 Keep this passive-by-default boundary.
 
@@ -159,9 +162,7 @@ another folder, naming the folder to stop. `Stop Public Desk.command` stops the 
 1. Investigate Open OSINT `get_whois` failing with RDAP HTTP 403.
 2. Tailor arguments per tool where schemas allow (e.g. limit theHarvester's sources) so slow tools can rejoin the
    automatic search.
-3. Fill map-area arguments properly: `get_ais_vessels` (maritime searches) receives the search text as its
-   required `bbox` instead of `west,south,east,north` coordinates.
-4. Configure API keys for the Open OSINT tools listed above if the user wants those sources.
+3. Configure API keys for the Open OSINT tools listed above if the user wants those sources.
 
 ## Working rules from the user
 
