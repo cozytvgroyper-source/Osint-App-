@@ -252,9 +252,10 @@ function renderCategory(name,entry){
 function renderReadableResult(result){
   const parsed=parseToolResult(result); const payload=parsed?.data??parsed; const report=payload?.report;
   if(report&&typeof report==='object'){
-    const stats=[['Categories queried',payload.modulesQueried],['Categories with results',payload.modulesWithResults],['Completed in',payload.durationMs?`${(payload.durationMs/1000).toFixed(1)} seconds`:null]].filter(([,value])=>value!==undefined&&value!==null);
-    const errors=Array.isArray(payload.errors)&&payload.errors.length?`<section class="result-category warning"><div class="category-head"><div><p class="eyebrow">SOURCE NOTES</p><h3>Unavailable Sources</h3></div></div>${renderArray(payload.errors)}</section>`:'';
-    return `<div class="result-summary"><p>${escapeHtml(parsed.description||'Multi-source intelligence report')}</p><div class="result-stats">${stats.map(([label,value])=>`<div><b>${escapeHtml(String(value))}</b><span>${escapeHtml(label)}</span></div>`).join('')}</div></div>${Object.entries(report).map(([name,entry])=>renderCategory(name,entry)).join('')}${errors}<details class="raw-result"><summary>Technical details</summary><pre>${escapeHtml(JSON.stringify(parsed,null,2))}</pre></details>`;
+    const entries=Object.entries(report); const hasFindings=entries.some(([name])=>!['Related Links','Still Running'].includes(name));
+    const content=entries.map(([name,entry])=>renderCategory(name,entry)).join('');
+    const errors=!('Still Running' in report)&&!hasFindings&&Array.isArray(payload.errors)&&payload.errors.length?`<section class="result-category warning"><div class="category-head"><div><p class="eyebrow">SEARCH RESULT</p><h3>No results returned</h3></div></div>${renderArray(payload.errors)}</section>`:'';
+    return `${content}${errors}`||'<p class="empty-copy">No matching results returned.</p>';
   }
   if(Array.isArray(payload))return renderArray(payload);
   if(payload&&typeof payload==='object')return `<section class="result-category"><div class="category-head"><div><p class="eyebrow">RESULT</p><h3>Findings</h3></div></div>${renderRecord(payload)}${Object.entries(payload).filter(([,value])=>Array.isArray(value)).map(([key,items])=>`<div class="result-subgroup"><h4>${escapeHtml(humanize(key))}</h4>${renderArray(items)}</div>`).join('')}</section><details class="raw-result"><summary>Technical details</summary><pre>${escapeHtml(JSON.stringify(parsed,null,2))}</pre></details>`;

@@ -9,10 +9,10 @@ const base={query:'8.8.8.8',intent:{id:'network',label:'IP and network intellige
 const done=(index,kind,extra={})=>({status:'fulfilled',value:{tool:plan[index].tool,outcome:{kind,...extra}}});
 const parse=built=>JSON.parse(built.result.content[0].text);
 
-test('before any source answers, shows the plan and every source as still running',()=>{
+test('before any source answers, shows only every source still running',()=>{
   const built=buildSearchReport({...base,outcomes:[]});
   const payload=parse(built);
-  assert.deepEqual(Object.keys(payload.data.report),['Search Plan','Still Running']);
+  assert.deepEqual(Object.keys(payload.data.report),['Still Running']);
   assert.deepEqual(payload.data.report['Still Running'].data.sources.map(item=>item.name),['whois','bgp','greynoise']);
   assert.match(payload.description,/0 of 3 sources answered/);
   assert.equal(built.finished,false);
@@ -33,7 +33,7 @@ test('reports errors and empty answers under Unavailable Sources, not as finding
   assert.equal(payload.data.modulesWithResults,0);
 });
 
-test('when every source has answered, drops the running list and shows the final summary',()=>{
+test('when every source has answered, leaves only finding categories in the report',()=>{
   const built=buildSearchReport({...base,outcomes:[done(0,'data',{data:{a:1}}),done(1,'data',{data:{b:2}}),done(2,'empty')],elapsedMs:4200});
   const payload=parse(built);
   assert.equal(built.finished,true);
@@ -50,10 +50,10 @@ test('gives two sources in the same category separate sections',()=>{
   assert.deepEqual(Object.keys(parse(built).data.report).filter(key=>key.startsWith('Network')),['Network','Network — bgp','Network — greynoise']);
 });
 
-test('keeps diagnostics and related links, which are not counted as findings',()=>{
+test('keeps related links but leaves diagnostics out of search results',()=>{
   const built=buildSearchReport({...base,diagnostics:{target:'ip'},links:[{title:'x',url:'https://example.com'}],outcomes:[done(0,'data',{data:{a:1}}),done(1,'empty'),done(2,'empty')]});
   const payload=parse(built);
-  assert.ok('Planner Diagnostics' in payload.data.report);
+  assert.ok(!('Planner Diagnostics' in payload.data.report));
   assert.ok('Related Links' in payload.data.report);
   assert.equal(payload.data.modulesWithResults,1);
 });
