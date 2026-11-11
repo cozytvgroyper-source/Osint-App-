@@ -97,7 +97,9 @@ if ! is_ready "http://127.0.0.1:8080/health"; then
   echo "Starting Open OSINT data service…"
   (
     cd "$OSINT_ROOT/server"
-    node --import tsx server.mjs >"$LOG_DIR/headless.log" 2>&1 &
+    # The data service calls listen(8080) with no address, which listens on every network interface.
+    # bind-loopback.mjs keeps it on this Mac only.
+    node --import tsx --import "$APP_DIR/scripts/bind-loopback.mjs" server.mjs >"$LOG_DIR/headless.log" 2>&1 &
     echo $! >"$RUNTIME_DIR/headless.pid"
   )
 fi
