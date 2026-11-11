@@ -221,6 +221,13 @@ another folder, naming the folder to stop. Every service port is checked by fold
 - **Empty-result wrappers:** some Open OSINT tools return explanatory text and counters alongside empty result arrays.
   The classifier can count those wrappers as data, so a deliberately nonexistent target may show a source section
   with zero matching records instead of the consolidated "No results returned" message.
+- **Tool review status (2026-11-11):** every tool on all four servers was reviewed from source. OSINT Toolbox (17)
+  and Open OSINT (107) needed no changes: the Toolbox passes fixed flags (theHarvester rejects `api_endpoints` as a
+  source, dnstwist runs DNS only, Wayback reads CDX only), and every Open OSINT module takes a query, never a host,
+  and only POSTs searches to third-party APIs. Omega results are in `docs/omega-tool-review.md`. Consensus's
+  `create_thread` and `add_to_thread` write to the account and run its AI agent; before this was fixed, a research
+  search could select them automatically. The planner now refuses any tool annotated as writing, and a test checks
+  that every automatic tool is read-only and unflagged.
 - **MCP sessions recover after a bridge restart:** a bridge that restarts forgets its sessions and answers 404. The app
   server then drops the cached session ID, initializes a new session and retries the call once (`withSessionRecovery`
   in `server.mjs`); `initialize` never sends a cached session ID.

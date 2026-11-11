@@ -76,14 +76,22 @@ const OMEGA = {
   omega_autopilot: t(3, 'credits'), omega_agent_run: t(3, 'credits')
 };
 
-// Whole servers reviewed as Tier 0 (2026-11-11). Open OSINT: all 107 tools read public feeds and databases through
-// its data service and never take a target to crawl or probe. Consensus: its 5 tools search published research papers.
-const PASSIVE_SERVERS = new Set(['Open OSINT', 'Consensus']);
+// Consensus (remote): its tools never contact a target, but create_thread and add_to_thread are annotated as writing:
+// they create research threads in the signed-in account and run Consensus's AI research agent on the plan's usage.
+const CONSENSUS = {
+  search: t(0), get_thread: t(0), find_threads: t(0),
+  create_thread: t(0, 'side-effects', 'credits'), add_to_thread: t(0, 'side-effects', 'credits')
+};
+
+// Whole servers reviewed as Tier 0 (2026-11-11; source re-checked the same day). Open OSINT: all 107 tools read public
+// feeds and databases through its data service, take a query rather than a host, and never crawl or probe a target.
+const PASSIVE_SERVERS = new Set(['Open OSINT']);
 
 const UNREVIEWED = {level: 3, flags: []};
 
 export function toolRisk(tool) {
-  const entry = TOOLBOX[tool.name] ?? OMEGA[tool.name] ?? (PASSIVE_SERVERS.has(tool.serverName) ? t(0) : null);
+  const entry = (tool.serverName === 'Consensus' ? CONSENSUS[tool.name] : null) ?? TOOLBOX[tool.name] ?? OMEGA[tool.name]
+    ?? (PASSIVE_SERVERS.has(tool.serverName) ? t(0) : null);
   const {level, flags} = entry ?? UNREVIEWED;
   const tier = TIERS[level];
   return {

@@ -17,7 +17,7 @@ test('defines four tiers from passive to intrusive',()=>{
 // The fixture holds the 240 tools of the three local servers; Consensus's 5 research-paper tools come from its online
 // server, so together the app shows 245.
 test('every connected tool has a reviewed tier',()=>{
-  assert.equal(tools.length,240);
+  assert.equal(tools.length,245,'107 Open OSINT, 17 OSINT Toolbox, 116 Omega and 5 Consensus tools');
   const unreviewed=tools.filter(tool=>!toolRisk(tool).reviewed).map(tool=>tool.name);
   assert.deepEqual(unreviewed,[]);
   assert.equal(toolRisk({name:'search',serverName:'Consensus'}).level,0,'Consensus searches published papers');
@@ -106,4 +106,16 @@ test('full Omega source review: re-tiers tools whose code contacts targets or sp
   assert.equal(risk('omega_typosquat').level,1);
   // executive calls OpenAI when a key is set.
   assert.deepEqual(risk('omega_executive').flags,['credits']);
+});
+
+test('flags the Consensus tools that create research threads and run its AI agent',()=>{
+  const risk=name=>toolRisk(tools.find(tool=>tool.serverName==='Consensus'&&tool.name===name));
+  for(const name of ['create_thread','add_to_thread'])assert.deepEqual([risk(name).level,risk(name).flags],[0,['side-effects','credits']],name);
+  for(const name of ['search','get_thread','find_threads'])assert.deepEqual([risk(name).level,risk(name).flags],[0,[]],name);
+  assert.deepEqual(toolRisk({name:'create_thread',serverName:'Some Other Server'}).level,3,'the Consensus entries apply only to Consensus');
+});
+
+test('every tool the main search may run is read-only and carries no flags',()=>{
+  const offenders=tools.filter(tool=>isPassiveSearchTool(tool)&&(toolRisk(tool).flags.length||tool.annotations?.readOnlyHint===false||tool.annotations?.destructiveHint===true)).map(tool=>`${tool.serverName}/${tool.name}`);
+  assert.deepEqual(offenders,[]);
 });
