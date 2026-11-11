@@ -2,7 +2,7 @@
   "mcpServers": {
     "osint-toolbox": {
       "command": "uvx",
-      "args": ["osint-toolbox-mcp"]
+      "args": ["osint-toolbox-mcp==1.1.0"]
     }
   }
 }

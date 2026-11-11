@@ -14,6 +14,18 @@ Reviewed revision:
 
 The worktree was clean when this handoff was written.
 
+## Objective Progress
+
+| Objective | Status | Branch | Verification |
+| --- | --- | --- | --- |
+| 1 Pin OSINT Toolbox | Completed | `fix/pin-osint-toolbox` | Locally resolved working package was `1.1.0`; configuration pin and regression test added; full suite passes 102 tests. |
+| 2 Make browser state recoverable and bounded | Not started | - | - |
+| 3 Verify process ownership before reuse or stop | Not started | - | - |
+| 4 Bound MCP responses | Not started | - | - |
+| 5 Expire abandoned uploads | Not started | - | - |
+| 6 Harden custom MCP destinations | Not started | - | - |
+| Interface and documentation cleanup | Not started | - | - |
+
 ## Owner Requirements
 
 - Preserve the current result-only search presentation. When useful findings exist, show the findings and Related Links. Do not restore the search plan, counts, diagnostics, raw output, or unavailable-source errors to the ordinary completed result view.
