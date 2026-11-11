@@ -33,7 +33,9 @@ git diff --check
 ```
 
 GitHub Actions (`.github/workflows/ci.yml`) runs the syntax checks, `py_compile`, `zsh -n` on the launchers and
-`npm test` on Node 20 and 22 for every pull request and push to `main`. For UI changes, also exercise the feature in
+`npm test` on Node 20 and 22, on macOS runners (free for this public repo), for every pull request and push to
+`main`. macOS has zsh and lsof built in, so CI downloads no packages; Ubuntu runners needed zsh from apt, which a
+runner DNS outage blocked for over an hour on 2026-11-11. For UI changes, also exercise the feature in
 a browser and report what you observed.
 
 ## Architecture
