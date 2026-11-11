@@ -32,7 +32,8 @@ function findTarget(query){
   return null;
 }
 
-// A map area typed as four numbers, west,south,east,north ("24,54,26,56"), normalised without spaces.
+// A map area typed as four comma-separated numbers ("24,54,26,56"), normalised without spaces. The order is
+// passed through unchanged, because tools differ (get_aircraft documents south,west,north,east).
 const NUMBER='-?\\d{1,3}(?:\\.\\d+)?';
 const MAP_AREA=new RegExp(`(?<![\\d.])(${NUMBER})\\s*,\\s*(${NUMBER})\\s*,\\s*(${NUMBER})\\s*,\\s*(${NUMBER})(?![\\d.])`);
 export function extractMapArea(query){
@@ -138,7 +139,8 @@ export function argsForSearch(tool,query){
   clean=clean.replace(/^(?:location|city|country|organization|company|business|domain|website|username|handle|news|current events?|academic|research)\s*(?::|-)?\s+/i,'');
   clean=clean.replace(/^(?:recent|latest|current|today'?s?)\s+/i,'').replace(/\s+(?:news|developments|updates)$/i,'').trim();
   const target=extractTarget(query);
-  if(!target)clean=searchSubject(clean,searchIntent(query).id);
+  // Coordinates are for map-area tools only; as another tool's text filter they would match nothing.
+  if(!target)clean=searchSubject(clean.replace(MAP_AREA,' ').replace(/\s+/g,' ').trim(),searchIntent(query).id);
   const countryQuery=target?target.value:['get_country_facts','get_travel_advisories'].includes(tool.name)&&clean.includes(',')?clean.split(',').at(-1).trim():clean;
   const queryKey=['query','target','keyword','username','email','number','identifier','domain','search','q'].find(key=>props[key]);
   const mapArea=required.includes('bbox')?extractMapArea(query):null;

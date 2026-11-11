@@ -102,8 +102,9 @@ Never auto-run, but still available in Tool Library:
 - tools whose name or description indicates active probing (port scans, fuzzing, brute force, zone transfer or zone walk, crawling, and similar);
 - Omega tools outside the reviewed passive allowlist (`OMEGA_AUTO_SEARCH_TOOLS`);
 - `subfinder` and `theHarvester`, which exceed the 45 s request limit.
-- map-area tools (`get_ais_vessels`, `get_aircraft`, `get_satellite_search`) unless the search contains coordinates
-  as `west,south,east,north` (e.g. `vessels 24,54,26,56`); they then receive only those coordinates.
+- map-area tools (`get_ais_vessels`, `get_aircraft`, `get_satellite_search`) unless the search contains four
+  comma-separated coordinates (e.g. `vessels 24,54,26,56`). They then receive only those numbers, in the order typed;
+  the order is tool-specific (`get_aircraft` documents south,west,north,east). Other tools never filter on them.
 
 Keep this passive-by-default boundary.
 
