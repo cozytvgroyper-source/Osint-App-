@@ -21,8 +21,35 @@ MAX_OUTPUT_CHARS = 20000
 _ANSI = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
 
 
+# Terminal decoration: box-drawing and block characters (the ASCII-art banner, panel edges, rules).
+_BOX = "─-╿▀-▟"
+_BORDERED = re.compile(r"^\s*[│┃║]\s*(.*?)\s*[│┃║]\s*$")
+_TITLED_RULE = re.compile(r"^[\s─━═=]{3,}(\S.*?)[\s─━═=]{3,}$")
+_DECORATION_ONLY = re.compile(r"^[\s" + _BOX + r"=\-]*$")
+# The version banner, and the report path, which would put this Mac's home folder into results and evidence.
+_DROPPED = re.compile(r"^\s*(?:OMEGA-CLI v\S+ |Saved → )")
+
+
+def _tidy_line(line):
+    line = line.rstrip()
+    if _DROPPED.match(line):
+        return None
+    bordered = _BORDERED.match(line)
+    if bordered:
+        line = bordered.group(1)
+    titled = _TITLED_RULE.match(line)
+    if titled:
+        line = titled.group(1)
+    return "" if _DECORATION_ONLY.match(line) else line
+
+
 def _clean(text):
-    lines = [line.rstrip() for line in _ANSI.sub("", text).splitlines()]
+    lines = []
+    for raw in _ANSI.sub("", text).splitlines():
+        line = _tidy_line(raw)
+        if line is None or (line == "" and (not lines or lines[-1] == "")):
+            continue
+        lines.append(line)
     cleaned = "\n".join(lines).strip("\n")
     if len(cleaned) > MAX_OUTPUT_CHARS:
         cleaned = cleaned[:MAX_OUTPUT_CHARS] + "\n… (output truncated)"

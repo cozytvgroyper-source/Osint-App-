@@ -49,6 +49,23 @@ test('keeps the completed marker when the module printed nothing', () => {
   assert.deepEqual(result, { status: 'ok', result: 'completed' });
 });
 
+test('drops terminal decoration and local report paths but keeps the findings and section titles', () => {
+  const { result } = runCaptured(`    print(' ██████╗ ███╗   ███╗')
+    print(' ╚═════╝ ╚═╝     ╚═╝')
+    print('  OMEGA-CLI v1.7.0 — OSINT & Passive Recon Toolkit')
+    print('╭──────────────────────────────╮')
+    print('│ 🌐  IP Dossier — 8.8.8.8      │')
+    print('╰──────────────────────────────╯')
+    print('')
+    print('')
+    print('──────────── WHOIS ────────────')
+    print('PTR: dns.google')
+    print('  Open ports: 53, 443')
+    print('Saved → /Users/someone/.omega/reports/ipdossier_8.8.8.8.json')
+    return {'status': 'ok', 'result': 'completed'}`);
+  assert.equal(result.result, '🌐  IP Dossier — 8.8.8.8\n\nWHOIS\nPTR: dns.google\n  Open ports: 53, 443');
+});
+
 test('caps very long printed output', () => {
   const { result } = runCaptured(`    print('x' * 50000)
     return {'status': 'ok', 'result': 'completed'}`);
