@@ -16,7 +16,7 @@ export const DATA_SOURCES = Object.freeze([
   { id: 'intelx', name: 'Intelligence X', fields: [field('INTELX_API_KEY')], feeds: ['get_intelx'],
     signup: 'https://intelx.io/account?tab=developer', note: 'Free keys work: Public Desk sends them to free.intelx.io.' },
   { id: 'aisstream', name: 'AISStream', fields: [field('AISSTREAM_API_KEY')], feeds: ['get_ais_vessels'],
-    signup: 'https://aisstream.io/apikeys', note: 'Broken upstream: Open OSINT calls a host that does not exist, so no vessels are returned.' },
+    signup: 'https://aisstream.io/apikeys', note: 'Live ship positions. Needs map coordinates in the search; coverage is thin in some regions, such as the Persian Gulf.' },
   { id: 'urlhaus', name: 'abuse.ch', fields: [field('URLHAUS_AUTH_KEY', 'Auth-Key')], feeds: ['get_malwarebazaar', 'get_threatfox', 'get_cyber_threats'],
     signup: 'https://auth.abuse.ch', note: 'One free key covers MalwareBazaar (file hashes), ThreatFox (indicators) and URLhaus (malicious URLs).' },
   { id: 'greynoise', name: 'GreyNoise', fields: [field('GREYNOISE_API_KEY')], feeds: ['get_greynoise'],

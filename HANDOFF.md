@@ -196,9 +196,10 @@ another folder, naming the folder to stop. Every service port is checked by fold
 - **AbuseIPDB's free blacklist allows 5 requests a day.** A launcher-applied patch caches the full list for 6 hours
   in the data service (at most 4 requests a day) and keeps the last list when a refresh fails, retrying after an
   hour. The cache is in memory, so each data-service restart costs one request.
-- **AISStream is broken upstream:** Open OSINT's `ais_vessels` module calls `api.aisstream.io`, which does not
-  resolve; AISStream only offers a WebSocket stream (`stream.aisstream.io`). A key changes the error from "not
-  configured" to "fetch failed" but returns no vessels.
+- **Vessel positions (patched):** Open OSINT's `ais_vessels` called `api.aisstream.io`, which does not exist. A
+  launcher-applied patch rewrites it to subscribe to AISStream's WebSocket stream, listen up to 10 s (or until
+  `limit` ships) and disconnect, using Node's built-in WebSocket. Coverage depends on AISStream's volunteer
+  receivers: the North Sea and English Channel return ships, the Persian Gulf usually returns none.
 - **abuse.ch:** Open OSINT sends the Auth-Key only for URLhaus; `scripts/abuse-ch-auth.mjs` (a data-service preload)
   adds the saved `URLHAUS_AUTH_KEY` to MalwareBazaar and ThreatFox API requests, and never to other hosts.
 - **Omega quirks:** Omega turns some network failures into an empty "ok" result, so "no results" isn't proof.
@@ -216,8 +217,8 @@ another folder, naming the folder to stop. Every service port is checked by fold
 1. Decide with the user whether cyber searches should mix sources instead of strict severity order, so OTX shows
    up in short result lists (another patch to the feed's sort). The user chose not to do this for now.
 2. subfinder can only rejoin the automatic search if `osint-toolbox-mcp` exposes subfinder's `-max-time` (an
-   upstream change; its `timeout` limits each request, not the run).
-3. Vessel positions need Open OSINT's `ais_vessels` module rewritten for AISStream's WebSocket stream.
+   upstream change; its `timeout` limits each request, not the run). Checked 2026-11-11: neither 1.1.0, the latest
+   release, nor the GitHub `main` branch exposes it; asking the maintainer would be a public post, so needs approval.
 
 ## Working rules from the user
 
