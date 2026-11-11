@@ -3,6 +3,7 @@
 // otherwise a Promise.allSettled-style entry whose value is {tool, outcome: classifyToolResult(...)}.
 
 import {toolRisk} from './tool-tiers.js';
+import {consolidateIndicatorLists, extractIndicatorLists} from './search-dedup.js';
 
 const NOT_FINDINGS = new Set(['Sources', 'Related Links', 'Still Running', 'Planner Diagnostics']);
 
@@ -12,7 +13,7 @@ export function reportHasFindings(report) {
 }
 
 export function buildSearchReport({query, intent, plan, outcomes, diagnostics = null, links = [], categoryForTool, sourceLabel, elapsedMs = 0}) {
-  const report = {}; const errors = []; const servers = new Set(); const pending = [];
+  const report = {}; const errors = []; const servers = new Set(); const pending = []; const dataResults = [];
   if (!plan.length) errors.push({source: 'Relevant MCP server', error: 'No connected server currently provides the tools needed for this search category. Connect the matching server and try again.'});
 
   plan.forEach(({tool}, index) => {
@@ -24,11 +25,27 @@ export function buildSearchReport({query, intent, plan, outcomes, diagnostics = 
     if (result.kind === 'error') errors.push({source: sourceLabel(tool.name), error: result.error});
     else if (result.kind === 'empty') errors.push({source: sourceLabel(tool.name), error: 'No matching records returned for this subject.'});
     else {
-      const category = categoryForTool(tool); let key = category;
-      if (report[key]) key = `${category} — ${sourceLabel(tool.name)}`;
-      report[key] = {eyebrow: `${tool.serverName} · ${sourceLabel(tool.name)}`, description: tool.description || `Results from ${tool.serverName}`, data: result.data};
+      const source = `${tool.serverName} · ${sourceLabel(tool.name)}`;
+      dataResults.push({tool, result, extraction: {...extractIndicatorLists(result.data), source}});
     }
   });
+
+  const consolidated = consolidateIndicatorLists(dataResults.map(item => item.extraction));
+  if (consolidated.hasDuplicates) {
+    report['Consolidated Findings'] = {
+      eyebrow: 'MERGED ACROSS SOURCES',
+      description: 'Repeated domains, hosts, emails, IP addresses, and URLs are listed once with every source that found them.',
+      data: consolidated.groups
+    };
+  }
+  for (const item of dataResults) {
+    const {tool, result, extraction} = item;
+    const data = consolidated.hasDuplicates && extraction.changed ? extraction.data : result.data;
+    if (data && typeof data === 'object' && !Array.isArray(data) && !Object.keys(data).length) continue;
+    const category = categoryForTool(tool); let key = category;
+    if (report[key]) key = `${category} — ${sourceLabel(tool.name)}`;
+    report[key] = {eyebrow: `${tool.serverName} · ${sourceLabel(tool.name)}`, description: tool.description || `Results from ${tool.serverName}`, data};
+  }
 
   const sourceLog = plan.map(({tool, reason, args = {}, startedAt = null}, index) => {
     const settled = outcomes[index];
@@ -69,7 +86,7 @@ export function buildSearchReport({query, intent, plan, outcomes, diagnostics = 
   }
   if (diagnostics) report['Planner Diagnostics'] = {eyebrow:'DEVELOPMENT MODE',description:'Why the automatic planner selected or skipped tools for this search.',data:diagnostics};
   if (links.length) report['Related Links'] = {eyebrow: 'FOLLOW-UP SOURCES', description: 'Useful external sources for verifying and expanding this search.', data: {links}};
-  const findingCount = Object.keys(report).filter(key => !NOT_FINDINGS.has(key)).length;
+  const findingCount = dataResults.length;
   const answered = plan.length - pending.length;
   const description = finished ? `${intent.label} for “${query}”` : `${intent.label} for “${query}” — ${answered} of ${plan.length} sources answered`;
   const payload = {description, data: {query, modulesQueried: plan.length, modulesWithResults: findingCount, durationMs: finished ? elapsedMs : 0, report, errors}};

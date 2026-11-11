@@ -66,6 +66,23 @@ test('gives two sources in the same category separate sections',()=>{
   assert.deepEqual(Object.keys(parse(built).data.report).filter(key=>key.startsWith('Network')),['Network','Network — bgp','Network — greynoise']);
 });
 
+test('merges duplicate indicator lists once and names every contributing source',()=>{
+  const built=buildSearchReport({...base,outcomes:[
+    done(0,'data',{data:{hostnames:['api.example.com','www.example.com'],total:2}}),
+    done(1,'data',{data:{hosts:['API.EXAMPLE.COM:1.2.3.4'],emails:['user@example.com']}}),
+    done(2,'data',{data:{subdomains:['api.example.com'],records:[{domain:'api.example.com',detail:'kept'}]}})
+  ]});
+  const report=parse(built).data.report;
+  assert.equal(Object.keys(report)[0],'Consolidated Findings');
+  assert.deepEqual(report['Consolidated Findings'].data.domains.find(item=>item.title.toLowerCase()==='api.example.com'),{
+    title:'api.example.com',foundBy:'Open OSINT · whois; Open OSINT · bgp; Open OSINT · greynoise',sourceCount:3
+  });
+  assert.ok(!('hostnames' in report['Category get_whois'].data));
+  assert.equal(report['Category get_whois'].data.total,2);
+  assert.deepEqual(report['Category get_greynoise'].data.records,[{domain:'api.example.com',detail:'kept'}]);
+  assert.equal(parse(built).data.modulesWithResults,3);
+});
+
 test('keeps related links and leaves diagnostics out of ordinary search results',()=>{
   const built=buildSearchReport({...base,links:[{title:'x',url:'https://example.com'}],outcomes:[done(0,'data',{data:{a:1}}),done(1,'empty'),done(2,'empty')]});
   const payload=parse(built);

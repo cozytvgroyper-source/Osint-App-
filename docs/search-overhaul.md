@@ -82,9 +82,9 @@ finish times, and the outcome (data, empty, error).
 owner requirement that completed searches show only findings and Related Links (`CLAUDE_CODE_HANDOFF.md`, Owner
 Requirements); findings still come first.
 
-Also in this step: merge duplicate findings across tools (one subdomain list from crt.sh, theHarvester and
-HackerTarget, with "found by 3 sources"), pivot buttons on IPs, emails and domains in results, and the source log
-saved with each search in history and evidence.
+Also in this step: merge duplicate findings across tools (implemented for simple domain, host, email, IP and URL
+lists, with every contributing source named), pivot buttons on IPs, emails and domains in results (not yet built),
+and the source log saved with each search in history and evidence.
 
 ## Step 3: Deep Search page
 

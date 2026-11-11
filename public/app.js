@@ -1,6 +1,6 @@
 import {explainSearchPlan,summarizePlanDiagnostics} from './search-planner.js';
 import {classifyToolResult,hasUsefulData,parseToolResult} from './result-classifier.js';
-import {buildSearchReport,reportHasFindings} from './search-report.js';
+import {buildSearchReport,reportHasFindings} from './search-report.js?v=2';
 import {recordToolHealth,serverConnectionLabel,toolCountLabel} from './tool-health.js';
 import {argsForSearch,extractTarget,searchIntent} from './search-query.js';
 import {loadStoredState,mergeStoredServers,persistStoredState} from './browser-storage.js';
