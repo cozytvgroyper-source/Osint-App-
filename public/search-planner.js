@@ -22,7 +22,7 @@ function toolText(tool){
 // Omega's descriptions do not reliably reveal side effects (target probing, paid AI calls,
 // on-demand package installs, outbound webhooks), so automatic search may only use Omega
 // tools whose source was reviewed and found to query public lookup services alone.
-const OMEGA_AUTO_SEARCH_TOOLS=new Set(['omega_whois','omega_dns','omega_ipinfo','omega_crtsh','omega_wayback','omega_cve','omega_asn','omega_malware','omega_spoofcheck','omega_reverseip','omega_dorks','omega_threatfeed']);
+const OMEGA_AUTO_SEARCH_TOOLS=new Set(['omega_whois','omega_dns','omega_ipinfo','omega_crtsh','omega_wayback','omega_cve','omega_asn','omega_malware','omega_spoofcheck','omega_reverseip','omega_dorks','omega_threatfeed','omega_breach']);
 function isOmegaTool(tool){return tool.serverName==='Omega MCP'||/^omega_/i.test(tool.name||'');}
 // Enumeration tools that exceed the 45-second request limit with any argument the automatic search can send
 // (subfinder took 31-58 s whatever its per-request timeout). They stay available in Tool Library.

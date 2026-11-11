@@ -121,11 +121,15 @@ arguments in addition to the visible target and selected level. Deep Search uses
 plan, runs the selected calls sequentially with a two-minute per-tool limit, cancels the in-flight upstream request
 when the browser cancels, and appends the final outcome to `work/deep-search-audit.jsonl` with mode 0600.
 
-## Step 4: Review Omega for passive coverage
+## Step 4: Review Omega for passive coverage (in progress)
 
 Re-check Omega's 79 Tier 0 tools against real output and add the useful ones to the main search's reviewed list
 (`OMEGA_AUTO_SEARCH_TOOLS`), for example `omega_breach`, `omega_archive` and `omega_threatintel`. The Tier 0 invariant
 test keeps this safe.
+
+First live review, 2026-11-11: `omega_breach` returned structured target and breach data and is approved for automatic
+search. `omega_archive` and `omega_threatintel` returned only a generic `completed` marker for `example.com`, so they
+remain Tool Library-only until they expose usable findings.
 
 ## Decisions (owner, 2026-11-11)
 
