@@ -216,6 +216,8 @@ another folder, naming the folder to stop. Every service port is checked by fold
 - **Empty-result wrappers:** some Open OSINT tools return explanatory text and counters alongside empty result arrays.
   The classifier can count those wrappers as data, so a deliberately nonexistent target may show a source section
   with zero matching records instead of the consolidated "No results returned" message.
+- **Restarting one MCP bridge strands the app's session:** the app server keeps the old MCP session ID, the new bridge
+  answers 404, and the server shows "Ready to connect" until Public Desk itself restarts. The launchers restart both.
 - **Domain-like words:** tokens such as "node.js" are treated as domain targets.
 - **Subject trimming is word-list based:** a name that contains its own topic word loses it ("Port of Rotterdam"
   sends "Rotterdam"), and a topic-only search such as "latest ransomware" still sends "ransomware" as a filter.
@@ -236,8 +238,9 @@ another folder, naming the folder to stop. Every service port is checked by fold
    The identity batch also approved `omega_email` and `omega_gitrecon`; `omega_username` currently errors and
    `omega_phoneosint` returns only `completed`. The network batch (recon, ipdossier, geoint, torcheck, typosquat,
    social) approved none. The `completed` placeholders came from omega-cli printing to the MCP stdio channel;
-   `scripts/run-omega-mcp-captured.py` now returns that printed text. Next: re-review the tools previously marked
-   `completed` against their new text output, then continue the remaining Tier 0 tools.
+   `scripts/run-omega-mcp-captured.py` now returns that printed text. The re-review approved `omega_ipdossier` for
+   IP searches, re-tiered `omega_recon` to Active and flagged `omega_archive` with side effects (details in
+   `docs/search-overhaul.md`, step 4). Continue with the remaining unreviewed Tier 0 tools.
 2. Decide with the user whether cyber searches should mix sources instead of strict severity order, so OTX shows
    up in short result lists (another patch to the feed's sort). The user chose not to do this for now.
 3. subfinder can only rejoin the automatic search if `osint-toolbox-mcp` exposes subfinder's `-max-time` (an

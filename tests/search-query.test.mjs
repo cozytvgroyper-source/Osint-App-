@@ -86,6 +86,7 @@ test('real searches still reach the right sources',()=>{
 test('reviewed Omega identity sources join email and username searches',()=>{
   assert.ok(searchIntent('user@example.com').tools.includes('omega_email'));
   assert.ok(searchIntent('@octocat').tools.includes('omega_gitrecon'));
+  assert.ok(searchIntent('8.8.8.8').tools.includes('omega_ipdossier'));
 });
 
 test('never auto-selects tools that probe the target, such as DNS zone transfers',()=>{

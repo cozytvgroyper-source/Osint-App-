@@ -154,6 +154,21 @@ IP dossier; `omega_whois` and `omega_email` return the same structured JSON as b
 JSON-RPC parse errors. None of these was added to automatic search in this change: re-review every tool previously
 marked `completed` (archive, threatintel, phoneosint, recon, ipdossier, geoint) against its new text output first.
 
+Text-output review, 2026-11-11 (after the fix):
+
+| Tool | Live result | Decision |
+|---|---|---|
+| `omega_ipdossier` (`8.8.8.8`) | PTR, Shodan InternetDB open ports and hostnames, BGP prefix, 8-list DNSBL check, risk score, in ~1.3 s | **Approved** for IP searches. Caveat: it reported AS3356 (the covering 8.0.0.0/9 prefix from bgp.he.net), not Google's AS15169, and its geolocation section was empty |
+| `omega_geoint` (`8.8.8.8`) | Location, ISP and ASN (AS15169) | Manual: duplicates the approved `omega_ipinfo` |
+| `omega_threatintel` (`example.com`) | URLhaus "unknown"; AbuseIPDB needs a key omega-cli does not have | Manual: no findings without keys |
+| `omega_phoneosint` (`+12025550100`) | Country and region from the number, "Spam Rating 5/5" for a reserved test number | Manual: the rating is unreliable |
+| `omega_recon` (`example.com`) | Output included a port scan, subdomain brute force, HTTP/SSL probes and cloud-bucket checks | **Re-tiered to Active (2)**; never automatic |
+| `omega_archive` (`example.com`) | Output showed it submitted the target to the Wayback Machine's Save Page Now | **Flagged side-effects**; manual |
+
+The captured text is tidied before it is returned: the ASCII-art banner, panel borders and rules are dropped (section
+titles kept), and "Saved → /Users/…" report paths are removed so this Mac's home folder never reaches results or
+evidence. The result dialog renders multi-line text as preformatted text.
+
 ## Decisions (owner, 2026-11-11)
 
 | | Question | Decision |
