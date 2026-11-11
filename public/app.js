@@ -278,11 +278,20 @@ function renderCategory(name,entry){
   const objects=data&&typeof data==='object'?Object.entries(data).filter(([,value])=>value&&typeof value==='object'&&!Array.isArray(value)):[];
   return `<section class="result-category"><div class="category-head"><div><p class="eyebrow">${escapeHtml(entry?.eyebrow||'CATEGORY')}</p><h3>${escapeHtml(humanize(name))}</h3></div>${entry?.description?`<p>${escapeHtml(entry.description)}</p>`:''}</div>${renderRecord(data)}${objects.map(([key,value])=>`<div class="result-subgroup"><h4>${escapeHtml(humanize(key))}</h4>${renderRecord(value)}</div>`).join('')}${arrays.map(([key,items])=>`<div class="result-subgroup"><h4>${escapeHtml(humanize(key))}</h4>${renderArray(items)}</div>`).join('')}</section>`;
 }
+function renderSources(entry){
+  const sources=entry?.data?.sources||[];
+  const when=value=>value?`<time datetime="${escapeHtml(value)}">${escapeHtml(new Date(value).toLocaleString())}</time>`:'—';
+  const cards=sources.map(source=>{
+    const outcome=source.outcome||{kind:'running'};const error=outcome.error?`<p class="source-error">${escapeHtml(outcome.error)}</p>`:'';
+    return `<article class="source-entry"><div class="source-entry-head"><div><h4>${escapeHtml(source.tool)}</h4><p>${escapeHtml(source.server)}</p></div>${tierBadge(source.tier)}</div><p class="source-reason">${escapeHtml(source.reason)}</p><dl class="source-meta"><div><dt>Started</dt><dd>${when(source.startedAt)}</dd></div><div><dt>Finished</dt><dd>${when(source.finishedAt)}</dd></div><div><dt>Outcome</dt><dd><span class="source-outcome source-outcome-${escapeHtml(outcome.kind)}">${escapeHtml(humanize(outcome.kind))}</span></dd></div></dl><div class="source-arguments"><b>Arguments sent</b><pre>${escapeHtml(JSON.stringify(source.arguments||{},null,2))}</pre></div>${error}</article>`;
+  }).join('');
+  return `<section class="result-category sources-category"><div class="category-head"><div><p class="eyebrow">${escapeHtml(entry?.eyebrow||'SEARCH PROVENANCE')}</p><h3>Sources</h3></div>${entry?.description?`<p>${escapeHtml(entry.description)}</p>`:''}</div><div class="source-list">${cards}</div></section>`;
+}
 function renderReadableResult(result){
   const parsed=parseToolResult(result); const payload=parsed?.data??parsed; const report=payload?.report;
   if(report&&typeof report==='object'){
     const entries=Object.entries(report); const hasFindings=reportHasFindings(report);
-    const content=entries.map(([name,entry])=>renderCategory(name,entry)).join('');
+    const content=entries.map(([name,entry])=>name==='Sources'?renderSources(entry):renderCategory(name,entry)).join('');
     const errors=!('Still Running' in report)&&!hasFindings&&Array.isArray(payload.errors)&&payload.errors.length?`<section class="result-category warning"><div class="category-head"><div><p class="eyebrow">SEARCH RESULT</p><h3>No results returned</h3></div></div>${renderArray(payload.errors)}</section>`:'';
     return `${content}${errors}`||'<p class="empty-copy">No matching results returned.</p>';
   }
@@ -358,6 +367,8 @@ async function smartInvestigate(query){
   const explained=explainSearchPlan({query,intentId:intent.id,preferredNames:intent.tools,tools,maxTools:6});
   const plan=explained.selected.map(({tool,score,reason})=>({tool,score,reason}));
   if(!plan.length&&intent.id==='entity'){const fallback=tools.find(tool=>tool.name==='get_wikidata')||tools.find(tool=>tool.name==='get_hn_search');if(fallback)plan.push({tool:fallback,score:1,reason:'General entity fallback'});}
+  const runStartedAt=new Date().toISOString();
+  plan.forEach(item=>{item.args=argsForSearch(item.tool,query);item.startedAt=runStartedAt;});
   const selected=plan.map(item=>item.tool);
   const plannedServers=new Set(selected.map(tool=>tool.serverName));
   toast(selected.length?`Searching ${selected.length} relevant tools across ${plannedServers.size} server${plannedServers.size===1?'':'s'}…`:'Relevant server is not connected');
@@ -372,18 +383,19 @@ async function smartInvestigate(query){
     return built;
   };
   if(selected.length)showResult(query,buildSearchReport(reportOptions).result);
-  await Promise.allSettled(selected.map(async(tool,index)=>{
+  await Promise.allSettled(plan.map(async(item,index)=>{
+    const tool=item.tool;
     try{
-      const response=await callTool(tool,tool.serverId,argsForSearch(tool,query));
+      const response=await callTool(tool,tool.serverId,item.args);
       if(response.error)throw new Error(response.error.message||'Tool call failed');
       const outcome=classifyToolResult(response.result);
-      outcomes[index]={status:'fulfilled',value:{tool,outcome}};noteToolHealth(tool.serverId,tool.name,outcome.kind);
-    }catch(error){outcomes[index]={status:'rejected',reason:error};noteToolHealth(tool.serverId,tool.name,'error');}
+      outcomes[index]={status:'fulfilled',value:{tool,outcome},finishedAt:new Date().toISOString()};noteToolHealth(tool.serverId,tool.name,outcome.kind);
+    }catch(error){outcomes[index]={status:'rejected',reason:error,finishedAt:new Date().toISOString()};noteToolHealth(tool.serverId,tool.name,'error');}
     show();
   }));
   const final=show();
   if(!final)return;
-  state.history.unshift({title:query,time:state.lastResult.time,server:state.lastResult.server}); renderAll();
+  state.history.unshift({title:query,time:state.lastResult.time,server:state.lastResult.server,sourceLog:final.sourceLog}); renderAll();
 }
 
 document.addEventListener('click',async event=>{

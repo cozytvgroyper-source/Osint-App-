@@ -31,14 +31,16 @@ test('damaged or wrongly shaped saved values cannot prevent startup', () => {
 });
 
 test('keeps recoverable entries and ignores malformed array members', () => {
+  const sourceLog = [{ tool: 'whois', server: 'Open OSINT', outcome: { kind: 'data' } }];
   const storage = new MemoryStorage({
     [STORAGE_KEYS.servers]: JSON.stringify([{ name: 'Good', endpoint: 'https://example.com/mcp' }, { nope: true }]),
-    [STORAGE_KEYS.history]: JSON.stringify([{ title: 'Good' }, null]),
+    [STORAGE_KEYS.history]: JSON.stringify([{ title: 'Good', sourceLog }, null]),
     [STORAGE_KEYS.evidence]: JSON.stringify([evidence(1), { title: 'Missing result' }])
   });
   const loaded = loadStoredState(storage);
   assert.equal(loaded.servers.length, 1);
   assert.equal(loaded.history.length, 1);
+  assert.deepEqual(loaded.history[0].sourceLog, sourceLog);
   assert.equal(loaded.evidence.length, 1);
 });
 

@@ -3,16 +3,17 @@ import assert from 'node:assert/strict';
 import {buildSearchReport} from '../public/search-report.js';
 
 const tool=(name,serverName='Open OSINT')=>({name,serverName,serverId:serverName.toLowerCase().replace(/\s+/g,'-'),description:`${name} description`});
-const plan=['get_whois','get_bgp','get_greynoise'].map(name=>({tool:tool(name),score:10,reason:'Matches'}));
+const plan=['get_whois','get_bgp','get_greynoise'].map((name,index)=>({tool:tool(name),score:10,reason:`Matches ${name}`,args:{query:`value-${index}`},startedAt:`2026-11-11T12:00:0${index}.000Z`}));
 const base={query:'8.8.8.8',intent:{id:'network',label:'IP and network intelligence'},plan,links:[],
   categoryForTool:item=>`Category ${item.name}`,sourceLabel:name=>name.replace(/^get_/,'')};
-const done=(index,kind,extra={})=>({status:'fulfilled',value:{tool:plan[index].tool,outcome:{kind,...extra}}});
+const done=(index,kind,extra={})=>({status:'fulfilled',value:{tool:plan[index].tool,outcome:{kind,...extra}},finishedAt:`2026-11-11T12:00:1${index}.000Z`});
 const parse=built=>JSON.parse(built.result.content[0].text);
 
-test('before any source answers, shows only every source still running',()=>{
+test('before any source answers, shows the source log and every source still running',()=>{
   const built=buildSearchReport({...base,outcomes:[]});
   const payload=parse(built);
-  assert.deepEqual(Object.keys(payload.data.report),['Still Running']);
+  assert.deepEqual(Object.keys(payload.data.report),['Sources','Still Running']);
+  assert.deepEqual(payload.data.report.Sources.data.sources.map(item=>item.outcome.kind),['running','running','running']);
   assert.deepEqual(payload.data.report['Still Running'].data.sources.map(item=>item.name),['whois','bgp','greynoise']);
   assert.match(payload.description,/0 of 3 sources answered/);
   assert.equal(built.finished,false);
@@ -27,22 +28,37 @@ test('adds each answer as it arrives and keeps waiting for the rest',()=>{
 });
 
 test('reports errors and empty answers under Unavailable Sources, not as findings',()=>{
-  const built=buildSearchReport({...base,outcomes:[done(0,'error',{error:'RDAP IP HTTP 403'}),done(1,'empty'),{status:'rejected',reason:new Error('timeout')}]});
+  const built=buildSearchReport({...base,outcomes:[done(0,'error',{error:'RDAP IP HTTP 403'}),done(1,'empty'),{status:'rejected',reason:new Error('timeout'),finishedAt:'2026-11-11T12:00:12.000Z'}]});
   const payload=parse(built);
   assert.deepEqual(payload.data.errors.map(item=>item.error),['RDAP IP HTTP 403','No matching records returned for this subject.','timeout']);
+  assert.deepEqual(payload.data.report.Sources.data.sources.map(item=>item.outcome.kind),['error','empty','error']);
+  assert.equal(payload.data.report.Sources.data.sources[2].outcome.error,'timeout');
   assert.equal(payload.data.modulesWithResults,0);
 });
 
-test('when every source has answered, leaves only finding categories in the report',()=>{
+test('when every source has answered, keeps findings followed by their source log',()=>{
   const built=buildSearchReport({...base,outcomes:[done(0,'data',{data:{a:1}}),done(1,'data',{data:{b:2}}),done(2,'empty')],elapsedMs:4200});
   const payload=parse(built);
   assert.equal(built.finished,true);
   assert.ok(!('Still Running' in payload.data.report));
+  assert.deepEqual(Object.keys(payload.data.report),['Category get_whois','Category get_bgp','Sources']);
   assert.equal(payload.description,'IP and network intelligence for “8.8.8.8”');
   assert.equal(payload.data.modulesQueried,3);
   assert.equal(payload.data.modulesWithResults,2);
   assert.equal(payload.data.durationMs,4200);
   assert.deepEqual([...built.servers],['Open OSINT']);
+});
+
+test('records exact arguments, planner reason, tier, timing and outcome for every source',()=>{
+  const built=buildSearchReport({...base,outcomes:[done(0,'data',{data:{a:1}}),done(1,'empty'),done(2,'error',{error:'unavailable'})]});
+  const sources=parse(built).data.report.Sources.data.sources;
+  assert.deepEqual(sources[0].arguments,{query:'value-0'});
+  assert.equal(sources[0].reason,'Matches get_whois');
+  assert.deepEqual(sources[0].tier,{level:0,key:'passive',label:'Passive',targetSees:'Nothing: it asks public databases and third parties.'});
+  assert.equal(sources[0].startedAt,'2026-11-11T12:00:00.000Z');
+  assert.equal(sources[0].finishedAt,'2026-11-11T12:00:10.000Z');
+  assert.deepEqual(sources.map(item=>item.outcome.kind),['data','empty','error']);
+  assert.deepEqual(built.sourceLog,sources);
 });
 
 test('gives two sources in the same category separate sections',()=>{
@@ -71,10 +87,10 @@ test('explains when no connected server can answer',()=>{
   assert.ok(!('Still Running' in payload.data.report));
 });
 
-// The result view shows source errors only when a search found nothing; diagnostics and links are not findings.
-test('diagnostics, related links and the still-running list do not count as findings', async () => {
+// The result view shows source errors only when a search found nothing; provenance, diagnostics and links are not findings.
+test('sources, diagnostics, related links and the still-running list do not count as findings', async () => {
   const { reportHasFindings } = await import('../public/search-report.js');
-  assert.equal(reportHasFindings({ 'Planner Diagnostics': {}, 'Related Links': {} }), false);
+  assert.equal(reportHasFindings({ Sources: {}, 'Planner Diagnostics': {}, 'Related Links': {} }), false);
   assert.equal(reportHasFindings({ 'Still Running': {} }), false);
   assert.equal(reportHasFindings({ 'Registration Data': {}, 'Related Links': {} }), true);
 });
