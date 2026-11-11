@@ -2,7 +2,9 @@
 // source answers instead of waiting for the slowest one. `outcomes[i]` is undefined while plan[i] is still running,
 // otherwise a Promise.allSettled-style entry whose value is {tool, outcome: classifyToolResult(...)}.
 
-const NOT_FINDINGS = new Set(['Related Links', 'Still Running', 'Planner Diagnostics']);
+import {toolRisk} from './tool-tiers.js';
+
+const NOT_FINDINGS = new Set(['Sources', 'Related Links', 'Still Running', 'Planner Diagnostics']);
 
 // Whether a report holds real findings. The result view uses this to decide whether to list source errors.
 export function reportHasFindings(report) {
@@ -28,6 +30,35 @@ export function buildSearchReport({query, intent, plan, outcomes, diagnostics = 
     }
   });
 
+  const sourceLog = plan.map(({tool, reason, args = {}, startedAt = null}, index) => {
+    const settled = outcomes[index];
+    const risk = toolRisk(tool);
+    let outcome = {kind: 'running'};
+    if (settled?.status === 'rejected') outcome = {kind: 'error', error: settled.reason?.message || 'Source unavailable'};
+    else if (settled?.status === 'fulfilled') {
+      const result = settled.value.outcome;
+      outcome = result.kind === 'error' ? {kind: 'error', error: result.error} : {kind: result.kind};
+    }
+    return {
+      tool: sourceLabel(tool.name),
+      toolName: tool.name,
+      server: tool.serverName,
+      tier: {level: risk.level, key: risk.key, label: risk.label, targetSees: risk.targetSees},
+      reason: reason || 'Selected by the search planner',
+      arguments: args,
+      startedAt,
+      finishedAt: settled?.finishedAt || null,
+      outcome
+    };
+  });
+  if (sourceLog.length) {
+    report.Sources = {
+      eyebrow: 'SEARCH PROVENANCE',
+      description: 'The tools used for this search, what they received, when they ran, and what they returned.',
+      data: {sources: sourceLog}
+    };
+  }
+
   const finished = pending.length === 0;
   if (!finished) {
     report['Still Running'] = {
@@ -42,5 +73,5 @@ export function buildSearchReport({query, intent, plan, outcomes, diagnostics = 
   const answered = plan.length - pending.length;
   const description = finished ? `${intent.label} for “${query}”` : `${intent.label} for “${query}” — ${answered} of ${plan.length} sources answered`;
   const payload = {description, data: {query, modulesQueried: plan.length, modulesWithResults: findingCount, durationMs: finished ? elapsedMs : 0, report, errors}};
-  return {result: {content: [{type: 'text', text: JSON.stringify(payload)}]}, finished, servers, findingCount};
+  return {result: {content: [{type: 'text', text: JSON.stringify(payload)}]}, finished, servers, findingCount, sourceLog};
 }

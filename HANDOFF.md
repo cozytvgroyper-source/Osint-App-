@@ -124,8 +124,9 @@ Keep them when changing the server or launcher.
 5. `classifyToolResult` sorts each response; only real data becomes a result category. When there are no findings,
    errors and empty answers appear under Unavailable Sources with their actual reason.
 6. The result window opens at once with a **Still Running** list, and each source's findings appear as it answers.
-   Completed searches with findings show only those findings and Related Links. A newer search makes an older one's
-   late answers stale.
+   Findings come first, followed by an inline **Sources** log and then Related Links. The source log records each
+   tool's server, risk tier, planner reason, exact arguments, start and finish times, and data/empty/error outcome;
+   it is retained in saved evidence and investigation history. A newer search makes an older one's late answers stale.
 
 Never auto-run, but still available in Tool Library:
 
@@ -204,6 +205,9 @@ another folder, naming the folder to stop. Every service port is checked by fold
   adds the saved `URLHAUS_AUTH_KEY` to MalwareBazaar and ThreatFox API requests, and never to other hosts.
 - **Omega quirks:** Omega turns some network failures into an empty "ok" result, so "no results" isn't proof.
   `omega_monitor` always fails (not implemented in omega-cli).
+- **Empty-result wrappers:** some Open OSINT tools return explanatory text and counters alongside empty result arrays.
+  The classifier can count those wrappers as data, so a deliberately nonexistent target may show a source section
+  with zero matching records instead of the consolidated "No results returned" message.
 - **Domain-like words:** tokens such as "node.js" are treated as domain targets.
 - **Subject trimming is word-list based:** a name that contains its own topic word loses it ("Port of Rotterdam"
   sends "Rotterdam"), and a topic-only search such as "latest ransomware" still sends "ransomware" as a filter.
@@ -216,8 +220,8 @@ another folder, naming the folder to stop. Every service port is checked by fold
 
 1. **Search overhaul:** follow `docs/search-overhaul.md`. Step 1 (risk tiers in Tool Library) is merged (PR #33), and
    the owner decided A–D on 2026-11-11: Sources panel inline, Intrusive included in Deep Search, no saved scope list,
-   all 14 best-guess tiers confirmed. Next is step 2, the inline Sources panel; it replaces the "findings and Related
-   Links only" rule for completed searches.
+   all 14 best-guess tiers confirmed. The inline Sources log is implemented; the remaining Step 2 work is duplicate
+   finding consolidation and pivot buttons for IPs, emails and domains, each in its own PR.
 2. Decide with the user whether cyber searches should mix sources instead of strict severity order, so OTX shows
    up in short result lists (another patch to the feed's sort). The user chose not to do this for now.
 3. subfinder can only rejoin the automatic search if `osint-toolbox-mcp` exposes subfinder's `-max-time` (an
