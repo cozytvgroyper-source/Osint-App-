@@ -58,7 +58,9 @@ start_bridge() {
   (
     cd "$APP_DIR"
     # FastMCP's Host/Origin check is off by default; it rejects DNS-rebinding requests with HTTP 421.
-    FASTMCP_HTTP_HOST_ORIGIN_PROTECTION=true PATH="$HOME/.local/bin:$PATH" "$HOME/.local/bin/uvx" --from 'fastmcp-slim[server]' fastmcp run \
+    # The version is pinned because that setting's name is version-specific: an unpinned upgrade that
+    # renamed it would switch the protection off without any error. Recheck the 421 before raising it.
+    FASTMCP_HTTP_HOST_ORIGIN_PROTECTION=true PATH="$HOME/.local/bin:$PATH" "$HOME/.local/bin/uvx" --from 'fastmcp-slim[server]==4.1.8' fastmcp run \
       "$config" --transport http \
       --host 127.0.0.1 --port "$port" --path /mcp --no-banner \
       >"$LOG_DIR/$service.log" 2>&1 &
