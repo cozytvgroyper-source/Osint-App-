@@ -1,0 +1,35 @@
+name: CI
+
+# Runs the same checks used before every pull request: syntax checks for every script and the full test
+# suite, on the oldest supported Node version (package.json "engines") and the current LTS.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Syntax-check JavaScript
+        run: for file in server.mjs public/*.js scripts/*.mjs; do node --check "$file"; done
+      - name: Syntax-check Python
+        run: python3 -m py_compile scripts/*.py
+      - name: Syntax-check the Mac launchers
+        run: |
+          sudo apt-get install -y --no-install-recommends zsh >/dev/null
+          zsh -n "Start Public Desk.command"
+          zsh -n "Stop Public Desk.command"
+      - name: Run tests
+        run: npm test
