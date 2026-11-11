@@ -9,7 +9,8 @@
         "git+https://github.com/Ekoelogan/omega-cli@24767fb8794e0cfe6f608eee3407ba1f40b501cb",
         "--with",
         "mcp==1.30.0",
-        "omega-mcp"
+        "python",
+        "scripts/run-omega-mcp-captured.py"
       ]
     }
   }
