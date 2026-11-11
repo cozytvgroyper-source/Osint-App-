@@ -285,6 +285,8 @@ function pivotButton(value){
   return pivot?`<button type="button" class="pivot-button" data-pivot="${escapeHtml(pivot.target)}" aria-label="${escapeHtml(`${pivot.label}: ${pivot.target}`)}">Pivot →</button>`:'';
 }
 function renderRecord(data){
+  // Multi-line text (Omega's captured module output) keeps its line breaks and column alignment.
+  if(typeof data==='string'&&data.includes('\n'))return `<pre>${escapeHtml(data)}</pre>`;
   if(!data||typeof data!=='object')return `<p>${readableValue('',data)}</p>`;
   const scalarEntries=Object.entries(data).filter(([,value])=>!Array.isArray(value)&&(typeof value!=='object'||value===null));
   return scalarEntries.length?`<dl class="fact-list">${scalarEntries.map(([key,value])=>`<div><dt>${escapeHtml(humanize(key))}</dt><dd>${readableValue(key,value)}${pivotButton(value)}</dd></div>`).join('')}</dl>`:'';

@@ -76,3 +76,11 @@ test('says where each tool is used',()=>{
   assert.equal(toolUsage(byName('subfinder_subdomain_search')),'Tool Library only');
   assert.equal(toolUsage(byName('omega_ports')),'Tool Library only');
 });
+
+test('re-tiers Omega tools whose captured output showed target contact or outside writes',()=>{
+  // omega_recon's output on 2026-11-11 included a port scan, subdomain brute force and HTTP/SSL probes.
+  assert.equal(toolRisk(byName('omega_recon')).level,2);
+  // omega_archive submitted the target to the Wayback Machine's Save Page Now.
+  assert.equal(toolRisk(byName('omega_archive')).level,0);
+  assert.deepEqual(toolRisk(byName('omega_archive')).flags,['side-effects']);
+});

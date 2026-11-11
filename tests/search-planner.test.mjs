@@ -53,6 +53,14 @@ test('allows reviewed structured Omega email and Git reconnaissance lookups',()=
   assert.equal(isPassiveSearchTool(tool('omega_phoneosint','Phone lookup','Omega MCP')),false);
 });
 
+test('allows the reviewed IP dossier but keeps redundant, keyless or unreliable Omega text output manual',()=>{
+  assert.equal(isPassiveSearchTool(tool('omega_ipdossier','IP dossier — detailed intelligence report for an IP address.','Omega MCP')),true);
+  assert.equal(isPassiveSearchTool(tool('omega_geoint','Geolocation intelligence','Omega MCP')),false);
+  assert.equal(isPassiveSearchTool(tool('omega_recon','Quick reconnaissance','Omega MCP')),false);
+  assert.equal(isPassiveSearchTool(tool('omega_threatintel','Threat intelligence context','Omega MCP')),false);
+  assert.equal(isPassiveSearchTool(tool('omega_phoneosint','Phone lookup','Omega MCP')),false);
+});
+
 test('treats omega-prefixed tools as Omega even under another server name',()=>{
   assert.equal(isPassiveSearchTool(tool('omega_plugin','Plugin manager','Renamed Server')),false);
 });

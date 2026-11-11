@@ -30,8 +30,8 @@ const OMEGA = {
   // Tier 0: third-party data, public records, or analysis of findings already collected.
   omega_whois: t(0), omega_dns: t(0), omega_ipinfo: t(0), omega_crtsh: t(0), omega_dorks: t(0), omega_wayback: t(0),
   omega_spoofcheck: t(0), omega_asn: t(0), omega_reverseip: t(0), omega_cve: t(0), omega_hunt: t(0), omega_malware: t(0),
-  omega_email: t(0), omega_username: t(0), omega_social: t(0), omega_breach: t(0), omega_recon: t(0),
-  omega_agents_list: t(0), omega_memory_search: t(0), omega_apiosint: t(0), omega_archive: t(0), omega_satellite: t(0),
+  omega_email: t(0), omega_username: t(0), omega_social: t(0), omega_breach: t(0),
+  omega_agents_list: t(0), omega_memory_search: t(0), omega_apiosint: t(0), omega_satellite: t(0),
   omega_autocorr: t(0), omega_compare: t(0), omega_briefing: t(0), omega_executive: t(0), omega_cryptoosint: t(0),
   omega_codetrace: t(0), omega_leaked: t(0), omega_cvemap: t(0), omega_cvssrank: t(0), omega_dark: t(0),
   omega_deepweb: t(0), omega_torcheck: t(0), omega_imgosint: t(0), omega_ipdossier: t(0), omega_intel: t(0),
@@ -43,6 +43,8 @@ const OMEGA = {
   omega_osintdb: t(0, 'side-effects'), omega_dashboard: t(0, 'side-effects'), omega_livedash: t(0, 'side-effects'),
   omega_pdfreport: t(0, 'side-effects'), omega_reportgen: t(0, 'side-effects'), omega_reporthtml: t(0, 'side-effects'),
   omega_pastewatch: t(0, 'side-effects'), omega_notifier: t(0, 'side-effects'),
+  // Captured output (2026-11-11) showed it submitting the target to the Wayback Machine's Save Page Now.
+  omega_archive: t(0, 'side-effects'),
   omega_ai_analyst: t(0, 'credits'), omega_aiassist: t(0, 'credits'), omega_aisummary: t(0, 'credits'),
   // Tier 1: connects to the target like a visitor (fetches pages, headers, certificates, DNS for its mail policy).
   omega_headers: t(1), omega_ssl: t(1), omega_tech: t(1), omega_cors: t(1), omega_mailsec: t(1), omega_infra: t(1),
@@ -51,6 +53,8 @@ const OMEGA = {
   omega_dossier: t(1), omega_network: t(1), omega_firmware: t(1), omega_mobile: t(1),
   omega_watcher: t(1, 'side-effects'), omega_monitor: t(1, 'side-effects'),
   // Tier 2: probing and enumeration that shows in the target's logs.
+  // omega_recon's captured output (2026-11-11) included a port scan, subdomain brute force and HTTP/SSL probes.
+  omega_recon: t(2),
   omega_ports: t(2), omega_jscan: t(2), omega_crawl: t(2), omega_spider: t(2), omega_webcrawl: t(2), omega_dnsbrute: t(2),
   omega_buckets: t(2), omega_cloud: t(2), omega_cloud2: t(2), omega_subdomains: t(2), omega_assetmap: t(2),
   omega_attackmap: t(2), omega_wordlist: t(2), omega_secrets: t(2), omega_auto: t(2), omega_deception: t(2),
