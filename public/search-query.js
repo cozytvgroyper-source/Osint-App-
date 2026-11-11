@@ -32,6 +32,14 @@ function findTarget(query){
   return null;
 }
 
+// A map area typed as four numbers, west,south,east,north ("24,54,26,56"), normalised without spaces.
+const NUMBER='-?\\d{1,3}(?:\\.\\d+)?';
+const MAP_AREA=new RegExp(`(?<![\\d.])(${NUMBER})\\s*,\\s*(${NUMBER})\\s*,\\s*(${NUMBER})\\s*,\\s*(${NUMBER})(?![\\d.])`);
+export function extractMapArea(query){
+  const match=String(query).match(MAP_AREA);
+  return match?match.slice(1,5).join(','):null;
+}
+
 export function extractTarget(query){
   const target=findTarget(query);
   return target?{type:target.type,value:target.value}:null;
@@ -133,7 +141,9 @@ export function argsForSearch(tool,query){
   if(!target)clean=searchSubject(clean,searchIntent(query).id);
   const countryQuery=target?target.value:['get_country_facts','get_travel_advisories'].includes(tool.name)&&clean.includes(',')?clean.split(',').at(-1).trim():clean;
   const queryKey=['query','target','keyword','username','email','number','identifier','domain','search','q'].find(key=>props[key]);
-  if(queryKey)args[queryKey]=countryQuery;
+  const mapArea=required.includes('bbox')?extractMapArea(query):null;
+  if(mapArea)args.bbox=mapArea;
+  else if(queryKey)args[queryKey]=countryQuery;
   if(props.limit)args.limit=10;
   if(props.timeout)args.timeout=25;
   if(props.only_used)args.only_used=true;

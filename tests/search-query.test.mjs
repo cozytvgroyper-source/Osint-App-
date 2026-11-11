@@ -97,3 +97,20 @@ test('skips enumeration tools too slow for the automatic search',()=>{
   const names=plan('example.com whois').map(item=>item.tool.name);
   for(const name of ['subfinder_subdomain_search','theharvester_domain_search'])assert.ok(!names.includes(name),names.join(', '));
 });
+
+// get_ais_vessels, get_aircraft and get_satellite_search require bbox as "west,south,east,north".
+// Words such as "near" or "over" are not a map area, so these tools must wait for real coordinates.
+test('map-area tools run only when the search gives coordinates',()=>{
+  const names=query=>plan(query).map(item=>item.tool.name);
+  assert.ok(!names('vessels near Hormuz').includes('get_ais_vessels'));
+  assert.ok(!names('flights over Ukraine').includes('get_aircraft'));
+  assert.ok(names('vessels 24,54,26,56').includes('get_ais_vessels'));
+  assert.ok(names('flights over 44.0, 22.1, 52.4, 40.2').includes('get_aircraft'));
+});
+
+test('sends the coordinates, not the search words, as the map area',()=>{
+  assert.equal(argsForSearch(byName('get_ais_vessels'),'vessels 24,54,26,56').bbox,'24,54,26,56');
+  assert.equal(argsForSearch(byName('get_aircraft'),'flights over 44.0, 22.1, 52.4, 40.2 region').bbox,'44.0,22.1,52.4,40.2');
+  // Its `search` would keep only items containing the words, which would hide every position.
+  assert.equal(argsForSearch(byName('get_ais_vessels'),'vessels 24,54,26,56').search,undefined);
+});
