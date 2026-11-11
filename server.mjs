@@ -24,8 +24,24 @@ const mime = {
   '.json': 'application/json; charset=utf-8'
 };
 
+// Sent with every response. The page loads only its own scripts and styles and fetches only its own API
+// and the IntelMap news feed; other sites may not frame it (clickjacking) or embed its files.
+const SECURITY_HEADERS = Object.freeze({
+  'content-security-policy': [
+    "default-src 'self'", "script-src 'self'", "style-src 'self'", "img-src 'self' data:", "font-src 'self'",
+    "object-src 'none'", "base-uri 'none'", "form-action 'self'", "frame-ancestors 'none'",
+    "connect-src 'self' https://intelmap.watch"
+  ].join('; '),
+  'x-frame-options': 'DENY',
+  'x-content-type-options': 'nosniff',
+  'referrer-policy': 'no-referrer',
+  'cross-origin-opener-policy': 'same-origin',
+  'cross-origin-resource-policy': 'same-origin',
+  'permissions-policy': 'camera=(), microphone=(), geolocation=()'
+});
+
 function json(res, status, body) {
-  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+  res.writeHead(status, { ...SECURITY_HEADERS, 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
   res.end(JSON.stringify(body));
 }
 
@@ -243,7 +259,7 @@ const server = http.createServer(async (req, res) => {
         response_type: 'code', client_id: client.client_id, redirect_uri: CONSENSUS_REDIRECT,
         scope: 'search', state, code_challenge: challenge, code_challenge_method: 'S256'
       });
-      res.writeHead(302, { location: authorize.toString(), 'cache-control': 'no-store' });
+      res.writeHead(302, { ...SECURITY_HEADERS, location: authorize.toString(), 'cache-control': 'no-store' });
       return res.end();
     }
     if (req.method === 'GET' && url.pathname === OAUTH_CALLBACK_PATH) {
@@ -259,7 +275,7 @@ const server = http.createServer(async (req, res) => {
         grant_type: 'authorization_code', code, redirect_uri: CONSENSUS_REDIRECT,
         client_id: consensusOAuth.client.client_id, code_verifier: pending.verifier
       });
-      res.writeHead(302, { location: '/?consensus=connected', 'cache-control': 'no-store' });
+      res.writeHead(302, { ...SECURITY_HEADERS, location: '/?consensus=connected', 'cache-control': 'no-store' });
       return res.end();
     }
     if (req.method === 'POST' && url.pathname === '/api/mcp') {
@@ -311,6 +327,7 @@ const server = http.createServer(async (req, res) => {
     if (!resolved.startsWith(ROOT)) return json(res, 403, { error: 'Forbidden' });
     const data = await readFile(resolved);
     res.writeHead(200, {
+      ...SECURITY_HEADERS,
       'content-type': mime[extname(resolved)] || 'application/octet-stream',
       'cache-control': 'no-store'
     });
@@ -329,4 +346,4 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   });
 }
 
-export { validatedEndpoint, parseMcpResponse, loadConsensusAuth, saveConsensusAuth, clearConsensusAuth, requestGuard, prunePendingSignIns };
+export { validatedEndpoint, parseMcpResponse, loadConsensusAuth, saveConsensusAuth, clearConsensusAuth, SECURITY_HEADERS, requestGuard, prunePendingSignIns };
