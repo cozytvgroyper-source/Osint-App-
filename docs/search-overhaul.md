@@ -135,6 +135,18 @@ Identity review: `omega_email` returned structured format, domain and MX data fo
 `omega_gitrecon` returned public repositories for GitHub's `octocat` test account; both are approved. `omega_username`
 failed with an asyncio event-loop error and `omega_phoneosint` returned only `completed`, so both remain manual.
 
+Network batch, 2026-11-11: none approved. `omega_recon` (`example.com`), `omega_ipdossier` and `omega_geoint`
+(`8.8.8.8`) returned only `completed`. `omega_torcheck` (`8.8.8.8`) and `omega_typosquat` (`example.com`) did not
+finish within the app's 45-second proxy limit, even when run one at a time. `omega_social` (`example.com`) returned only
+a mention count (`hackernews: 15`) with no links, which is not a usable finding. `omega_shodan` was skipped because it
+may spend API credits.
+
+Root cause of the `completed` placeholders: omega-cli prints its result tables to stdout, which is the MCP stdio
+channel. The bridge rejects those lines as invalid JSON-RPC (they appear in `work/logs/omega.log`, for example
+"IP Geolocation: 8.8.8.8" and "Total mentions found: 15"), and the tool then returns only `completed`. Capturing
+module stdout inside the Omega server and returning it as the result would likely make many manual tools reviewable;
+that is a separate change, best done as a launcher-applied patch like the Open OSINT ones.
+
 ## Decisions (owner, 2026-11-11)
 
 | | Question | Decision |
