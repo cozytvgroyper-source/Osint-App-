@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#07110f" />
   <title>Public Desk — OSINT workspace</title>
-  <link rel="stylesheet" href="/styles.css?v=17" />
+  <link rel="stylesheet" href="/styles.css?v=18" />
   <link rel="stylesheet" href="/results.css?v=13" />
   <link rel="stylesheet" href="/theme.css?v=17" />
 </head>
@@ -17,6 +17,7 @@
         <button class="nav active" data-view="workspace"><span>⌁</span>Workspace</button>
         <button class="nav" data-view="servers"><span>⌘</span>MCP servers</button>
         <button class="nav" data-view="library"><span>◫</span>Tool library</button>
+        <button class="nav nav-deep" data-view="deep"><span>⚠</span>Deep Search</button>
         <button class="nav" data-view="news"><img class="nav-logo" src="/assets/intelmap-logo.svg" alt="" />News</button>
         <a class="nav nav-external" href="https://intelmap.watch/" target="_blank" rel="noopener noreferrer" aria-label="Open IntelMap in a new tab"><img class="nav-logo" src="/assets/intelmap-logo.svg" alt="" />IntelMap <i>↗</i></a>
         <a class="nav nav-external" href="https://situationroom.io/" target="_blank" rel="noopener noreferrer" aria-label="Open Situation Room in a new tab"><img class="nav-logo" src="/assets/situation-room-logo.svg" alt="" />Situation Room <i>↗</i></a>
@@ -74,6 +75,14 @@
         <div id="toolLibrary" class="tier-groups"></div>
       </section>
 
+      <section id="deep" class="view deep-view">
+        <div class="deep-hero"><p class="eyebrow">CONTROLLED TESTING</p><h2>Deep Search</h2><p>Build a visible plan for one explicit target. Tools run one at a time and may be noticed by the target.</p></div>
+        <div class="deep-setup"><label>Target<input id="deepTarget" autocomplete="off" placeholder="example.com" /></label><label>Maximum level<select id="deepLevel"><option value="0">Passive</option><option value="1" selected>Light touch</option><option value="2">Active</option><option value="3">Intrusive</option></select></label><button class="primary" id="buildDeepPlan">Build plan</button></div>
+        <div id="deepPlan" class="deep-plan"><div class="empty-state">Type a target and build a plan. Nothing runs automatically.</div></div>
+        <div id="deepConfirmations" class="deep-confirmations" hidden><label class="run-check"><input type="checkbox" id="deepAuthorize" /> I own this target or have written permission to test it.</label><label id="deepTypedWrap" hidden>Type the target exactly to confirm Intrusive testing<input id="deepTypedTarget" autocomplete="off" /></label><p id="deepError" class="form-error"></p><div class="deep-actions"><button class="ghost" id="cancelDeepRun" disabled>Cancel</button><button class="primary" id="runDeepSearch">Run selected tools</button></div></div>
+        <div id="deepLog" class="deep-log" hidden aria-live="polite"></div>
+      </section>
+
       <section id="news" class="view">
         <div class="section-heading news-heading"><div><p class="eyebrow">INTELMAP JSON</p><h2>News</h2><p class="subtle">Live public signals from IntelMap's official JSON API. Open original sources to verify consequential reporting.</p></div><div class="header-actions"><button class="primary" id="refreshIntelNews">↻ Refresh</button></div></div>
         <div class="news-toolbar"><label class="filter"><span>⌕</span><input id="intelNewsFilter" placeholder="Search title, source, country…" /></label><label class="news-category">Category<select id="intelNewsCategory"><option value="">All categories</option></select></label><span id="intelNewsFreshness" class="subtle">Not loaded</span></div>
@@ -116,6 +125,6 @@
   <dialog id="resultDialog" class="result-dialog"><div class="dialog-head"><div><p class="eyebrow">INVESTIGATION RESULT</p><h2 id="resultTitle">Result</h2></div><button class="icon-button" data-close-result aria-label="Close">×</button></div><div id="resultBody" class="result-body"></div><div class="dialog-actions"><button class="ghost" data-close-result>Close</button><button class="primary" id="saveEvidence">Save to evidence</button></div></dialog>
 
   <div id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/app.js?v=34"></script>
+  <script type="module" src="/app.js?v=35"></script>
 </body>
 </html>

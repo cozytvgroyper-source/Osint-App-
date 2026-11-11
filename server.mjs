@@ -8,9 +8,11 @@ import { createHash, randomBytes } from 'node:crypto';
 import { DATA_SOURCES, parseKeyFile, sourceStatuses, updateKeyFile, validateKeyValue } from './scripts/api-keys.mjs';
 import { fetchValidated, validatedEndpoint } from './scripts/endpoint-policy.mjs';
 import {authorizeMcpToolCall, createRunGrant} from './scripts/run-grants.mjs';
+import {appendDeepSearchAudit} from './scripts/deep-search-audit.mjs';
 
 const ROOT = fileURLToPath(new URL('./public/', import.meta.url));
 const UPLOAD_ROOT = fileURLToPath(new URL('./work/uploads/', import.meta.url));
+const DEEP_SEARCH_AUDIT_FILE = fileURLToPath(new URL('./work/deep-search-audit.jsonl', import.meta.url));
 const PORT = Number(process.env.PORT || 4173);
 const MAX_MCP_RESPONSE_BYTES = 5_000_000;
 const MAX_MCP_SSE_EVENTS = 1_000;
@@ -172,7 +174,7 @@ function parseMcpResponse(text, contentType, { maxSseEvents = MAX_MCP_SSE_EVENTS
   return JSON.parse(text || '{}');
 }
 
-async function mcpRequest({ endpoint, token, method, params = {}, sessionKey }) {
+async function mcpRequest({ endpoint, token, method, params = {}, sessionKey }, {timeoutMs=45_000,signal}={}) {
   const url = await validatedEndpoint(endpoint);
   const isNotification = method.startsWith('notifications/');
   const id = isNotification ? undefined : crypto.randomUUID();
@@ -187,7 +189,7 @@ async function mcpRequest({ endpoint, token, method, params = {}, sessionKey }) 
   const response = await fetchValidated(url, {
     method: 'POST', headers,
     body: JSON.stringify({ jsonrpc: '2.0', ...(id ? { id } : {}), method, params }),
-    signal: AbortSignal.timeout(45_000)
+    signal: AbortSignal.any([AbortSignal.timeout(timeoutMs),...(signal?[signal]:[])])
   });
   const sessionId = response.headers.get('mcp-session-id');
   if (sessionId && sessionKey) sessions.set(sessionKey, sessionId);
@@ -406,15 +408,19 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/mcp') {
       const payload = await body(req);
       if (!payload.endpoint || !payload.method) return json(res, 400, { error: 'endpoint and method are required' });
-      authorizeMcpToolCall(payload, runGrants);
+      const authorization=authorizeMcpToolCall(payload, runGrants);
       if (payload.initialize) await initialize(payload);
-      const result = await mcpRequest(payload);
+      const cancelled=new AbortController();res.once('close',()=>{if(!res.writableEnded)cancelled.abort();});
+      const result = await mcpRequest(payload,{timeoutMs:authorization.grant?.purpose==='deep-search'?120_000:45_000,signal:cancelled.signal});
       return json(res, 200, result);
     }
     if (req.method === 'POST' && url.pathname === '/api/run-grants') {
       const payload = await body(req, 100_000);
       for (const tool of Array.isArray(payload.tools) ? payload.tools : []) await validatedEndpoint(tool.endpoint);
-      return json(res, 200, createRunGrant(payload, runGrants));
+      return json(res, 200, createRunGrant(payload, runGrants,payload.purpose==='deep-search'?{ttl:15*60_000}:{}));
+    }
+    if (req.method === 'POST' && url.pathname === '/api/deep-search/audit') {
+      return json(res, 200, await appendDeepSearchAudit(DEEP_SEARCH_AUDIT_FILE,await body(req,100_000)));
     }
     if (req.method === 'POST' && url.pathname === '/api/upload') {
       const payload = await body(req, 75_000_000);
@@ -479,6 +485,7 @@ function errorStatus(error) {
   if (error?.code === 'ENOENT') return 404;
   if (error?.code === 'ENDPOINT_POLICY') return 400;
   if (error?.code === 'RUN_GRANT') return error.status || 403;
+  if (error?.code === 'AUDIT_INPUT') return 400;
   return 502;
 }
 

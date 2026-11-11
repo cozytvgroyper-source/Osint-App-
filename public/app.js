@@ -7,6 +7,7 @@ import {loadStoredState,mergeStoredServers,persistStoredState} from './browser-s
 import {groupToolsByTier,runRequirements,toolRisk,toolUsage} from './tool-tiers.js';
 import {resultPivot} from './result-pivots.js?v=1';
 import {buildRunGrantRequest} from './run-grant-client.js?v=1';
+import {deepRunBlocked,deepSearchPlan} from './deep-search.js?v=1';
 
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
@@ -30,7 +31,9 @@ const state = {
   activeTool: null,
   lastResult: null,
   pendingFile: null,
-  tierFilter: 'all'
+  tierFilter: 'all',
+  deepPlan: [],
+  deepController: null
 };
 const clientSessionId=sessionStorage.getItem('signaldesk.clientSessionId')||crypto.randomUUID();
 sessionStorage.setItem('signaldesk.clientSessionId',clientSessionId);
@@ -57,7 +60,7 @@ function iconFor(name='') { if(/cyber|cve|threat|domain|ip/i.test(name))return'â
 function switchView(id) {
   $$('.view').forEach(v => v.classList.toggle('active-view', v.id === id));
   $$('.nav').forEach(v => v.classList.toggle('active', v.dataset.view === id));
-  const labels={workspace:'Hello Groyper',servers:'Connection center',library:'Explore capabilities',news:'IntelMap news',evidence:'Evidence notebook'};
+  const labels={workspace:'Hello Groyper',servers:'Connection center',library:'Explore capabilities',deep:'Deep Search',news:'IntelMap news',evidence:'Evidence notebook'};
   $('#pageTitle').textContent=labels[id]||'Public Desk'; window.scrollTo({top:0,behavior:'smooth'});
   if(id==='news'&&!intelNews.loaded&&!intelNews.loading)loadIntelNews();
 }
@@ -90,8 +93,8 @@ async function loadIntelNews(force=false){
   }catch(error){intelNews.error=`Could not load IntelMap news: ${error.message}`;}finally{intelNews.loading=false;renderIntelNews();}
 }
 
-async function api(path, payload) {
-  const response = await fetch(path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});
+async function api(path, payload, options={}) {
+  const response = await fetch(path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload),signal:options.signal});
   const data = await response.json();
   if(!response.ok) throw new Error(data.error || 'Request failed');
   return data;
@@ -256,9 +259,9 @@ async function runTool(tool,serverId,args,title=tool.name,grant=null){
   state.history.unshift({title,time:state.lastResult.time,server:server.name}); renderAll(); showResult(title,result); return result;
 }
 
-async function callTool(tool,serverId,args,grant=null){
+async function callTool(tool,serverId,args,grant=null,options={}){
   const server=state.servers.find(s=>s.id===serverId); if(!server)throw new Error('Server not found');
-  return api('/api/mcp',{endpoint:server.endpoint,token:state.tokens.get(server.id)||'',sessionKey:sessionKeyFor(server.id),method:'tools/call',params:{name:tool.name,arguments:args},initialize:server.status!=='connected',runGrant:grant?.token||'',runTarget:grant?.target||''});
+  return api('/api/mcp',{endpoint:server.endpoint,token:state.tokens.get(server.id)||'',sessionKey:sessionKeyFor(server.id),method:'tools/call',params:{name:tool.name,arguments:args},initialize:server.status!=='connected',runGrant:grant?.token||'',runTarget:grant?.target||''},{signal:options.signal});
 }
 
 function humanize(value=''){return String(value).replace(/([a-z0-9])([A-Z])/g,'$1 $2').replace(/[_-]+/g,' ').replace(/\b\w/g,c=>c.toUpperCase());}
@@ -421,6 +424,46 @@ async function smartInvestigate(query){
   state.history.unshift({title:query,time:state.lastResult.time,server:state.lastResult.server,sourceLog:final.sourceLog}); renderAll();
 }
 
+function renderDeepPlan(){
+  const plan=state.deepPlan;
+  $('#deepPlan').innerHTML=plan.length?plan.map((item,index)=>`<label class="deep-tool"><input type="checkbox" data-deep-tool="${index}" ${item.selected?'checked':''} /><div><b>${escapeHtml(item.tool.name)}</b><p>${escapeHtml(item.tool.description||'No description provided.')}</p><p>${escapeHtml(item.risk.targetSees)}</p></div><div class="deep-tool-meta">${tierBadge(item.risk)}<br>${item.risk.level<=1?'about 30 seconds':item.risk.level===2?'up to 2 minutes':'up to 2 minutes'}</div></label>`).join(''):'<div class="empty-state">No reviewed Deep Search tools match this target and level on the connected servers.</div>';
+  $('#deepConfirmations').hidden=!plan.length;
+  $('#deepTypedWrap').hidden=Number($('#deepLevel').value)!==3;
+}
+
+function addDeepLog(message){const log=$('#deepLog');log.hidden=false;log.textContent+=`${new Date().toLocaleTimeString()}  ${message}\n`;log.scrollTop=log.scrollHeight;}
+
+function buildDeepPlan(){
+  const target=$('#deepTarget').value.trim();const level=Number($('#deepLevel').value);
+  state.deepPlan=deepSearchPlan(allTools(),target,level);$('#deepError').textContent='';$('#deepLog').textContent='';$('#deepLog').hidden=true;renderDeepPlan();
+}
+
+async function runDeepSearch(){
+  state.deepPlan.forEach((item,index)=>item.selected=$(`[data-deep-tool="${index}"]`)?.checked!==false);
+  const selected=state.deepPlan.filter(item=>item.selected);const target=$('#deepTarget').value.trim();const level=Number($('#deepLevel').value);
+  const blocked=deepRunBlocked({target,level,authorization:$('#deepAuthorize').checked,typedTarget:$('#deepTypedTarget').value,selectedCount:selected.length});
+  if(blocked){$('#deepError').textContent=blocked;return;}
+  $('#deepError').textContent='';$('#runDeepSearch').disabled=true;$('#cancelDeepRun').disabled=false;state.deepController=new AbortController();
+  const tools=selected.map(item=>{const server=state.servers.find(entry=>entry.id===item.tool.serverId);return{endpoint:server.endpoint,name:item.tool.name,arguments:item.args};});
+  let outcome='completed';let failures=0;
+  try{
+    const grant=await api('/api/run-grants',{purpose:'deep-search',target,level,tools,confirmation:{acknowledged:true,authorization:true,typedTarget:$('#deepTypedTarget').value}});
+    addDeepLog(`Confirmed ${selected.length} tool${selected.length===1?'':'s'} for ${target}.`);
+    for(const item of selected){
+      if(state.deepController.signal.aborted)throw new DOMException('Cancelled','AbortError');
+      addDeepLog(`Running ${item.tool.name}â€¦`);
+      try{const response=await callTool(item.tool,item.tool.serverId,item.args,grant,{signal:state.deepController.signal});if(response.error)throw new Error(response.error.message||'Tool call failed');addDeepLog(`Finished ${item.tool.name}.`);}
+      catch(error){if(error.name==='AbortError')throw error;failures++;addDeepLog(`${item.tool.name} failed: ${error.message}`);}
+    }
+    if(failures)outcome=`completed-with-${failures}-errors`;
+  }catch(error){outcome=error.name==='AbortError'?'cancelled':'failed';addDeepLog(outcome==='cancelled'?'Run cancelled.':`Run stopped: ${error.message}`);}
+  finally{
+    await api('/api/deep-search/audit',{target,level,tools:selected.map(item=>item.tool.name),outcome}).catch(error=>addDeepLog(`Audit log failed: ${error.message}`));
+    if(outcome.startsWith('completed'))addDeepLog(`Run ${outcome}. Audit saved on this Mac.`);
+    state.deepController=null;$('#runDeepSearch').disabled=false;$('#cancelDeepRun').disabled=true;
+  }
+}
+
 document.addEventListener('click',async event=>{
   const pivot=event.target.closest('[data-pivot]');if(pivot){event.preventDefault();const target=pivot.dataset.pivot;$('#resultDialog').close();switchView('workspace');$('#query').value=target;$('#query').focus();try{await smartInvestigate(target);}catch(error){toast(error.message);}return;}
   const nav=event.target.closest('[data-view]'); if(nav)switchView(nav.dataset.view);
@@ -448,6 +491,10 @@ $('#cmdButton').onclick=()=>{switchView('workspace');$('#query').focus();};
 document.addEventListener('keydown',event=>{if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='k'){event.preventDefault();switchView('workspace');$('#query').focus();}});
 $('#saveServer').addEventListener('click',e=>{e.preventDefault();const form=new FormData($('#serverForm'));const server={id:crypto.randomUUID(),name:form.get('name').trim(),endpoint:form.get('endpoint').trim(),status:'offline',tools:[]};if(!server.name||!server.endpoint)return;removedBundledEndpoints.delete(server.endpoint);state.servers.push(server);state.tokens.set(server.id,form.get('token'));$('#serverDialog').close();renderAll();connect(server);});
 $('#executeTool').addEventListener('click',async e=>{e.preventDefault();const blocked=runBlockedReason(state.activeTool.tool);if(blocked){$('#runError').textContent=blocked;return;}try{const args=JSON.parse($('#runArgs').value);const grant=await requestRunGrant(state.activeTool.tool,state.activeTool.serverId,args);$('#runDialog').close();await runTool(state.activeTool.tool,state.activeTool.serverId,args,state.activeTool.tool.name,grant);}catch(error){$('#runError').textContent=error.message;}});
+$('#buildDeepPlan').onclick=buildDeepPlan;
+$('#deepLevel').onchange=()=>{$('#deepTypedWrap').hidden=Number($('#deepLevel').value)!==3;if(state.deepPlan.length)buildDeepPlan();};
+$('#runDeepSearch').onclick=runDeepSearch;
+$('#cancelDeepRun').onclick=()=>state.deepController?.abort();
 $$('[data-close-result]').forEach(b=>b.onclick=()=>$('#resultDialog').close());
 $$('[data-close-dialog]').forEach(button=>button.onclick=()=>button.closest('dialog')?.close());
 $('#saveEvidence').onclick=()=>{if(state.lastResult){state.evidence.unshift(state.lastResult);renderAll();toast('Saved to evidence');$('#resultDialog').close();}};

@@ -44,6 +44,14 @@ test('Deep Search grants require authorization and the intrusive target typed ex
   assert.equal(createRunGrant({...request,confirmation:{...request.confirmation,typedTarget:'example.com'}},grants,{token:'deep'}).token,'deep');
 });
 
+test('Deep Search can bind passive calls and consumes their grant',()=>{
+  const grants=new Map();
+  const request={purpose:'deep-search',target:'example.com',level:0,tools:[{endpoint:toolbox,name:'whois_lookup',arguments:{query:'example.com'}}],confirmation:{acknowledged:true,authorization:true}};
+  createRunGrant(request,grants,{token:'passive-deep'});
+  const result=authorizeMcpToolCall({endpoint:toolbox,method:'tools/call',params:{name:'whois_lookup',arguments:{query:'example.com'}},runGrant:'passive-deep',runTarget:'example.com'},grants);
+  assert.equal(result.grant.purpose,'deep-search');assert.equal(grants.size,0);
+});
+
 test('custom endpoints cannot claim a trusted passive server identity', () => {
   assert.equal(serverNameForEndpoint('https://tools.example/mcp'),'Custom MCP');
   assert.equal(stableArguments({b:2,a:{d:4,c:3}}),'{"a":{"c":3,"d":4},"b":2}');
