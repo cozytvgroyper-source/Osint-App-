@@ -104,7 +104,11 @@ Never auto-run, but still available in Tool Library:
 
 - tools whose name or description indicates active probing (port scans, fuzzing, brute force, zone transfer or zone walk, crawling, and similar);
 - Omega tools outside the reviewed passive allowlist (`OMEGA_AUTO_SEARCH_TOOLS`);
-- `subfinder` and `theHarvester`, which exceed the 45 s request limit.
+- `subfinder`, which took 31–58 s whatever its per-request `timeout`; its wrapper exposes no total time limit
+  (subfinder's own `-max-time`).
+
+`theHarvester` does run automatically, but `AUTO_SEARCH_ARGS` in `search-query.js` limits it to
+`crtsh,hackertarget,rapiddns,otx` (11–20 s; every source took 223 s). Tool Library runs keep every source.
 - map-area tools (`get_ais_vessels`, `get_aircraft`, `get_satellite_search`) unless the search contains four
   comma-separated coordinates (e.g. `vessels 24,54,26,56`). They then receive only those numbers, in the order typed;
   the order is tool-specific (`get_aircraft` documents south,west,north,east). Other tools never filter on them.
@@ -161,9 +165,9 @@ another folder, naming the folder to stop. `Stop Public Desk.command` stops the 
 
 ## Recommended next work
 
-1. Tailor arguments per tool where schemas allow (e.g. limit theHarvester's sources) so slow tools can rejoin the
-   automatic search.
-2. Configure API keys for the Open OSINT tools listed above if the user wants those sources.
+1. Configure API keys for the Open OSINT tools listed above if the user wants those sources.
+2. subfinder can only rejoin the automatic search if `osint-toolbox-mcp` exposes subfinder's `-max-time` (an
+   upstream change; its `timeout` limits each request, not the run).
 
 ## Working rules from the user
 

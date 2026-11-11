@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {argsForSearch,extractTarget,searchIntent} from '../public/search-query.js';
-import {planSearchTools} from '../public/search-planner.js';
+import {isPassiveSearchTool,planSearchTools} from '../public/search-planner.js';
 
 // Real tool definitions captured from the bundled Open OSINT, OSINT Toolbox and Omega servers.
 const tools=JSON.parse(fs.readFileSync(new URL('./fixtures/mcp-tools.json',import.meta.url),'utf8'));
@@ -93,9 +93,17 @@ test('request words like "reports" do not pull in unrelated tools',()=>{
   assert.ok(!plan('8.8.8.8 abuse reports').some(item=>item.tool.name==='get_food_security'));
 });
 
-test('skips enumeration tools too slow for the automatic search',()=>{
-  const names=plan('example.com whois').map(item=>item.tool.name);
-  for(const name of ['subfinder_subdomain_search','theharvester_domain_search'])assert.ok(!names.includes(name),names.join(', '));
+// Timed on 2026-11-11: subfinder took 31-58 s whatever its per-request timeout (the wrapper has no total
+// limit), so it stays in Tool Library. theHarvester took 223 s with every source, 11-20 s with the sources below.
+test('skips subfinder, which no argument keeps under the 45 s request limit',()=>{
+  assert.equal(isPassiveSearchTool(byName('subfinder_subdomain_search')),false);
+  assert.ok(!plan('example.com whois').some(item=>item.tool.name==='subfinder_subdomain_search'));
+});
+
+test('lets theHarvester run automatically, limited to fast keyless sources',()=>{
+  assert.equal(isPassiveSearchTool(byName('theharvester_domain_search')),true);
+  assert.deepEqual(argsForSearch(byName('theharvester_domain_search'),'example.com emails'),
+    {domain:'example.com',limit:10,sources:'crtsh,hackertarget,rapiddns,otx'});
 });
 
 // get_ais_vessels, get_aircraft and get_satellite_search require bbox as four numbers, each in the order its

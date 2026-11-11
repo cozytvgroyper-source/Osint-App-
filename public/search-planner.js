@@ -24,9 +24,10 @@ function toolText(tool){
 // tools whose source was reviewed and found to query public lookup services alone.
 const OMEGA_AUTO_SEARCH_TOOLS=new Set(['omega_whois','omega_dns','omega_ipinfo','omega_crtsh','omega_wayback','omega_cve','omega_asn','omega_malware','omega_spoofcheck','omega_reverseip','omega_dorks','omega_threatfeed']);
 function isOmegaTool(tool){return tool.serverName==='Omega MCP'||/^omega_/i.test(tool.name||'');}
-// Full enumeration tools that query dozens of sources and routinely exceed the 45-second request limit,
-// stalling the whole search. They stay available in Tool Library.
-const TOO_SLOW_FOR_AUTO_SEARCH=new Set(['subfinder_subdomain_search','theharvester_domain_search']);
+// Enumeration tools that exceed the 45-second request limit with any argument the automatic search can send
+// (subfinder took 31-58 s whatever its per-request timeout). They stay available in Tool Library.
+// theHarvester is not listed: argsForSearch limits its sources, which keeps it near 11-20 s.
+const TOO_SLOW_FOR_AUTO_SEARCH=new Set(['subfinder_subdomain_search']);
 // Why a tool may never be chosen automatically, or null when it may.
 function exclusionReason(tool){
   if(ACTIVE_TOOL_NAMES.test(tool.name||'')||ACTIVE_LANGUAGE.test(tool.description||''))return 'Active or side-effect tool (never auto-run)';
