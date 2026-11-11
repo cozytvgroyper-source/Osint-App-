@@ -78,9 +78,17 @@ export function toolRisk(tool) {
   };
 }
 
-// What Tool Library must ask before running a tool.
+// What Tool Library must ask before running a controlled tool.
 export function runRequirements(risk) {
-  return {authorization: risk.level >= 2, typeName: risk.level >= 3, credits: risk.flags.includes('credits')};
+  const credits = risk.flags.includes('credits');
+  const sideEffects = risk.flags.includes('side-effects');
+  return {
+    acknowledgement: risk.level >= 1 || credits || sideEffects,
+    authorization: risk.level >= 2,
+    typeName: risk.level >= 3,
+    credits,
+    sideEffects
+  };
 }
 
 export function groupToolsByTier(tools) {

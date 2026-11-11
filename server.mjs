@@ -7,6 +7,7 @@ import { pathToFileURL } from 'node:url';
 import { createHash, randomBytes } from 'node:crypto';
 import { DATA_SOURCES, parseKeyFile, sourceStatuses, updateKeyFile, validateKeyValue } from './scripts/api-keys.mjs';
 import { fetchValidated, validatedEndpoint } from './scripts/endpoint-policy.mjs';
+import {authorizeMcpToolCall, createRunGrant} from './scripts/run-grants.mjs';
 
 const ROOT = fileURLToPath(new URL('./public/', import.meta.url));
 const UPLOAD_ROOT = fileURLToPath(new URL('./work/uploads/', import.meta.url));
@@ -18,6 +19,7 @@ const UPLOAD_TTL_MS = 30 * 60_000;
 const UPLOAD_NAME_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}-/i;
 const sessions = new Map();
 const uploads = new Map();
+const runGrants = new Map();
 const consensusOAuth = { client: null, accessToken: '', refreshToken: '', expiresAt: 0, pending: new Map() };
 const CONSENSUS_ENDPOINT = 'https://mcp.consensus.app/mcp';
 const CONSENSUS_ISSUER = 'https://consensus.app';
@@ -404,9 +406,15 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/mcp') {
       const payload = await body(req);
       if (!payload.endpoint || !payload.method) return json(res, 400, { error: 'endpoint and method are required' });
+      authorizeMcpToolCall(payload, runGrants);
       if (payload.initialize) await initialize(payload);
       const result = await mcpRequest(payload);
       return json(res, 200, result);
+    }
+    if (req.method === 'POST' && url.pathname === '/api/run-grants') {
+      const payload = await body(req, 100_000);
+      for (const tool of Array.isArray(payload.tools) ? payload.tools : []) await validatedEndpoint(tool.endpoint);
+      return json(res, 200, createRunGrant(payload, runGrants));
     }
     if (req.method === 'POST' && url.pathname === '/api/upload') {
       const payload = await body(req, 75_000_000);
@@ -470,6 +478,7 @@ const server = http.createServer(async (req, res) => {
 function errorStatus(error) {
   if (error?.code === 'ENOENT') return 404;
   if (error?.code === 'ENDPOINT_POLICY') return 400;
+  if (error?.code === 'RUN_GRANT') return error.status || 403;
   return 502;
 }
 

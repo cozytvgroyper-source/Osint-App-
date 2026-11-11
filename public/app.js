@@ -6,6 +6,7 @@ import {argsForSearch,extractTarget,searchIntent} from './search-query.js';
 import {loadStoredState,mergeStoredServers,persistStoredState} from './browser-storage.js';
 import {groupToolsByTier,runRequirements,toolRisk,toolUsage} from './tool-tiers.js';
 import {resultPivot} from './result-pivots.js?v=1';
+import {buildRunGrantRequest} from './run-grant-client.js?v=1';
 
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
@@ -212,35 +213,52 @@ function renderAll(){renderWorkflows();renderHistory();renderConnections();rende
 function openTool(tool, serverId){
   state.activeTool={tool,serverId}; $('#runToolName').textContent=tool.name; $('#runToolDescription').textContent=tool.description||'';
   const props=tool.inputSchema?.properties||{}; const sample={}; Object.entries(props).forEach(([key,schema])=>sample[key]=schema.default??(schema.type==='number'?0:schema.type==='boolean'?false:''));
-  // Risky tools need explicit confirmation before they can run (Tier 2+: authorization; Tier 3: type the name).
+  // Controlled tools need explicit confirmation before the server will issue a one-use run grant.
   const risk=toolRisk(tool);const needs=runRequirements(risk);
   $('#runRisk').innerHTML=`<div class="run-risk run-risk-${escapeHtml(risk.key)}"><div>${tierBadge(risk)}<span>${escapeHtml(risk.targetSees)}</span></div>`
+    +(needs.acknowledgement?'<label class="run-check"><input type="checkbox" id="runAcknowledge" /> I understand this tool may contact the target or perform a controlled action.</label>':'')
     +(needs.authorization?'<label class="run-check"><input type="checkbox" id="runAuthorize" /> I own this target or have written permission to test it.</label>':'')
     +(needs.typeName?`<label class="run-confirm">Type <code>${escapeHtml(tool.name)}</code> to confirm<input id="runConfirmName" autocomplete="off" spellcheck="false" /></label>`:'')
-    +(needs.credits?'<label class="run-check"><input type="checkbox" id="runCredits" /> This tool may spend paid AI credits.</label>':'')+'</div>';
+    +(needs.credits?'<label class="run-check"><input type="checkbox" id="runCredits" /> This tool may spend paid AI credits.</label>':'')
+    +(needs.sideEffects?'<label class="run-check"><input type="checkbox" id="runSideEffects" /> This tool may send, store, schedule, or change data.</label>':'')+'</div>';
   $('#runArgs').value=JSON.stringify(sample,null,2); $('#runError').textContent=''; $('#runDialog').showModal();
 }
 // Returns why a tool may not run yet, or '' when every confirmation it needs is given.
 function runBlockedReason(tool){
   const needs=runRequirements(toolRisk(tool));
+  if(needs.acknowledgement&&!$('#runAcknowledge')?.checked)return 'Confirm that you understand this controlled run.';
   if(needs.authorization&&!$('#runAuthorize')?.checked)return 'Confirm that you own this target or have written permission to test it.';
   if(needs.typeName&&$('#runConfirmName')?.value.trim()!==tool.name)return `Type ${tool.name} exactly to confirm.`;
   if(needs.credits&&!$('#runCredits')?.checked)return 'Confirm that this tool may spend paid AI credits.';
+  if(needs.sideEffects&&!$('#runSideEffects')?.checked)return 'Confirm that this tool may send, store, schedule, or change data.';
   return '';
 }
 
-async function runTool(tool,serverId,args,title=tool.name){
+async function requestRunGrant(tool,serverId,args){
+  const risk=toolRisk(tool);const needs=runRequirements(risk);
+  if(!needs.acknowledgement)return null;
+  const server=state.servers.find(s=>s.id===serverId);if(!server)throw new Error('Server not found');
+  return api('/api/run-grants',buildRunGrantRequest({tool:{...tool,risk},server,args,confirmation:{
+    acknowledged:$('#runAcknowledge')?.checked,
+    authorization:$('#runAuthorize')?.checked,
+    typedName:$('#runConfirmName')?.value.trim(),
+    credits:$('#runCredits')?.checked,
+    sideEffects:$('#runSideEffects')?.checked
+  }}));
+}
+
+async function runTool(tool,serverId,args,title=tool.name,grant=null){
   const server=state.servers.find(s=>s.id===serverId); if(!server)throw new Error('Server not found');
-  const response=await callTool(tool,serverId,args).catch(error=>{noteToolHealth(serverId,tool.name,'error');renderAll();throw error;});
+  const response=await callTool(tool,serverId,args,grant).catch(error=>{noteToolHealth(serverId,tool.name,'error');renderAll();throw error;});
   noteToolHealth(serverId,tool.name,response.error?'error':classifyToolResult(response.result).kind);
   if(response.error){renderAll();throw new Error(response.error.message||'Tool call failed');}
   const result=response.result; state.lastResult={title,result,time:new Date().toISOString(),server:server.name};
   state.history.unshift({title,time:state.lastResult.time,server:server.name}); renderAll(); showResult(title,result); return result;
 }
 
-async function callTool(tool,serverId,args){
+async function callTool(tool,serverId,args,grant=null){
   const server=state.servers.find(s=>s.id===serverId); if(!server)throw new Error('Server not found');
-  return api('/api/mcp',{endpoint:server.endpoint,token:state.tokens.get(server.id)||'',sessionKey:sessionKeyFor(server.id),method:'tools/call',params:{name:tool.name,arguments:args},initialize:server.status!=='connected'});
+  return api('/api/mcp',{endpoint:server.endpoint,token:state.tokens.get(server.id)||'',sessionKey:sessionKeyFor(server.id),method:'tools/call',params:{name:tool.name,arguments:args},initialize:server.status!=='connected',runGrant:grant?.token||'',runTarget:grant?.target||''});
 }
 
 function humanize(value=''){return String(value).replace(/([a-z0-9])([A-Z])/g,'$1 $2').replace(/[_-]+/g,' ').replace(/\b\w/g,c=>c.toUpperCase());}
@@ -429,7 +447,7 @@ $('#newInvestigation').onclick=()=>{switchView('workspace');$('#query').focus();
 $('#cmdButton').onclick=()=>{switchView('workspace');$('#query').focus();};
 document.addEventListener('keydown',event=>{if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='k'){event.preventDefault();switchView('workspace');$('#query').focus();}});
 $('#saveServer').addEventListener('click',e=>{e.preventDefault();const form=new FormData($('#serverForm'));const server={id:crypto.randomUUID(),name:form.get('name').trim(),endpoint:form.get('endpoint').trim(),status:'offline',tools:[]};if(!server.name||!server.endpoint)return;removedBundledEndpoints.delete(server.endpoint);state.servers.push(server);state.tokens.set(server.id,form.get('token'));$('#serverDialog').close();renderAll();connect(server);});
-$('#executeTool').addEventListener('click',async e=>{e.preventDefault();const blocked=runBlockedReason(state.activeTool.tool);if(blocked){$('#runError').textContent=blocked;return;}try{const args=JSON.parse($('#runArgs').value);$('#runDialog').close();await runTool(state.activeTool.tool,state.activeTool.serverId,args);}catch(error){$('#runError').textContent=error.message;}});
+$('#executeTool').addEventListener('click',async e=>{e.preventDefault();const blocked=runBlockedReason(state.activeTool.tool);if(blocked){$('#runError').textContent=blocked;return;}try{const args=JSON.parse($('#runArgs').value);const grant=await requestRunGrant(state.activeTool.tool,state.activeTool.serverId,args);$('#runDialog').close();await runTool(state.activeTool.tool,state.activeTool.serverId,args,state.activeTool.tool.name,grant);}catch(error){$('#runError').textContent=error.message;}});
 $$('[data-close-result]').forEach(b=>b.onclick=()=>$('#resultDialog').close());
 $$('[data-close-dialog]').forEach(button=>button.onclick=()=>button.closest('dialog')?.close());
 $('#saveEvidence').onclick=()=>{if(state.lastResult){state.evidence.unshift(state.lastResult);renderAll();toast('Saved to evidence');$('#resultDialog').close();}};

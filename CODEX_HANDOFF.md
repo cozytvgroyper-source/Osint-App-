@@ -75,9 +75,10 @@ Acceptance:
 Also in step 2 (see the doc): merge duplicate findings across tools, and pivot buttons on IPs, emails and domains.
 These can be separate PRs.
 
-**Steps 3 and 4** follow the doc. Step 3's server-side run grants are the security-critical part: the server must
-refuse Tier 1+ tool calls that no confirmed Deep Search run or Tool Library confirmation authorised. Decision B puts
-Intrusive in Deep Search; decision C means no scope list.
+**Steps 3 and 4** follow the doc. Step 3's server-side run grants are now implemented: the server refuses controlled
+tool calls unless a matching, unexpired Tool Library confirmation authorised the exact call. The remaining Step 3
+work is the Deep Search page and its execution and audit logs. Decision B puts Intrusive in Deep Search; decision C
+means no scope list.
 
 ## Traps
 
