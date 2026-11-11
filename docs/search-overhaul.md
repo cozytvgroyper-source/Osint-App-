@@ -169,6 +169,22 @@ The captured text is tidied before it is returned: the ASCII-art banner, panel b
 titles kept), and "Saved → /Users/…" report paths are removed so this Mac's home folder never reaches results or
 evidence. The result dialog renders multi-line text as preformatted text.
 
+Domain batch, 2026-11-11. Each tool's source was read before anything ran; only tools that query third parties alone
+were run live:
+
+| Tool | Source and live result | Decision |
+|---|---|---|
+| `omega_harvester` | Fetches the target's home, `/contact`, `/about` and `/team` pages | **Re-tiered to Light touch (1)** |
+| `omega_cvemap` | Runs `techfp.run(target)`, which fetches the target site | **Re-tiered to Light touch (1)** |
+| `omega_c2` | JARM TLS fingerprint and banner grabs on the target's ports | **Re-tiered to Active (2)** |
+| `omega_apiosint` | Requests a list of common API paths (Swagger, GraphQL…) on the target | **Re-tiered to Active (2)** |
+| `omega_intel` | AlienVault OTX pulses and reputation; for IPs also GreyNoise (AbuseIPDB needs a key it lacks); ~2–4 s | **Approved** for domain and IP searches |
+| `omega_org` | Third parties only, but returned just "No job postings" for `example.com` and `github.com`; its GitHub and domain lookups need arguments the MCP wrapper never passes | Manual |
+| `omega_supply`, `omega_satellite`, `omega_leaked`, `omega_codetrace` | Passive, but take package names, aircraft IDs, emails or usernames | Left for later batches |
+
+Caveat for `omega_intel`: OTX pulses often list widely used, harmless domains (`example.com` appears in 50, some with
+alarming titles). A pulse count is a lead, not a verdict; the reputation score is the more meaningful line.
+
 ## Decisions (owner, 2026-11-11)
 
 | | Question | Decision |

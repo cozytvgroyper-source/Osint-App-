@@ -246,7 +246,9 @@ another folder, naming the folder to stop. Every service port is checked by fold
    social) approved none. The `completed` placeholders came from omega-cli printing to the MCP stdio channel;
    `scripts/run-omega-mcp-captured.py` now returns that printed text. The re-review approved `omega_ipdossier` for
    IP searches, re-tiered `omega_recon` to Active and flagged `omega_archive` with side effects (details in
-   `docs/search-overhaul.md`, step 4). Continue with the remaining unreviewed Tier 0 tools.
+   `docs/search-overhaul.md`, step 4). The domain batch approved `omega_intel` (OTX) for domain and IP searches and
+   re-tiered `omega_harvester`, `omega_cvemap` (Light touch) and `omega_c2`, `omega_apiosint` (Active). Read each tool's
+   source before running it. Next batches: IPs, then people/usernames/emails, then the analysis tools.
 2. Decide with the user whether cyber searches should mix sources instead of strict severity order, so OTX shows
    up in short result lists (another patch to the feed's sort). The user chose not to do this for now.
 3. subfinder can only rejoin the automatic search if `osint-toolbox-mcp` exposes subfinder's `-max-time` (an

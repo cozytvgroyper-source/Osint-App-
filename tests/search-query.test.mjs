@@ -87,6 +87,9 @@ test('reviewed Omega identity sources join email and username searches',()=>{
   assert.ok(searchIntent('user@example.com').tools.includes('omega_email'));
   assert.ok(searchIntent('@octocat').tools.includes('omega_gitrecon'));
   assert.ok(searchIntent('8.8.8.8').tools.includes('omega_ipdossier'));
+  assert.ok(searchIntent('example.com').tools.includes('omega_intel'));
+  assert.ok(searchIntent('8.8.8.8').tools.includes('omega_intel'));
+  assert.ok(!searchIntent('dns records').tools.includes('omega_intel'),'keyword searches have no indicator to look up');
 });
 
 test('never auto-selects tools that probe the target, such as DNS zone transfers',()=>{

@@ -61,6 +61,11 @@ test('allows the reviewed IP dossier but keeps redundant, keyless or unreliable 
   assert.equal(isPassiveSearchTool(tool('omega_phoneosint','Phone lookup','Omega MCP')),false);
 });
 
+test('allows the reviewed OTX intel lookup but keeps job-postings-only org output manual',()=>{
+  assert.equal(isPassiveSearchTool(tool('omega_intel','Intelligence gathering — aggregated threat and context data.','Omega MCP')),true);
+  assert.equal(isPassiveSearchTool(tool('omega_org','Organization intelligence','Omega MCP')),false);
+});
+
 test('treats omega-prefixed tools as Omega even under another server name',()=>{
   assert.equal(isPassiveSearchTool(tool('omega_plugin','Plugin manager','Renamed Server')),false);
 });
