@@ -1,6 +1,6 @@
 # Public Desk handoff
 
-Updated 2026-11-10. This replaces the original Codex handoff, which lived outside the repo and is now out of date.
+Updated 2026-11-11 (security hardening, CI). First written 2026-11-10; it replaces the original Codex handoff, which lived outside the repo and is now out of date.
 
 ## Objective
 
@@ -23,12 +23,14 @@ Double-click **Start Public Desk.command** and **Stop Public Desk.command**, or 
 Before every PR:
 
 ```bash
-node --check server.mjs public/*.js
+for f in server.mjs public/*.js scripts/*.mjs; do node --check "$f"; done
 npm test          # node --test tests/*.test.mjs (no dependencies)
 git diff --check
 ```
 
-For UI changes, also exercise the feature in a browser and report what you observed. There is no CI on GitHub yet.
+GitHub Actions (`.github/workflows/ci.yml`) runs the syntax checks, `py_compile`, `zsh -n` on the launchers and
+`npm test` on Node 20 and 22 for every pull request and push to `main`. For UI changes, also exercise the feature in
+a browser and report what you observed.
 
 ## Architecture
 
@@ -41,6 +43,8 @@ For UI changes, also exercise the feature in a browser and report what you obser
 | `public/result-classifier.js` | `classifyToolResult`: whether a response is data, empty, or an error |
 | `public/tool-health.js` | Per-tool working/failing counts and the "N of M servers connected" label |
 | `tests/fixtures/mcp-tools.json` | The real 240-tool list from the three local servers; planner tests run against it |
+| `scripts/bind-loopback.mjs` | `node --import` preload: servers that name no address listen on 127.0.0.1 only |
+| `scripts/run-osint-mcp-guarded.py` | Starts Open OSINT's MCP server with a Host-header check (FastMCP 3.x has no setting) |
 | `Start/Stop Public Desk.command` | Mac launcher; see the launcher section below |
 
 ## Bundled connections
@@ -51,6 +55,29 @@ For UI changes, also exercise the feature in a browser and report what you obser
 | OSINT Toolbox | `127.0.0.1:8893/mcp` | 17 tools |
 | Omega MCP | `127.0.0.1:8894/mcp` | 116 tools; pinned `omega-mcp-server` + `omega-cli` from GitHub with `mcp==1.30.0` |
 | Consensus | `mcp.consensus.app/mcp` | OAuth; the sign-in is saved to `work/consensus-auth.json` (0600) and restored on restart |
+
+The Open OSINT data service behind 8892 runs on `127.0.0.1:8080`. All five local services listen on `127.0.0.1` only.
+
+## Security model
+
+Public Desk serves your Mac only; every protection below was reproduced as an attack before it was fixed.
+Keep them when changing the server or launcher.
+
+- **Public Desk server (`requestGuard` in `server.mjs`):**
+  - every request must carry this app's Host (127.0.0.1, localhost or [::1] on its port), which blocks DNS rebinding;
+  - `/api/` requests are refused when `Origin` or `Sec-Fetch-Site` shows another site;
+  - API POSTs must be `application/json`, which blocks the no-preflight cross-site POST;
+  - page and file GETs need only the Host check, so the return from the Consensus sign-in works;
+  - the Consensus callback is exempt and protected by its one-time `state`.
+- **Security headers** (`SECURITY_HEADERS`, on every response): a strict CSP (own scripts and styles only; fetches
+  only to itself and `intelmap.watch`; `frame-ancestors 'none'`), `X-Frame-Options: DENY`, `nosniff`,
+  `no-referrer`, same-origin COOP/CORP. The page must stay free of inline scripts and styles.
+- **MCP servers:** Toolbox and Omega run with `FASTMCP_HTTP_HOST_ORIGIN_PROTECTION=true` (forged Host → 421) on
+  `fastmcp-slim==4.1.8`. The version is pinned because that setting's name is version-specific; re-check the 421
+  before raising it. Open OSINT runs through `run-osint-mcp-guarded.py` (forged Host → 400).
+- **Data service:** started with `bind-loopback.mjs`, because its own code calls `listen(8080)` with no address.
+- **Upload and sign-in:** uploads are size-limited, renamed, written 0600 and deleted after analysis; pending
+  Consensus sign-ins expire after 10 minutes (at most 20, oldest dropped).
 
 ## Main search
 
@@ -96,6 +123,12 @@ another folder, naming the folder to stop. `Stop Public Desk.command` stops the 
 
 ## Known limitations
 
+- **Server-side request block is shallow:** `validatedEndpoint` blocks only the literal cloud-metadata hostnames
+  (`169.254.169.254` forms that the URL parser normalises, `metadata.google.internal`); spellings such as
+  `[::ffff:169.254.169.254]` or a trailing dot get through, and redirects are followed. That matters only on cloud
+  hosts, and since the request guard only local programs can reach `/api/mcp`.
+- **Data service CORS:** the third-party data service lets `worldmonitor.app` / `h1dr4.dev` pages read its responses
+  (public OSINT data). It is no longer reachable from the network.
 - **Upstream failures, not app bugs:**
   - Open OSINT `get_whois` (RDAP) often returns HTTP 403.
   - GreyNoise returns 404 for IPs it has no record of.
@@ -114,11 +147,12 @@ another folder, naming the folder to stop. `Stop Public Desk.command` stops the 
 
 ## Recommended next work
 
-1. Add GitHub Actions running `npm test` and `node --check` on pull requests.
+1. Show each source's results as they arrive instead of waiting for the slowest tool.
 2. Trim topic words from searches without a target (send "Rosneft" to sanctions tools).
-3. Tailor arguments per tool where schemas allow (e.g. limit theHarvester's sources) so slow tools can rejoin the
+3. Investigate Open OSINT `get_whois` failing with RDAP HTTP 403.
+4. Tailor arguments per tool where schemas allow (e.g. limit theHarvester's sources) so slow tools can rejoin the
    automatic search.
-4. Configure API keys for the Open OSINT tools listed above if the user wants those sources.
+5. Configure API keys for the Open OSINT tools listed above if the user wants those sources.
 
 ## Working rules from the user
 
