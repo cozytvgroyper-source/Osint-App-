@@ -6,6 +6,8 @@ OSINT_ROOT="${APP_DIR:h}/omprehensive-osint-toolboxes-osint-mcp-by/downloads/osi
 RUNTIME_DIR="$APP_DIR/work/runtime"
 LOG_DIR="$APP_DIR/work/logs"
 
+source "$APP_DIR/scripts/service-ownership.zsh"
+
 mkdir -p "$RUNTIME_DIR" "$LOG_DIR"
 
 if [[ ! -d "$OSINT_ROOT/server/node_modules" || ! -x "$OSINT_ROOT/mcp/.venv/bin/osint-mcp" ]]; then
@@ -28,28 +30,12 @@ mcp_ready() {
     >/dev/null 2>&1
 }
 
-port_owner() {
-  local pid
-  pid="$(/usr/sbin/lsof -nP -tiTCP:"$1" -sTCP:LISTEN 2>/dev/null | head -1)"
-  [[ -n "$pid" ]] && /bin/ps -o command= -p "$pid"
-}
-
-# Bridges started from another Public Desk folder run that folder's config, so refuse to reuse them.
-require_own_bridge() {
-  local name="$1" port="$2" config="$3" owner
-  owner="$(port_owner "$port")"
-  if [[ -n "$owner" && "$owner" != *"$config"* ]]; then
-    echo "$name on port $port belongs to another Public Desk folder:"
-    echo "  $owner"
-    echo "Double-click Stop Public Desk.command in that folder, then start again."
-    read -k 1 "?Press any key to close."
-    exit 1
-  fi
-}
-
 start_bridge() {
   local name="$1" port="$2" service="$3" config="$APP_DIR/config/$3-mcp.json"
-  require_own_bridge "$name" "$port" "$config"
+  refuse_foreign_listener "$name" "$port" "$APP_DIR" "$config" || {
+    read -k 1 "?Close the process using port $port, then press any key to close."
+    exit 1
+  }
   if mcp_ready "http://127.0.0.1:$port/mcp"; then
     echo "$name is already running."
     return 0
@@ -83,16 +69,12 @@ wait_for() {
   return 1
 }
 
-signaldesk_pid="$(/usr/sbin/lsof -nP -tiTCP:4173 -sTCP:LISTEN 2>/dev/null | head -1)"
+refuse_foreign_listener "Public Desk" 4173 "$APP_DIR" "server.mjs" || {
+  read -k 1 "?Close the process using port 4173, then press any key to close."
+  exit 1
+}
+signaldesk_pid="$(listener_pid 4173)"
 if [[ -n "$signaldesk_pid" ]]; then
-  signaldesk_dir="$(/usr/sbin/lsof -a -p "$signaldesk_pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p')"
-  if [[ "$signaldesk_dir" != "$APP_DIR" ]]; then
-    echo "Public Desk is already running from another folder:"
-    echo "  $signaldesk_dir"
-    echo "Double-click Stop Public Desk.command in that folder, then start again."
-    read -k 1 "?Press any key to close."
-    exit 1
-  fi
   echo "Public Desk is already running."
 fi
 
@@ -102,7 +84,11 @@ if [[ ! -e "$API_KEYS_FILE" ]]; then
   echo "Created work/api-keys.env for optional API keys (see config/api-keys.env.example)."
 fi
 
-if ! is_ready "http://127.0.0.1:8080/health"; then
+refuse_foreign_listener "Open OSINT data service" 8080 "$OSINT_ROOT/server" "$APP_DIR/scripts/live-api-keys.mjs" || {
+  read -k 1 "?Close the process using port 8080, then press any key to close."
+  exit 1
+}
+if ! is_ready "http://127.0.0.1:8080/health" && [[ -z "$(listener_pid 8080)" ]]; then
   # Public Desk's fixes to Open OSINT's own code (patches/), applied once and kept across Open OSINT updates.
   source "$APP_DIR/scripts/apply-open-osint-patches.zsh"
   apply_open_osint_patches "$OSINT_ROOT" "$APP_DIR/patches"
@@ -123,7 +109,11 @@ if ! is_ready "http://127.0.0.1:8080/health"; then
 fi
 wait_for "Open OSINT data service" "http://127.0.0.1:8080/health" || exit 1
 
-if ! is_ready "http://127.0.0.1:8892/health"; then
+refuse_foreign_listener "Open OSINT MCP service" 8892 "$OSINT_ROOT/mcp" "$APP_DIR/scripts/run-osint-mcp-guarded.py" || {
+  read -k 1 "?Close the process using port 8892, then press any key to close."
+  exit 1
+}
+if ! is_ready "http://127.0.0.1:8892/health" && [[ -z "$(listener_pid 8892)" ]]; then
   echo "Starting MCP service…"
   (
     cd "$OSINT_ROOT/mcp"
