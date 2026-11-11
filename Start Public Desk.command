@@ -96,9 +96,18 @@ if [[ -n "$signaldesk_pid" ]]; then
   echo "Public Desk is already running."
 fi
 
+API_KEYS_FILE="$APP_DIR/work/api-keys.env"
+if [[ ! -e "$API_KEYS_FILE" ]]; then
+  (umask 077; cp "$APP_DIR/config/api-keys.env.example" "$API_KEYS_FILE")
+  echo "Created work/api-keys.env for optional API keys (see config/api-keys.env.example)."
+fi
+
 if ! is_ready "http://127.0.0.1:8080/health"; then
   echo "Starting Open OSINT data service…"
   (
+    # Keys are exported only inside this subshell, so only the data service receives them.
+    source "$APP_DIR/scripts/load-api-keys.zsh"
+    load_api_keys "$API_KEYS_FILE"
     cd "$OSINT_ROOT/server"
     # The data service calls listen(8080) with no address, which listens on every network interface.
     # bind-loopback.mjs keeps it on this Mac only. default-user-agent.mjs replaces fetch's "node" User-Agent,

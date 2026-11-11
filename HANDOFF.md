@@ -47,6 +47,8 @@ a browser and report what you observed.
 | `public/tool-health.js` | Per-tool working/failing counts and the "N of M servers connected" label |
 | `tests/fixtures/mcp-tools.json` | The real 240-tool list from the three local servers; planner tests run against it |
 | `scripts/bind-loopback.mjs` | `node --import` preload: servers that name no address listen on 127.0.0.1 only |
+| `scripts/load-api-keys.zsh` | Reads `work/api-keys.env` (KEY=value, never sourced) and exports allowlisted data-source keys |
+| `config/api-keys.env.example` | Template the launcher copies to `work/api-keys.env` on first start |
 | `scripts/default-user-agent.mjs` | `node --import` preload: `fetch` calls with no User-Agent send `PublicDesk/1.0` instead of `node` |
 | `scripts/run-osint-mcp-guarded.py` | Starts Open OSINT's MCP server with a Host-header check (FastMCP 3.x has no setting) |
 | `Start/Stop Public Desk.command` | Mac launcher; see the launcher section below |
@@ -84,6 +86,10 @@ Keep them when changing the server or launcher.
   User-Agent with HTTP 403. About 22 of its 37 fetching modules set no User-Agent of their own.
 - **Upload and sign-in:** uploads are size-limited, renamed, written 0600 and deleted after analysis; pending
   Consensus sign-ins expire after 10 minutes (at most 20, oldest dropped).
+- **API keys:** the user's keys live in `work/api-keys.env` (0600, git-ignored; `work/` is 0700). The launcher
+  passes them only to the Open OSINT data service, reads the file line by line so nothing in it runs, exports only
+  allowlisted data-source keys (no AI or hosting keys, which spend credits), and prints key names, never values.
+  Keys change only after Stop and Start. Never read, print or commit that file.
 
 ## Main search
 
@@ -151,8 +157,12 @@ another folder, naming the folder to stop. `Stop Public Desk.command` stops the 
   - GreyNoise returns 404 for IPs it has no record of.
   - MalwareBazaar needs an API key (401).
   - ThreatFox intermittently errors.
-- **Missing API keys:** some Open OSINT tools need keys that aren't configured: ACLED, AISStream, Intelligence X,
-  FMP and others.
+- **API keys:** none are filled in by default; see `config/api-keys.env.example` for each source and where to
+  get a free key. OTX and AbuseIPDB feed `get_cyber_threats`; Intelligence X feeds `get_intelx`.
+- **AISStream is broken upstream:** Open OSINT's `ais_vessels` module calls `api.aisstream.io`, which does not
+  resolve; AISStream only offers a WebSocket stream (`stream.aisstream.io`). A key changes the error from "not
+  configured" to "fetch failed" but returns no vessels.
+- **MalwareBazaar** answers 401 because its module never sends the abuse.ch Auth-Key, even if one is configured.
 - **Omega quirks:** Omega turns some network failures into an empty "ok" result, so "no results" isn't proof.
   `omega_monitor` always fails (not implemented in omega-cli).
 - **Domain-like words:** tokens such as "node.js" are treated as domain targets.
@@ -165,9 +175,13 @@ another folder, naming the folder to stop. `Stop Public Desk.command` stops the 
 
 ## Recommended next work
 
-1. Configure API keys for the Open OSINT tools listed above if the user wants those sources.
+1. The user is signing up for OTX, AbuseIPDB and Intelligence X keys; once they are in `work/api-keys.env`, restart
+   and check `get_cyber_threats` and `get_intelx` in a search.
 2. subfinder can only rejoin the automatic search if `osint-toolbox-mcp` exposes subfinder's `-max-time` (an
    upstream change; its `timeout` limits each request, not the run).
+3. Vessel positions need Open OSINT's `ais_vessels` module rewritten for AISStream's WebSocket stream.
+4. MalwareBazaar needs its module (or a preload, like `default-user-agent.mjs`) to send `Auth-Key` from
+   `URLHAUS_AUTH_KEY`; one abuse.ch key covers URLhaus, MalwareBazaar and ThreatFox.
 
 ## Working rules from the user
 
