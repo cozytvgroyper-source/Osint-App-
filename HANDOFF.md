@@ -216,8 +216,9 @@ another folder, naming the folder to stop. Every service port is checked by fold
 - **Empty-result wrappers:** some Open OSINT tools return explanatory text and counters alongside empty result arrays.
   The classifier can count those wrappers as data, so a deliberately nonexistent target may show a source section
   with zero matching records instead of the consolidated "No results returned" message.
-- **Restarting one MCP bridge strands the app's session:** the app server keeps the old MCP session ID, the new bridge
-  answers 404, and the server shows "Ready to connect" until Public Desk itself restarts. The launchers restart both.
+- **MCP sessions recover after a bridge restart:** a bridge that restarts forgets its sessions and answers 404. The app
+  server then drops the cached session ID, initializes a new session and retries the call once (`withSessionRecovery`
+  in `server.mjs`); `initialize` never sends a cached session ID.
 - **Domain-like words:** tokens such as "node.js" are treated as domain targets.
 - **Subject trimming is word-list based:** a name that contains its own topic word loses it ("Port of Rotterdam"
   sends "Rotterdam"), and a topic-only search such as "latest ransomware" still sends "ransomware" as a filter.
