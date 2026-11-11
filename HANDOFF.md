@@ -214,8 +214,10 @@ another folder, naming the folder to stop. Every service port is checked by fold
 
 ## Recommended next work
 
-1. **Search overhaul:** follow `docs/search-overhaul.md`. Step 1 (risk tiers in Tool Library) is PR #33; steps 2–4
-   (Sources panel, Deep Search with server-side enforcement, Omega review) wait on its open decisions A–D.
+1. **Search overhaul:** follow `docs/search-overhaul.md`. Step 1 (risk tiers in Tool Library) is merged (PR #33), and
+   the owner decided A–D on 2026-11-11: Sources panel inline, Intrusive included in Deep Search, no saved scope list,
+   all 14 best-guess tiers confirmed. Next is step 2, the inline Sources panel; it replaces the "findings and Related
+   Links only" rule for completed searches.
 2. Decide with the user whether cyber searches should mix sources instead of strict severity order, so OTX shows
    up in short result lists (another patch to the feed's sort). The user chose not to do this for now.
 3. subfinder can only rejoin the automatic search if `osint-toolbox-mcp` exposes subfinder's `-max-time` (an

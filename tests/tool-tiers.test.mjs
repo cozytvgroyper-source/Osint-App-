@@ -23,6 +23,13 @@ test('every connected tool has a reviewed tier',()=>{
   assert.equal(toolRisk({name:'search',serverName:'Consensus'}).level,0,'Consensus searches published papers');
 });
 
+// The owner confirmed the 14 best-guess Omega tiers on 2026-11-11 (docs/search-overhaul.md, decision D).
+test('no tier is still waiting for the owner to confirm it',()=>{
+  assert.deepEqual(tools.filter(tool=>toolRisk(tool).needsReview).map(tool=>tool.name),[]);
+  assert.equal(toolRisk(byName('omega_exfil')).level,3,'confirmed tiers keep their level');
+  assert.equal(toolRisk(byName('omega_certhunt')).level,1);
+});
+
 test('a tool nobody has reviewed is treated as intrusive',()=>{
   const risk=toolRisk({name:'omega_brand_new_scanner',serverName:'Omega MCP'});
   assert.equal(risk.level,3);
