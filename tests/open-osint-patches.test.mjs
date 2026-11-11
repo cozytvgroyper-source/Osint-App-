@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {spawnSync} from 'node:child_process';
+import {upstreamFromPatch} from './helpers/patch-fixtures.mjs';
 
 // The launcher applies patches/*.patch to the Open OSINT checkout before starting its data service. These tests
 // run scripts/apply-open-osint-patches.zsh against a scratch folder holding the lines the patch changes.
@@ -77,7 +78,8 @@ export async function fetchAbuseIpDbSource(limit: number): Promise<SourceResult>
 
 function scratch(contents,headless=headlessUpstream){
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'public-desk-osint-'));
-  for(const [file,text] of [[target,contents],[headlessTarget,headless],[sharedTarget,sharedUpstream]]){
+  const ais=upstreamFromPatch(new URL('../patches/open-osint-ais-websocket.patch',import.meta.url));
+  for(const [file,text] of [[target,contents],[headlessTarget,headless],[sharedTarget,sharedUpstream],[ais.target,ais.text]]){
     fs.mkdirSync(path.dirname(path.join(root,file)),{recursive:true});
     fs.writeFileSync(path.join(root,file),text);
   }
