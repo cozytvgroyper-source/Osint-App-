@@ -144,8 +144,15 @@ may spend API credits.
 Root cause of the `completed` placeholders: omega-cli prints its result tables to stdout, which is the MCP stdio
 channel. The bridge rejects those lines as invalid JSON-RPC (they appear in `work/logs/omega.log`, for example
 "IP Geolocation: 8.8.8.8" and "Total mentions found: 15"), and the tool then returns only `completed`. Capturing
-module stdout inside the Omega server and returning it as the result would likely make many manual tools reviewable;
-that is a separate change, best done as a launcher-applied patch like the Open OSINT ones.
+module stdout inside the Omega server and returning it as the result would likely make many manual tools reviewable.
+
+Fixed 2026-11-11: `scripts/run-omega-mcp-captured.py` wraps omega-mcp's shared `_run_omega_module` helper, redirects
+stdout while a module runs and returns the printed text (ANSI stripped, capped at 20,000 characters) when the module
+returned nothing. Structured results and errors are unchanged. Live after the fix: `omega_geoint` (`8.8.8.8`) returns
+location, ISP and ASN; `omega_recon` (`example.com`) returns WHOIS, DNS and IP sections; `omega_ipdossier` returns an
+IP dossier; `omega_whois` and `omega_email` return the same structured JSON as before; the Omega log shows no
+JSON-RPC parse errors. None of these was added to automatic search in this change: re-review every tool previously
+marked `completed` (archive, threatintel, phoneosint, recon, ipdossier, geoint) against its new text output first.
 
 ## Decisions (owner, 2026-11-11)
 
