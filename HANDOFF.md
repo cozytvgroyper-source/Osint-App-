@@ -241,23 +241,10 @@ another folder, naming the folder to stop. Every service port is checked by fold
 
 ## Recommended next work
 
-1. **Search overhaul:** follow `docs/search-overhaul.md`. Step 1 (risk tiers in Tool Library) is merged (PR #33), and
-   the owner decided A–D on 2026-11-11: Sources panel inline, Intrusive included in Deep Search, no saved scope list,
-   all 14 best-guess tiers confirmed. Step 2 is complete: inline Sources, duplicate consolidation and passive pivots
-   for IPs, emails and domains are implemented. Step 3 is complete: Deep Search has explicit scope and level controls,
-   a selectable plan, authorization and typed Intrusive confirmation, sequential execution, Cancel, server-enforced
-   grants and the private local audit log. Step 4 is complete; the history follows, and
-   `docs/omega-tool-review.md` has the current result for every tool. `omega_breach` is approved for automatic search after
-   a live structured response; `omega_archive` and `omega_threatintel` returned only `completed` and remain manual.
-   The identity batch also approved `omega_email` and `omega_gitrecon`; `omega_username` currently errors and
-   `omega_phoneosint` returns only `completed`. The network batch (recon, ipdossier, geoint, torcheck, typosquat,
-   social) approved none. The `completed` placeholders came from omega-cli printing to the MCP stdio channel;
-   `scripts/run-omega-mcp-captured.py` now returns that printed text. The re-review approved `omega_ipdossier` for
-   IP searches, re-tiered `omega_recon` to Active and flagged `omega_archive` with side effects (details in
-   `docs/search-overhaul.md`, step 4). The domain batch approved `omega_intel` (OTX) for domain and IP searches and
-   re-tiered `omega_harvester`, `omega_cvemap` (Light touch) and `omega_c2`, `omega_apiosint` (Active). Read each tool's
-   source before running it. The full review (all 116 tools) is complete: see `docs/omega-tool-review.md` for every
-   tool's tier, automatic status and reason. Rerun it when the pinned omega-mcp-server or omega-cli commit changes.
+1. **Search overhaul: complete.** Steps 1–4 of `docs/search-overhaul.md` are merged (PRs #33–#52): risk tiers, inline
+   Sources, deduplication and pivots, Deep Search with server-enforced grants, and a source review of every tool on all
+   four servers (`docs/omega-tool-review.md` for Omega). Rerun the Omega review when the pinned omega-mcp-server or
+   omega-cli commit changes, and review any new server's tools before they can run automatically.
 2. Decide with the user whether cyber searches should mix sources instead of strict severity order, so OTX shows
    up in short result lists (another patch to the feed's sort). The user chose not to do this for now.
 3. subfinder can only rejoin the automatic search if `osint-toolbox-mcp` exposes subfinder's `-max-time` (an

@@ -16,20 +16,23 @@ Where this document and the code disagree, the code wins: `public/tool-tiers.js`
 Every tool has exactly one tier. A tool missing from the reviewed table counts as **Intrusive**, so a new scanner
 added by a server update can never be mistaken for a safe one.
 
-| Tier | Name | What the target sees | Tools (2026-11-11, 245 live) |
+| Tier | Name | What the target sees | Tools (after the full source review, 245 live) |
 |---|---|---|---|
-| 0 | Passive | Nothing: public databases and third parties | 197 |
-| 1 | Light touch | A normal visit or connection, like one browser loading the site | 19 |
-| 2 | Active | Probing or enumeration likely to show in its logs or alerts | 19 |
+| 0 | Passive | Nothing: public databases and third parties | 187 |
+| 1 | Light touch | A normal visit or connection, like one browser loading the site | 23 |
+| 2 | Active | Probing or enumeration likely to show in its logs or alerts | 25 |
 | 3 | Intrusive | Attack-style testing; only on systems you own or may test in writing | 10 |
 
-Flags, shown alongside the tier: **💳 credits** (spends paid AI credits: `omega_ai_analyst`, `omega_aiassist`,
-`omega_aisummary`, `omega_agent_run`, `omega_autopilot`) and **⚙ side effects** (sends, stores, schedules or loads
-something: `omega_notifier`, `omega_monitor`, `omega_watcher`, `omega_pastewatch`, `omega_osintdb`, the report and
-dashboard generators, `omega_plugin`, `omega_proxy`).
+Flags, shown alongside the tier: **💳 credits** (spends paid AI credits or plan usage: `omega_ai_analyst`,
+`omega_aiassist`, `omega_aisummary`, `omega_executive`, `omega_agent_run`, `omega_autopilot`, and Consensus
+`create_thread` and `add_to_thread`) and **⚙ side effects** (sends, stores, schedules or loads something:
+`omega_notifier`, `omega_monitor`, `omega_watcher`, `omega_pastewatch`, `omega_osintdb`, `omega_archive`, the report
+and dashboard generators, `omega_plugin`, `omega_proxy`, and the two Consensus thread tools). No flagged tool, and no
+tool its server annotates as writing, can run automatically.
 
-Whole servers reviewed as Tier 0: **Open OSINT** (all 107 tools read public feeds and databases through its data
-service; none takes a target to crawl or probe) and **Consensus** (research papers).
+Whole server reviewed as Tier 0: **Open OSINT** (all 107 tools read public feeds and databases through its data
+service; none takes a target to crawl or probe). Consensus has per-tool tiers: its paper search and thread readers are
+Passive, and its two thread writers carry both flags. Per-tool Omega results: `docs/omega-tool-review.md`.
 
 - **Tier 1:** `omega_headers`, `omega_ssl`, `omega_tech`, `omega_cors`, `omega_ioc`, `omega_infra`,
   `omega_network`, `omega_certhunt`, `omega_crypto`, `omega_docosint`, `omega_dossier`, `omega_mailsec`,
