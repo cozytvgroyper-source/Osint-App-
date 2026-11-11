@@ -89,6 +89,7 @@ test('reviewed Omega identity sources join email and username searches',()=>{
   assert.ok(searchIntent('8.8.8.8').tools.includes('omega_ipdossier'));
   assert.ok(searchIntent('example.com').tools.includes('omega_intel'));
   assert.ok(searchIntent('8.8.8.8').tools.includes('omega_intel'));
+  assert.ok(searchIntent('CVE-2021-44228').tools.includes('omega_cvssrank'));
   assert.ok(!searchIntent('dns records').tools.includes('omega_intel'),'keyword searches have no indicator to look up');
 });
 

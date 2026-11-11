@@ -66,6 +66,12 @@ test('allows the reviewed OTX intel lookup but keeps job-postings-only org outpu
   assert.equal(isPassiveSearchTool(tool('omega_org','Organization intelligence','Omega MCP')),false);
 });
 
+test('allows the reviewed CVE ranking but keeps duplicate or misleading Omega tools manual',()=>{
+  assert.equal(isPassiveSearchTool(tool('omega_cvssrank','CVSS ranking — scores and prioritizes vulnerabilities by severity.','Omega MCP')),true);
+  for(const name of ['omega_leaked','omega_identity','omega_socmint','omega_codetrace','omega_persona'])
+    assert.equal(isPassiveSearchTool(tool(name,'Reviewed and kept manual','Omega MCP')),false,name);
+});
+
 test('treats omega-prefixed tools as Omega even under another server name',()=>{
   assert.equal(isPassiveSearchTool(tool('omega_plugin','Plugin manager','Renamed Server')),false);
 });

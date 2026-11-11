@@ -121,9 +121,9 @@ arguments in addition to the visible target and selected level. Deep Search uses
 plan, runs the selected calls sequentially with a two-minute per-tool limit, cancels the in-flight upstream request
 when the browser cancels, and appends the final outcome to `work/deep-search-audit.jsonl` with mode 0600.
 
-## Step 4: Review Omega for passive coverage (in progress)
+## Step 4: Review Omega for passive coverage (complete)
 
-Re-check Omega's 79 Tier 0 tools against real output and add the useful ones to the main search's reviewed list
+Re-check Omega's Tier 0 tools (79 when this step began; 60 after the source review re-tiered the rest) against real output and add the useful ones to the main search's reviewed list
 (`OMEGA_AUTO_SEARCH_TOOLS`), for example `omega_breach`, `omega_archive` and `omega_threatintel`. The Tier 0 invariant
 test keeps this safe.
 
@@ -180,10 +180,19 @@ were run live:
 | `omega_apiosint` | Requests a list of common API paths (Swagger, GraphQL…) on the target | **Re-tiered to Active (2)** |
 | `omega_intel` | AlienVault OTX pulses and reputation; for IPs also GreyNoise (AbuseIPDB needs a key it lacks); ~2–4 s | **Approved** for domain and IP searches |
 | `omega_org` | Third parties only, but returned just "No job postings" for `example.com` and `github.com`; its GitHub and domain lookups need arguments the MCP wrapper never passes | Manual |
-| `omega_supply`, `omega_satellite`, `omega_leaked`, `omega_codetrace` | Passive, but take package names, aircraft IDs, emails or usernames | Left for later batches |
+| `omega_supply`, `omega_satellite`, `omega_leaked`, `omega_codetrace` | Passive, but take package names, aircraft IDs, emails or usernames | Decided in the full review below: all kept manual |
 
 Caveat for `omega_intel`: OTX pulses often list widely used, harmless domains (`example.com` appears in 50, some with
 alarming titles). A pulse count is a lead, not a verdict; the reputation score is the more meaningful line.
+
+Full review, 2026-11-11: every Omega tool's source (and each module it imports) was scanned and the flagged lines read;
+tools with third-party-only source were run live. Seven more tiers were corrected: `omega_dashboard`, `omega_livedash`
+(Active, side effects kept) and `omega_dossier` (Active) run port scans and subdomain brute forcing; `omega_deepweb` and
+`omega_torcheck` fetch `.onion` targets through tor2web and `omega_typosquat` requests every look-alike domain (Light
+touch); `omega_executive` calls OpenAI when a key is set (credits). `omega_cvssrank` (CVSS + EPSS + CISA KEV) is approved
+for CVE searches. `omega_leaked` stays manual because it reports "no breaches" when Have I Been Pwned refuses the missing
+API key. No Active tool attempts logins or writes, so none moved to Intrusive. The per-tool result for all 116 tools is
+in `docs/omega-tool-review.md`. Step 4 is complete.
 
 ## Decisions (owner, 2026-11-11)
 

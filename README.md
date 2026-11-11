@@ -57,8 +57,8 @@ returns it as the tool's result (plain text, with terminal decoration and local 
 
 All Omega tools appear in Tool Library. The main search only runs Omega tools whose source was reviewed
 and whose live output was useful: WHOIS, DNS, IP info, crt.sh, Wayback, CVE, ASN, malware hash, SPF/DMARC,
-reverse IP, dorks, threat feeds, breach lookup, email validation, public Git repositories, the IP dossier and AlienVault OTX threat intel.
-`docs/search-overhaul.md` (step 4) records each review. Running any other Omega tool from Tool Library can:
+reverse IP, dorks, threat feeds, breach lookup, email validation, public Git repositories, the IP dossier, AlienVault OTX threat intel and CVE ranking (CVSS, EPSS, CISA KEV).
+`docs/omega-tool-review.md` lists every Omega tool's tier and the reason for it. Running any other Omega tool from Tool Library can:
 
 - probe the target directly (port scans, crawling, fuzzing, brute forcing, typosquat checks; `omega_recon`
   runs several of these at once);

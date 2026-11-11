@@ -93,7 +93,7 @@ const intent=(id,label,tools)=>({id,label,tools});
 export function searchIntent(query){
   const q=query.trim(); const singular=singularWords(q); const has=pattern=>pattern.test(q)||pattern.test(singular);
   const target=extractTarget(q);
-  if(/\bCVE-\d{4}-\d+\b/i.test(q))return intent('cve','Vulnerability intelligence',['get_nvd_cves','get_cisa_kev']);
+  if(/\bCVE-\d{4}-\d+\b/i.test(q))return intent('cve','Vulnerability intelligence',['get_nvd_cves','get_cisa_kev','omega_cvssrank']);
   if(/\b(?:[A-Fa-f0-9]{32}|[A-Fa-f0-9]{40}|[A-Fa-f0-9]{64})\b/.test(q))return intent('malware','File and malware reputation',['get_malwarebazaar','omega_malware']);
   if(target?.type==='ip')return intent('network','IP and network intelligence',['get_bgp','get_greynoise','get_whois','omega_ipdossier','omega_intel']);
   if(target?.type==='email')return intent('email','Public email-account presence',['holehe_email_search','omega_email']);
