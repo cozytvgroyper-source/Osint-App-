@@ -72,6 +72,14 @@ test('allows the reviewed CVE ranking but keeps duplicate or misleading Omega to
     assert.equal(isPassiveSearchTool(tool(name,'Reviewed and kept manual','Omega MCP')),false,name);
 });
 
+test('never auto-runs a tool its own server declares as writing',()=>{
+  const withHints=annotations=>({...tool('create_thread','Create a new research thread and dispatch the research agent','Consensus'),annotations});
+  assert.equal(isPassiveSearchTool(withHints({readOnlyHint:false})),false);
+  assert.equal(isPassiveSearchTool(withHints({readOnlyHint:true,destructiveHint:true})),false);
+  assert.equal(isPassiveSearchTool(withHints({readOnlyHint:true})),true);
+  assert.equal(isPassiveSearchTool(tool('search','Search published research papers','Consensus')),true,'tools without hints keep their review');
+});
+
 test('treats omega-prefixed tools as Omega even under another server name',()=>{
   assert.equal(isPassiveSearchTool(tool('omega_plugin','Plugin manager','Renamed Server')),false);
 });

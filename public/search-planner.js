@@ -31,6 +31,8 @@ const TOO_SLOW_FOR_AUTO_SEARCH=new Set(['subfinder_subdomain_search']);
 // Why a tool may never be chosen automatically, or null when it may.
 function exclusionReason(tool){
   if(ACTIVE_TOOL_NAMES.test(tool.name||'')||ACTIVE_LANGUAGE.test(tool.description||''))return 'Active or side-effect tool (never auto-run)';
+  // MCP tool annotations: a server that marks a tool as writing (not read-only, or destructive) is believed.
+  if(tool.annotations?.readOnlyHint===false||tool.annotations?.destructiveHint===true)return 'Writes or changes data (never auto-run)';
   if(TOO_SLOW_FOR_AUTO_SEARCH.has(tool.name))return 'Too slow for automatic search (Tool Library only)';
   if(isOmegaTool(tool)&&!OMEGA_AUTO_SEARCH_TOOLS.has(tool.name))return 'Omega tool not reviewed for automatic search';
   return null;

@@ -43,7 +43,10 @@ Public Desk supports MCP Streamable HTTP, tool discovery, JSON-schema-assisted a
 
 The main search also accepts photos, videos, PDFs, Office documents, text, CSV, and JSON files up to 50 MB. Files are analyzed locally with the OSINT Toolbox metadata tool and removed from the temporary upload folder after each analysis.
 
-The Mac launcher also starts the bundled OSINT Toolbox and Omega MCP bridges. Omega includes active reconnaissance utilities; run those only against systems you own or have explicit permission to test. Consensus is included as a remote academic-search server and uses its official OAuth sign-in flow.
+The Mac launcher also starts the bundled OSINT Toolbox and Omega MCP bridges. Omega includes active reconnaissance utilities; run those only against systems you own or have explicit permission to test. Consensus is included as a remote academic-search server and uses its official OAuth sign-in flow. Its paper search
+joins research searches automatically; `create_thread` and `add_to_thread` create threads in your Consensus account and
+run its AI research agent, so they are marked with side effects and credits and run only from Tool Library. The main
+search never runs a tool that its own server annotates as writing (`readOnlyHint: false` or `destructiveHint: true`).
 
 ### Omega
 

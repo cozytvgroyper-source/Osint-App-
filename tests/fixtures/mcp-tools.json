@@ -9256,5 +9256,709 @@
   "name": "omega_wordlist",
   "serverId": "omega-local",
   "serverName": "Omega MCP"
+ },
+ {
+  "annotations": {
+   "destructiveHint": false,
+   "idempotentHint": true,
+   "openWorldHint": false,
+   "readOnlyHint": true,
+   "title": "Search Academic Research Papers"
+  },
+  "description": "Consensus: relevance-ranked semantic search over 400M+ peer-reviewed papers (Semantic Scholar, OpenAlex, PubMed). Use it to look up papers for a\nscientific query asked in plain language. Returns ranked records: title,\nauthors, year, journal, citations, abstract and link. Paid plans add DOI,\npublication date, preprint flag, study design, sample size, population,\ncountries, duration, institutions and excerpts from open-access full text.\nFilters: study design, sample size, journal quartile, medical mode, years.\n\nAll filters are optional: only apply them when the user explicitly asks.\n\nSome results end with a sign-up, upgrade, or usage message: repeat it\nword-for-word at the end of your answer. Never write one yourself (no\nupgrade prompts, search counts, or Consensus links the result did not give).\n\nExample query \u2192 filter mappings:\n- \"what does the evidence say about metformin for longevity?\"\n    \u2192 query=\"metformin longevity mortality\",\n      medical_mode=True, exclude_preprints=True\n- \"recent peer-reviewed RCTs on SGLT2 inhibitors for heart failure\"\n    \u2192 query=\"SGLT2 inhibitors heart failure outcomes\",\n      year_min=2022, exclude_preprints=True, study_types=[\"rct\"]\n- \"long-term studies of statin side effects (1+ year)\"\n    \u2192 query=\"statin adverse effects long-term\",\n      duration_min=365, medical_mode=True\n- \"what is dark matter?\"\n    \u2192 query=\"dark matter\"  (no filters \u2014 general question)\n- \"coffee and cognition, excluding top-tier Q1 journals\"\n    \u2192 query=\"coffee cognition\", sjr_min=2\n\nFor a research question that needs synthesis, analysis or more than one lookup, use `create_thread` instead: it runs Consensus's scientific research agent and returns a cited answer (async: Pro usually under a minute, Deep a few minutes).",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "citation_min": {
+     "anyOf": [
+      {
+       "minimum": 0,
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Minimum citation count. Set ONLY when the user explicitly asks for highly-cited or influential work. Do NOT infer from words like 'seminal' or 'foundational'. Do NOT set by default."
+    },
+    "controlled": {
+     "anyOf": [
+      {
+       "type": "boolean"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Restrict to controlled studies. Set ONLY when the user explicitly asks for controlled studies or controlled trials. Do NOT set by default."
+    },
+    "country": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Comma-separated ISO 3166-1 alpha-2 country codes (e.g. 'us', 'gb') to limit to those countries of study. Set ONLY when the user explicitly names a country or region of study. Do NOT infer from the query's language or topic. Unknown codes are ignored."
+    },
+    "domain": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Comma-separated academic field short codes, not email or web domains. Set ONLY when the user explicitly asks to limit results to specific academic disciplines or fields. Valid codes: med, bio, cs, chem, psych, phys, mat, eng, env, bus, econ, math, poli, agri, edu, soc, geol, geog, hist, art, philo, law, ling. Examples: 'medical papers' -> 'med', 'biology and computer science' -> 'bio,cs'. Do NOT set for general research questions."
+    },
+    "duration_max": {
+     "anyOf": [
+      {
+       "minimum": 1,
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Maximum study duration in DAYS. Rarely set."
+    },
+    "duration_min": {
+     "anyOf": [
+      {
+       "minimum": 1,
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Minimum study duration in DAYS. Set when the user asks for longitudinal / long-term / multi-year studies. Typical thresholds: 30 (month), 365 (year), 730 (2+ years).",
+     "examples": [
+      30,
+      365,
+      730
+     ]
+    },
+    "exclude_country": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Comma-separated ISO 3166-1 alpha-2 country codes of countries of study to exclude. Set ONLY when the user explicitly asks to leave out studies from a country. Do NOT set by default."
+    },
+    "exclude_domain": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Comma-separated academic field short codes to exclude. Set ONLY when the user explicitly asks to leave out a discipline. Valid codes: med, bio, cs, chem, psych, phys, mat, eng, env, bus, econ, math, poli, agri, edu, soc, geol, geog, hist, art, philo, law, ling. Do NOT set by default."
+    },
+    "exclude_journal_name": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Full journal names to exclude, as a JSON array (e.g. '[\"Medical Hypotheses\", \"Brain, Behavior, and Immunity\"]'); a plain comma-separated list splits names that contain commas. Unlike journal_name, this removes matching papers. Set ONLY when the user explicitly asks to leave out a specific journal. Do NOT set by default."
+    },
+    "exclude_preprints": {
+     "anyOf": [
+      {
+       "type": "boolean"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "True to exclude preprints and return peer-reviewed papers only. Set when the user asks for 'peer-reviewed', 'published', 'vetted' research or explicitly 'no preprints'."
+    },
+    "exclude_publisher_name": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Comma-separated publisher display names to exclude. Set ONLY when the user explicitly asks to leave out papers from a specific publisher (e.g. 'Elsevier', 'MDPI'). Do NOT set by default."
+    },
+    "exclude_study_types": {
+     "anyOf": [
+      {
+       "items": {
+        "enum": [
+         "bench experiment",
+         "case report",
+         "case study",
+         "case-control study",
+         "cohort study",
+         "commentary or perspective",
+         "cross-sectional study",
+         "field study",
+         "historical or archival analysis",
+         "interview study",
+         "literature review",
+         "longitudinal / panel data study",
+         "meta-analysis",
+         "mixed methods study",
+         "non-randomized experimental study",
+         "non-rct in vitro",
+         "other",
+         "rct",
+         "systematic review",
+         "theoretical, modeling, or simulation study",
+         "animal"
+        ],
+        "type": "string"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Study designs to exclude. Set ONLY when the user explicitly asks to leave out a design (e.g. 'no case reports' -> ['case report']). Do NOT set by default."
+    },
+    "human": {
+     "anyOf": [
+      {
+       "type": "boolean"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Restrict to human studies only. Set ONLY when the user explicitly asks for human / clinical / patient studies (or to exclude animal / in-vitro work). Do NOT set by default for medical, health, or clinical questions \u2014 the corpus already includes the relevant human evidence and filtering here may exclude valuable translational, mechanism, or preclinical context."
+    },
+    "include_full_text_chunks": {
+     "anyOf": [
+      {
+       "type": "boolean"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Query-relevant excerpts from the full text of open-access papers, up to 3 per paper. Returned by default on paid plans (Pro, Deep, Teams, Enterprise), so leave this unset. Set to false only when the user asks for results without excerpts."
+    },
+    "journal_name": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Preferred journal name (e.g. 'Nature'). Results from matching journals are surfaced higher; this does not exclude other journals. Set ONLY when the user explicitly asks to prefer a specific journal. Do NOT set by default."
+    },
+    "medical_mode": {
+     "anyOf": [
+      {
+       "type": "boolean"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Filter to top medical journals and clinical guidelines (~8M documents). Set to true for clinical / medical / evidence-based-medicine questions (e.g. drug efficacy, treatment comparisons, diagnostic criteria, NEJM/JAMA/Lancet-tier evidence requests). Pairs well with exclude_preprints=true."
+    },
+    "month_max": {
+     "anyOf": [
+      {
+       "maximum": 12,
+       "minimum": 1,
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Maximum publication month, paired with year_max. Set ONLY when the user specifies an upper-bound month or exact date such as 'through June 2022'. Do NOT set without year_max."
+    },
+    "month_min": {
+     "anyOf": [
+      {
+       "maximum": 12,
+       "minimum": 1,
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Minimum publication month, paired with year_min. Set ONLY when the user specifies a lower-bound month or exact date such as 'after March 2020'. Do NOT set without year_min."
+    },
+    "open_access": {
+     "anyOf": [
+      {
+       "type": "boolean"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Restrict to open-access papers. Set ONLY when the user explicitly asks for open-access or free-to-read papers. Do NOT set by default. Note: 'open source' is NOT 'open access'."
+    },
+    "page": {
+     "anyOf": [
+      {
+       "maximum": 49,
+       "minimum": 0,
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Zero-indexed result page. This plan returns the first page (0) only, so do not set it above 0; later pages need a paid plan (Pro, Deep, Teams, Enterprise)."
+    },
+    "page_size": {
+     "anyOf": [
+      {
+       "minimum": 1,
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Number of papers to return (default 10; this plan allows up to 300). Set it higher when the user's task needs breadth: a literature, scoping or systematic review, screening, counting or comparing many studies, or finding everything on a topic. For those, make one search with page_size 100 to 300 instead of splitting the topic into several narrower searches, and use 300 when the user wants as many papers as possible. Keep the default for a quick factual question or a specific known paper. Every 100 papers counts as one search against the plan's allowance, so 300 papers count as 3."
+    },
+    "publisher_name": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Comma-separated publisher display names to filter by. Set ONLY when the user explicitly asks for papers from a specific publisher (e.g. 'Elsevier', 'Nature', 'PLOS ONE'). Do NOT set by default."
+    },
+    "query": {
+     "description": "Search query. Be specific and use academic terminology.",
+     "maxLength": 500,
+     "minLength": 1,
+     "type": "string"
+    },
+    "sample_size_min": {
+     "anyOf": [
+      {
+       "minimum": 1,
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Minimum participant count. Set ONLY when the user asks for large or well-powered studies. Do NOT set by default \u2014 many high-quality studies are small by design."
+    },
+    "sjr_max": {
+     "anyOf": [
+      {
+       "enum": [
+        1,
+        2,
+        3,
+        4
+       ],
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Maximum journal ranking quartile (1=Q1 top \u2192 4=Q4). Set ONLY when the user explicitly asks for top-tier / Q1 / high-impact-journal results. Do NOT set by default \u2014 many landmark and niche-field studies publish outside Q1."
+    },
+    "sjr_min": {
+     "anyOf": [
+      {
+       "enum": [
+        1,
+        2,
+        3,
+        4
+       ],
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Minimum journal-ranking quartile floor (1=Q1 top -> 4=Q4). Keeps journals at or below this quartile rank, i.e. it EXCLUDES the very top tiers. Set ONLY when the user explicitly asks to exclude top-tier / Q1 journals. For 'top-tier / Q1 / high-impact', use sjr_max instead, never sjr_min. Rarely set."
+    },
+    "study_types": {
+     "anyOf": [
+      {
+       "items": {
+        "enum": [
+         "bench experiment",
+         "case report",
+         "case study",
+         "case-control study",
+         "cohort study",
+         "commentary or perspective",
+         "cross-sectional study",
+         "field study",
+         "historical or archival analysis",
+         "interview study",
+         "literature review",
+         "longitudinal / panel data study",
+         "meta-analysis",
+         "mixed methods study",
+         "non-randomized experimental study",
+         "non-rct in vitro",
+         "other",
+         "rct",
+         "systematic review",
+         "theoretical, modeling, or simulation study",
+         "animal"
+        ],
+        "type": "string"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Filter by study design. Set ONLY when the user names a design ('RCT', 'meta-analysis', 'systematic review') or asks for 'best' / 'highest-quality' / 'rigorous' evidence (then use ['rct', 'meta-analysis', 'systematic review']). Do NOT set for general research questions \u2014 narrowing by design excludes valid evidence."
+    },
+    "year_max": {
+     "anyOf": [
+      {
+       "maximum": 2030,
+       "minimum": 1900,
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Maximum publication year. Set ONLY when the user asks for historical research before a specific date. Rarely set."
+    },
+    "year_min": {
+     "anyOf": [
+      {
+       "maximum": 2030,
+       "minimum": 1900,
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Minimum publication year. Set ONLY when the user asks for recent / latest / 'in the last N years' research. Do NOT set by default."
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "search",
+  "serverId": "consensus",
+  "serverName": "Consensus"
+ },
+ {
+  "annotations": {
+   "destructiveHint": true,
+   "idempotentHint": false,
+   "openWorldHint": false,
+   "readOnlyHint": false
+  },
+  "description": "Create a new research thread and dispatch the Consensus research agent.\n\nRuns Consensus's specialized scientific research agent: it plans and runs many\nsearches, reads full text, follows citations forward and backward, analyzes and\nreflects on the evidence, and returns a cited synthesis. Use it for any research\nquestion that needs synthesis or analysis rather than a single lookup: what the\nevidence says, comparisons, mechanisms, literature reviews, or multi-step research\ntasks. For a single lookup of papers matching a scientific query, use `search`.\nAlso use this to list the user's library collections or the papers in one, create or\nrename one, or save papers into one.\n\nThis dispatches an autonomous research agent that reasons and executes many\nsteps on its own. Delegate the entire request in a single call: pass a full\nbrief covering every part of what the user asked, including ordered sub-tasks\n('identify A, then find B related to A'). Do not decompose the request into\nsuccessive create_thread/add_to_thread calls, and do not do intermediate\nresearch yourself to hand it a narrower question \u2014 that yields worse results\nand costs a full agent run per hop.\n\nAfter calling, poll get_thread on the response's poll_after_seconds: about\nevery 5 seconds for Pro and every 20 seconds for Deep (use a sleep/timeout\nbetween calls). Pro usually finishes in under a minute; Deep takes ~2-4\nminutes and occasionally up to ~10. Polling faster does not speed up the agent.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "attachments": {
+     "anyOf": [
+      {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Optional attachments. {\"paper_attachments\": [{\"paper_id\": \"...\"}], \"collection_ids\": [123]}. At most 50 papers and 10 collections."
+    },
+    "filters": {
+     "anyOf": [
+      {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Optional structured search filters. All keys optional; leave null unless the user explicitly narrows results. Filters you pass REPLACE the research agent's own filter choices for every search in the run, so include every constraint you want enforced (e.g. study_types alongside sjr_max), or leave filters null and state the constraints in input_message. Supported keys: year_min, year_max, month_min, month_max (ints); human, exclude_preprints, controlled, open_access, clinical_guideline (bools); sample_size_min, cite_min (ints); sjr_max (int 1-4): SCImago journal-quartile CEILING, 1 = Q1 is best. Set ONLY when the user asks for top-tier / high-quality journals or names quartiles: 'Q1 only' is {\"sjr_max\": 1}, 'Q1 and Q2' is {\"sjr_max\": 2}. sjr_min (int 1-4): quartile FLOOR that EXCLUDES the top tiers, e.g. 'not Q1' is {\"sjr_min\": 2}; never use it for a top-tier ask; rarely set. study_types (list of study designs, e.g. [\"rct\", \"meta-analysis\"]); domain, country (CSV; country is ISO-3166); publisher_name, journal_name (strings); duration_min, duration_max (ints, days). Exclusions, set ONLY when the user asks to leave something out: exclude_study_types (list), exclude_domain, exclude_country, exclude_publisher_name, exclude_journal_name (strings, same formats as their include keys). Example: {\"year_min\": 2020, \"study_types\": [\"rct\", \"meta-analysis\"], \"human\": true, \"sjr_max\": 2}."
+    },
+    "input_message": {
+     "description": "Use this for research questions that need synthesis or analysis, not a single lookup (for that, use `search`). Your complete research brief. You are delegating to the Consensus research agent \u2014 an autonomous, reasoning, multi-step assistant purpose-built for scientific research over 400M+ peer-reviewed papers. Give it the WHOLE task in ONE call, the way you would brief a research assistant \u2014 including multi-part requests ('find X, then find Y related to it'), sequencing, and follow-on steps. It plans and executes those steps itself. Do NOT split the user's request into a chain of create_thread/add_to_thread calls, and do NOT run intermediate lookups yourself to narrow it down first. It can search semantically and by keyword; look up an exact paper by DOI, title, or author; find papers by author; crawl citations forward and backward (snowballing); expand to influential, seminal, similar, or recommended papers; read the full text of papers and quote them precisely; search attached papers or the user's collections; recall papers from earlier turns; and exclude paper sets. It can also work in the user's Consensus library: list their collections and the papers in a collection (filtered by year or date added), create a collection, rename a collection, and save papers it found into a collection by name (it creates a new collection only when the user asks for one, reports an unknown name as not found, and does not pause before saving), e.g. 'find 10 RCTs on X and save them to my Y collection'. It returns a synthesized answer grounded in inline verbatim-quoted citations. (The consensus meter and citation graph render only in the Consensus web app and are NOT returned; evidence-strength scores, the results timeline, and the search funnel come back as text and tables.) It does NOT browse the open web and does NOT ask clarifying questions. Pack all detail into this single input_message: the precise question, scope/population, timeframe, comparisons, constraints, and desired output. More detail = better results; prefer full instructions over keywords.",
+     "maxLength": 200000,
+     "minLength": 1,
+     "type": "string"
+    },
+    "mode": {
+     "default": "pro",
+     "description": "Research depth. 'pro' (default, ~20 papers, fast) handles almost everything. 'deep' (~50 papers, up to 100, multi-step literature review + structured report) ONLY when the user explicitly asks for a deep/exhaustive/comprehensive review \u2014 never on your initiative. Deep requires a signed-in paid caller. Always use 'deep' when you set skill.",
+     "type": "string"
+    },
+    "skill": {
+     "anyOf": [
+      {
+       "enum": [
+        "literature-review",
+        "citation-snowballing",
+        "find-citations",
+        "verify-citations"
+       ],
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Optional named research workflow (a Skill). Set it ONLY when the user explicitly asks for one of these workflows; otherwise leave it null and describe the task in input_message. When you set skill, also set mode='deep'. Options: 'literature-review': A multi-paper synthesis of the literature on a topic: searches from several angles, follows citations, and investigates contradictory evidence. Use when the deliverable is a literature review or survey of the field. 'citation-snowballing': Expands from known seed papers by following backward and forward citations to map foundational work, later studies, replications, and critiques. Attach or name the seed papers. 'find-citations': Finds research to support, qualify, or challenge the claims in a draft that are not yet cited. Put the draft text in input_message. 'verify-citations': Audits whether the citations already in a draft support the claims they are attached to, and suggests the smallest fix for weak ones. Put the cited draft in input_message or attach it."
+    }
+   },
+   "required": [
+    "input_message"
+   ],
+   "type": "object"
+  },
+  "name": "create_thread",
+  "serverId": "consensus",
+  "serverName": "Consensus"
+ },
+ {
+  "annotations": {
+   "destructiveHint": true,
+   "idempotentHint": false,
+   "openWorldHint": false,
+   "readOnlyHint": false
+  },
+  "description": "Add a new interaction to an existing research thread.\n\nOnly for a genuinely new follow-up the user raised after the previous\ninteraction's results were delivered. Never chain this onto your own\ncreate_thread call to work through parts of a single request \u2014 put the whole\nrequest in the create_thread brief instead.\n\nCall this only once get_thread reports the thread 'idle' or 'failed'. While an\nearlier interaction is still running this returns an error: keep polling\nget_thread until status is no longer 'running', then call add_to_thread again.\n\nThe new interaction runs asynchronously. After calling, poll get_thread on\nthe response's poll_after_seconds: about every 5 seconds for Pro and every\n20 seconds for Deep (use a sleep/timeout between calls). Polling faster does\nnot speed up the agent.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "attachments": {
+     "anyOf": [
+      {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Optional attachments. Same as create_thread."
+    },
+    "filters": {
+     "anyOf": [
+      {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Optional structured filters, same keys as create_thread; like there, they replace the agent's own filter choices. Journal quality: sjr_max is the quartile CEILING ('Q1 and Q2 only' is {\"sjr_max\": 2}, 1 = Q1 is best); sjr_min EXCLUDES the top tiers and is rarely set."
+    },
+    "input_message": {
+     "description": "A NEW follow-up the user raised after seeing the previous interaction's results. The agent will use the thread context and can reference papers from earlier turns. Be specific; pack all constraints into the input_message. Do NOT use this to continue your own plan or to add a step you could have included in the original create_thread brief \u2014 the thread agent already handles multi-step work itself. Library follow-ups on this thread's papers do belong here, e.g. 'save these to my Sleep collection'.",
+     "maxLength": 200000,
+     "minLength": 1,
+     "type": "string"
+    },
+    "mode": {
+     "default": "pro",
+     "description": "See create_thread. 'deep' requires a signed-in paid caller. Always use 'deep' when you set skill.",
+     "type": "string"
+    },
+    "skill": {
+     "anyOf": [
+      {
+       "enum": [
+        "literature-review",
+        "citation-snowballing",
+        "find-citations",
+        "verify-citations"
+       ],
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Optional named research workflow for this follow-up. Same options and rules as create_thread's skill."
+    },
+    "thread_id": {
+     "description": "The thread_id returned by create_thread.",
+     "minLength": 1,
+     "type": "string"
+    },
+    "title": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "The thread's title from the create_thread result, echoed back as the result's title; optional."
+    }
+   },
+   "required": [
+    "thread_id",
+    "input_message"
+   ],
+   "type": "object"
+  },
+  "name": "add_to_thread",
+  "serverId": "consensus",
+  "serverName": "Consensus"
+ },
+ {
+  "annotations": {
+   "destructiveHint": false,
+   "idempotentHint": true,
+   "openWorldHint": false,
+   "readOnlyHint": true
+  },
+  "description": "Poll a research thread and return the grounded answer when ready.\n\nThe returned status is 'running' while the agent works and 'idle' when a final answer is\navailable. Poll about every 5 seconds for Pro and every 20 seconds for Deep (use a\nsleep/timeout between calls). Pro usually finishes in under a minute; Deep takes ~2-4\nminutes and occasionally up to ~10. Polling faster does not speed up the agent.\n\nWhen status is 'idle', write the interaction's `document` field to a file or the\nclient's artifact/canvas/side-panel surface \u2014 do not paste it inline in chat and\ndo not paraphrase it. Every inline citation marker, [N.M] (quote M of paper N) or a\nbare [N], must be preserved exactly; they are already hyperlinked to the cited papers.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "include_trace": {
+     "default": false,
+     "description": "Whether to include agent_trace: a plain-English list of the steps the agent took (the searches it ran, the papers it read). Off by default to keep polls light; opt in.",
+     "type": "boolean"
+    },
+    "interaction_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Hydrate only this interaction (e.g. the one you dispatched); omit to return every interaction in the thread."
+    },
+    "thread_id": {
+     "description": "The thread_id returned by create_thread.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [
+    "thread_id"
+   ],
+   "type": "object"
+  },
+  "name": "get_thread",
+  "serverId": "consensus",
+  "serverName": "Consensus"
+ },
+ {
+  "annotations": {
+   "destructiveHint": false,
+   "idempotentHint": true,
+   "openWorldHint": false,
+   "readOnlyHint": true
+  },
+  "description": "List the signed-in user's research threads.\n\nRequires a signed-in Consensus account. Returns thread metadata including a deep-link URL.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "limit": {
+     "default": 20,
+     "description": "Maximum threads to return.",
+     "maximum": 100,
+     "minimum": 1,
+     "type": "integer"
+    },
+    "offset": {
+     "default": 0,
+     "description": "Pagination offset.",
+     "minimum": 0,
+     "type": "integer"
+    },
+    "query": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Optional title substring search. Leave empty to list all threads."
+    }
+   },
+   "type": "object"
+  },
+  "name": "find_threads",
+  "serverId": "consensus",
+  "serverName": "Consensus"
  }
 ]
