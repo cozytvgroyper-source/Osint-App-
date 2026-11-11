@@ -174,6 +174,30 @@ function parseMcpResponse(text, contentType, { maxSseEvents = MAX_MCP_SSE_EVENTS
   return JSON.parse(text || '{}');
 }
 
+// MCP sessions (Streamable HTTP): the server issues an mcp-session-id on initialize and answers 404 to a session it no
+// longer knows, for example after its bridge restarts. initialize must start a fresh session, so it never sends one.
+export function sessionHeader(store, sessionKey, method) {
+  return method !== 'initialize' && sessionKey && store.has(sessionKey) ? { 'mcp-session-id': store.get(sessionKey) } : {};
+}
+
+export function mcpHttpError(status, text, sentSession) {
+  const error = new Error(`MCP server returned ${status}: ${text.slice(0, 240)}`);
+  if (status === 404 && sentSession) error.code = 'MCP_SESSION_EXPIRED';
+  return error;
+}
+
+// The server rejected an expired session before running anything, so one retry on a new session cannot repeat a call.
+export async function withSessionRecovery(payload, run, reinitialize, store = sessions) {
+  try {
+    return await run();
+  } catch (error) {
+    if (error?.code !== 'MCP_SESSION_EXPIRED' || !payload.sessionKey) throw error;
+    store.delete(payload.sessionKey);
+    await reinitialize();
+    return run();
+  }
+}
+
 async function mcpRequest({ endpoint, token, method, params = {}, sessionKey }, {timeoutMs=45_000,signal}={}) {
   const url = await validatedEndpoint(endpoint);
   const isNotification = method.startsWith('notifications/');
@@ -185,7 +209,7 @@ async function mcpRequest({ endpoint, token, method, params = {}, sessionKey }, 
   };
   const effectiveToken = endpoint === CONSENSUS_ENDPOINT ? await consensusAccessToken() : token;
   if (effectiveToken) headers.authorization = `Bearer ${effectiveToken}`;
-  if (sessionKey && sessions.has(sessionKey)) headers['mcp-session-id'] = sessions.get(sessionKey);
+  Object.assign(headers, sessionHeader(sessions, sessionKey, method));
   const response = await fetchValidated(url, {
     method: 'POST', headers,
     body: JSON.stringify({ jsonrpc: '2.0', ...(id ? { id } : {}), method, params }),
@@ -194,7 +218,7 @@ async function mcpRequest({ endpoint, token, method, params = {}, sessionKey }, 
   const sessionId = response.headers.get('mcp-session-id');
   if (sessionId && sessionKey) sessions.set(sessionKey, sessionId);
   const text = await readLimitedResponse(response);
-  if (!response.ok) throw new Error(`MCP server returned ${response.status}: ${text.slice(0, 240)}`);
+  if (!response.ok) throw mcpHttpError(response.status, text, 'mcp-session-id' in headers);
   if (isNotification && !text) return { accepted: true };
   return parseMcpResponse(text, response.headers.get('content-type') || '');
 }
@@ -411,7 +435,8 @@ const server = http.createServer(async (req, res) => {
       const authorization=authorizeMcpToolCall(payload, runGrants);
       if (payload.initialize) await initialize(payload);
       const cancelled=new AbortController();res.once('close',()=>{if(!res.writableEnded)cancelled.abort();});
-      const result = await mcpRequest(payload,{timeoutMs:authorization.grant?.purpose==='deep-search'?120_000:45_000,signal:cancelled.signal});
+      const options={timeoutMs:authorization.grant?.purpose==='deep-search'?120_000:45_000,signal:cancelled.signal};
+      const result = await withSessionRecovery(payload,()=>mcpRequest(payload,options),()=>initialize(payload));
       return json(res, 200, result);
     }
     if (req.method === 'POST' && url.pathname === '/api/run-grants') {
