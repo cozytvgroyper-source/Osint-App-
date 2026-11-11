@@ -41,8 +41,28 @@ test('sends only the target to tools, not the surrounding words',()=>{
   assert.deepEqual(argsForSearch(byName('holehe_email_search'),'jane.doe@example.com breach').email,'jane.doe@example.com');
 });
 
-test('leaves searches without a target unchanged',()=>{
-  assert.equal(argsForSearch(byName('get_cyber_news'),'latest healthcare cyber threats').search,'healthcare cyber threats');
+// Open OSINT's `search` keeps only items containing the whole value, so a phrase like
+// "earthquakes in Chile" matches nothing; send the subject the topic words are about.
+test('sends a targetless search without its topic words',()=>{
+  const sent=(name,query)=>{const args=argsForSearch(byName(name),query);return args.query??args.search;};
+  assert.equal(sent('get_opensanctions','sanctions Rosneft'),'Rosneft');
+  assert.equal(sent('get_sanctions','Rosneft sanctions'),'Rosneft');
+  assert.equal(sent('get_opensanctions','OFAC sanctions on Rosneft'),'Rosneft');
+  assert.equal(sent('get_earthquakes','recent earthquakes in Chile'),'Chile');
+  assert.equal(sent('get_maritime_news','vessels near Hormuz'),'Hormuz');
+  assert.equal(sent('get_cyber_news','latest healthcare cyber threats'),'healthcare');
+  assert.equal(sent('get_ransomware','ransomware LockBit'),'LockBit');
+  assert.equal(sent('get_arxiv','research papers on transformers'),'transformers');
+  assert.equal(sent('get_crypto','bitcoin price'),'bitcoin');
+  assert.equal(sent('get_wikidata','Gazprom company'),'Gazprom');
+  assert.equal(sent('get_election_monitor','election Moldova'),'Moldova');
+});
+
+test('keeps names whole and never sends an empty subject',()=>{
+  const sent=(name,query)=>{const args=argsForSearch(byName(name),query);return args.query??args.search;};
+  assert.equal(sent('get_opensanctions','Bank of America sanctions'),'Bank of America');
+  assert.equal(sent('get_opensanctions','sanctions'),'sanctions');
+  assert.equal(sent('get_news_rss','Rosneft'),'Rosneft');
   assert.equal(argsForSearch(byName('get_country_facts'),'Lyon, France').query,'France');
 });
 

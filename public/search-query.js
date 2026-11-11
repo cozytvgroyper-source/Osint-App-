@@ -101,12 +101,36 @@ export function searchIntent(query){
   return intent('entity','Entity and related coverage',['get_wikidata','get_news_rss','get_hn_search']);
 }
 
+// Words that frame a search rather than name its subject. They are trimmed only from the ends,
+// so a name such as "Bank of America" keeps its inner words.
+const FRAMING_WORDS=new Set(['a','an','the','in','on','near','of','for','about','against','around','at','by','from','to','with','and',
+  'latest','recent','current','today','news','developments','updates','update','reports','report','info','information','data',
+  'price','prices','threat','threats','activity','alerts','leaks']);
+
+function trimFraming(text){
+  const words=text.split(/\s+/).filter(Boolean);
+  while(words.length&&FRAMING_WORDS.has(words[0].toLowerCase()))words.shift();
+  while(words.length&&FRAMING_WORDS.has(words.at(-1).toLowerCase()))words.pop();
+  return words.join(' ');
+}
+
+// What a search without a target is about: the phrase without the matched intent's topic words
+// ("OFAC sanctions on Rosneft" -> "Rosneft"). When the topic word is the subject ("bitcoin price"),
+// only the framing words go; when nothing would remain, the phrase is kept.
+function searchSubject(text,intentId){
+  const pattern=TOPIC_INTENTS.find(([id])=>id===intentId)?.[3];
+  const withoutTopic=pattern?text.replace(new RegExp(pattern.source,'gi'),' ').split(/\s+/)
+    .filter(word=>!pattern.test(singularWords(word))).join(' '):text;
+  return trimFraming(withoutTopic)||trimFraming(text)||text;
+}
+
 export function argsForSearch(tool,query){
   const props=tool.inputSchema?.properties||{}; const required=tool.inputSchema?.required||[]; const args={};
   let clean=query.replace(/^(?:https?:\/\/)/i,'').replace(/^@/,'').replace(/\/$/,'').trim();
   clean=clean.replace(/^(?:location|city|country|organization|company|business|domain|website|username|handle|news|current events?|academic|research)\s*(?::|-)?\s+/i,'');
   clean=clean.replace(/^(?:recent|latest|current|today'?s?)\s+/i,'').replace(/\s+(?:news|developments|updates)$/i,'').trim();
   const target=extractTarget(query);
+  if(!target)clean=searchSubject(clean,searchIntent(query).id);
   const countryQuery=target?target.value:['get_country_facts','get_travel_advisories'].includes(tool.name)&&clean.includes(',')?clean.split(',').at(-1).trim():clean;
   const queryKey=['query','target','keyword','username','email','number','identifier','domain','search','q'].find(key=>props[key]);
   if(queryKey)args[queryKey]=countryQuery;
