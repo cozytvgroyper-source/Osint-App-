@@ -57,7 +57,8 @@ start_bridge() {
   echo "Starting $name…"
   (
     cd "$APP_DIR"
-    PATH="$HOME/.local/bin:$PATH" "$HOME/.local/bin/uvx" --from 'fastmcp-slim[server]' fastmcp run \
+    # FastMCP's Host/Origin check is off by default; it rejects DNS-rebinding requests with HTTP 421.
+    FASTMCP_HTTP_HOST_ORIGIN_PROTECTION=true PATH="$HOME/.local/bin:$PATH" "$HOME/.local/bin/uvx" --from 'fastmcp-slim[server]' fastmcp run \
       "$config" --transport http \
       --host 127.0.0.1 --port "$port" --path /mcp --no-banner \
       >"$LOG_DIR/$service.log" 2>&1 &
@@ -97,7 +98,9 @@ if ! is_ready "http://127.0.0.1:8080/health"; then
   echo "Starting Open OSINT data service…"
   (
     cd "$OSINT_ROOT/server"
-    node --import tsx server.mjs >"$LOG_DIR/headless.log" 2>&1 &
+    # The data service calls listen(8080) with no address, which listens on every network interface.
+    # bind-loopback.mjs keeps it on this Mac only.
+    node --import tsx --import "$APP_DIR/scripts/bind-loopback.mjs" server.mjs >"$LOG_DIR/headless.log" 2>&1 &
     echo $! >"$RUNTIME_DIR/headless.pid"
   )
 fi
@@ -107,7 +110,8 @@ if ! is_ready "http://127.0.0.1:8892/health"; then
   echo "Starting MCP service…"
   (
     cd "$OSINT_ROOT/mcp"
-    HEADLESS_BASE_URL="http://127.0.0.1:8080" PYTHONPATH="$OSINT_ROOT/mcp/src" "$HOME/.local/bin/uv" run osint-mcp \
+    # The wrapper rejects requests whose Host is not this Mac (DNS-rebinding protection).
+    HEADLESS_BASE_URL="http://127.0.0.1:8080" PYTHONPATH="$OSINT_ROOT/mcp/src" "$HOME/.local/bin/uv" run python "$APP_DIR/scripts/run-osint-mcp-guarded.py" \
       --transport http --host 127.0.0.1 --port 8892 >"$LOG_DIR/mcp.log" 2>&1 &
     echo $! >"$RUNTIME_DIR/mcp.pid"
   )

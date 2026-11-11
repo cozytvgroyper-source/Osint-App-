@@ -56,6 +56,37 @@ async function body(req, limit = 1_000_000) {
   return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
 }
 
+// Public Desk only serves its own page. Browsers let any website send simple cross-site requests to
+// 127.0.0.1, and a DNS-rebinding site can pose as this host, so every request must carry this host and,
+// when a browser says where it came from, come from this app. API posts must be JSON, which other
+// sites cannot send without a CORS preflight that this server never approves.
+const OWN_HOSTS = new Set([`127.0.0.1:${PORT}`, `localhost:${PORT}`, `[::1]:${PORT}`]);
+const OWN_ORIGINS = new Set([...OWN_HOSTS].map(host => `http://${host}`));
+const OAUTH_CALLBACK_PATH = '/api/oauth/consensus/callback';
+
+// Sign-ins expire after 10 minutes; when 20 are pending the oldest is dropped, so a new sign-in always works.
+function prunePendingSignIns(pending, now = Date.now()) {
+  for (const [key, entry] of pending) if (now - entry.createdAt > 10 * 60_000) pending.delete(key);
+  while (pending.size >= 20) pending.delete(pending.keys().next().value);
+}
+
+function requestGuard({ method, url, headers }) {
+  if (!OWN_HOSTS.has(String(headers.host || '').toLowerCase())) return { status: 403, error: 'Unexpected Host header' };
+  // Consensus redirects the browser back here from its own site; the one-time state check protects it.
+  if (url.pathname === OAUTH_CALLBACK_PATH) return null;
+  // Opening a page or file has no side effects, and browsers mark the return from the Consensus sign-in as
+  // cross-site. Other sites still cannot frame the page or use its files (see SECURITY_HEADERS).
+  if ((method === 'GET' || method === 'HEAD') && !url.pathname.startsWith('/api/')) return null;
+  const fetchSite = headers['sec-fetch-site'];
+  if (fetchSite === 'cross-site' || fetchSite === 'same-site') return { status: 403, error: 'Cross-site requests are not allowed' };
+  const origin = headers.origin;
+  if (origin !== undefined && !OWN_ORIGINS.has(origin)) return { status: 403, error: 'Requests from other origins are not allowed' };
+  if (method === 'POST' && !/^application\/json(?:;|$)/i.test(String(headers['content-type'] || ''))) {
+    return { status: 415, error: 'API requests must be JSON' };
+  }
+  return null;
+}
+
 function validatedEndpoint(value) {
   const url = new URL(value);
   if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Only HTTP(S) MCP endpoints are supported');
@@ -210,12 +241,18 @@ async function initialize(payload) {
 
 const server = http.createServer(async (req, res) => {
   try {
-    const url = new URL(req.url, `http://${req.headers.host}`);
+    const url = new URL(req.url, `http://127.0.0.1:${PORT}`);
+    const blocked = requestGuard({ method: req.method, url, headers: req.headers });
+    if (blocked) {
+      req.resume();
+      return json(res, blocked.status, { error: blocked.error });
+    }
     if (req.method === 'GET' && url.pathname === '/api/oauth/consensus/start') {
       const client = await consensusClient();
       const state = base64url(randomBytes(24));
       const verifier = base64url(randomBytes(48));
       const challenge = createHash('sha256').update(verifier).digest('base64url');
+      prunePendingSignIns(consensusOAuth.pending);
       consensusOAuth.pending.set(state, { verifier, createdAt: Date.now() });
       const authorize = new URL(`${CONSENSUS_ISSUER}/oauth/authorize/`);
       authorize.search = new URLSearchParams({
@@ -225,7 +262,7 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(302, { ...SECURITY_HEADERS, location: authorize.toString(), 'cache-control': 'no-store' });
       return res.end();
     }
-    if (req.method === 'GET' && url.pathname === '/api/oauth/consensus/callback') {
+    if (req.method === 'GET' && url.pathname === OAUTH_CALLBACK_PATH) {
       const state = url.searchParams.get('state');
       const pending = state && consensusOAuth.pending.get(state);
       if (!pending || Date.now() - pending.createdAt > 10 * 60_000) return json(res, 400, { error: 'Invalid or expired OAuth state' });
@@ -309,4 +346,4 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   });
 }
 
-export { validatedEndpoint, parseMcpResponse, loadConsensusAuth, saveConsensusAuth, clearConsensusAuth, SECURITY_HEADERS };
+export { validatedEndpoint, parseMcpResponse, loadConsensusAuth, saveConsensusAuth, clearConsensusAuth, SECURITY_HEADERS, requestGuard, prunePendingSignIns };
