@@ -101,9 +101,12 @@ if ! is_ready "http://127.0.0.1:8080/health" && [[ -z "$(listener_pid 8080)" ]];
     # interface; bind-loopback.mjs keeps it on this Mac only. default-user-agent.mjs replaces fetch's "node"
     # User-Agent, which some sources (rdap.org, behind get_whois) refuse with HTTP 403. intelx-host.mjs sends
     # get_intelx to Intelligence X's free server, because the module hardcodes the paid one (401 for free keys).
+    # abuse-ch-auth.mjs adds the saved abuse.ch key to MalwareBazaar and ThreatFox requests, which Open OSINT sends
+    # without one (401).
     PUBLIC_DESK_API_KEYS_FILE="$API_KEYS_FILE" node --import tsx --import "$APP_DIR/scripts/live-api-keys.mjs" \
       --import "$APP_DIR/scripts/bind-loopback.mjs" --import "$APP_DIR/scripts/default-user-agent.mjs" \
-      --import "$APP_DIR/scripts/intelx-host.mjs" server.mjs >"$LOG_DIR/headless.log" 2>&1 &
+      --import "$APP_DIR/scripts/intelx-host.mjs" --import "$APP_DIR/scripts/abuse-ch-auth.mjs" \
+      server.mjs >"$LOG_DIR/headless.log" 2>&1 &
     echo $! >"$RUNTIME_DIR/headless.pid"
   )
 fi
