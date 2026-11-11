@@ -1,6 +1,6 @@
 # Public Desk handoff
 
-Updated 2026-11-11 (security hardening, CI). First written 2026-11-10; it replaces the original Codex handoff, which lived outside the repo and is now out of date.
+Updated 2026-11-11 (security hardening, CI, progressive results, topic-word trimming). First written 2026-11-10; it replaces the original Codex handoff, which lived outside the repo and is now out of date.
 
 ## Objective
 
@@ -14,7 +14,9 @@ and honest about what sources did and did not return.
 - Mac checkout: `~/Documents/Codex/2026-11-10/public-desk` (renamed from `signaldesk`).
 - The old Codex copy is archived at `~/Documents/Codex/2026-11-10/xn-archived-2026-11-10`. Nothing runs from it.
 - Address: `http://127.0.0.1:4173` (unchanged by the rename).
-- Workflow: one feature branch and one pull request per change; don't commit straight to `main`. Plain `git push` works.
+- Workflow: one feature branch and one pull request per change; don't commit straight to `main`. GitHub CLI (`gh`) is installed
+  and signed in as `cozytvgroyper-source`, so `git push` and `gh pr create` work from this Mac. Merge only when the
+  user says "send it".
 
 ## Run and verify
 
@@ -39,6 +41,7 @@ a browser and report what you observed.
 | `server.mjs` | Local HTTP server: static files, MCP Streamable HTTP proxy (`/api/mcp`, 45 s timeout), Consensus OAuth, guarded uploads |
 | `public/app.js` | UI state, MCP connections, rendering, main-search orchestration, file analysis, IntelMap News |
 | `public/search-query.js` | `extractTarget`, `splitTarget`, `searchIntent`, `argsForSearch`: what the search is about and what each tool receives |
+| `public/search-report.js` | `buildSearchReport`: the result window from whichever sources have answered so far |
 | `public/search-planner.js` | `explainSearchPlan` / `planSearchTools` (tool selection) and `summarizePlanDiagnostics` |
 | `public/result-classifier.js` | `classifyToolResult`: whether a response is data, empty, or an error |
 | `public/tool-health.js` | Per-tool working/failing counts and the "N of M servers connected" label |
@@ -91,6 +94,8 @@ Keep them when changing the server or launcher.
    This matters because Open OSINT's `search` parameter keeps only items containing the whole value.
 5. `classifyToolResult` sorts each response; only real data becomes a result category. Errors and empty answers are
    listed under Unavailable Sources with their actual reason.
+6. The result window opens at once with the plan and a **Still Running** list, and each source's findings or error
+   appear as it answers ("2 of 4 sources answered"). A newer search makes an older one's late answers stale.
 
 Never auto-run, but still available in Tool Library:
 
@@ -144,17 +149,18 @@ another folder, naming the folder to stop. `Stop Public Desk.command` stops the 
 - **Domain-like words:** tokens such as "node.js" are treated as domain targets.
 - **Subject trimming is word-list based:** a name that contains its own topic word loses it ("Port of Rotterdam"
   sends "Rotterdam"), and a topic-only search such as "latest ransomware" still sends "ransomware" as a filter.
-- **Speed:** domain searches take about 25–35 s, because the selected lookups run in parallel and the slowest
-  sets the pace.
+- **Speed:** fast sources now show within seconds, but a domain search still takes about 25–35 s to finish,
+  because the final summary waits for the slowest lookup.
 - **Legacy internal names:** browser storage keys keep the `signaldesk.` prefix, and the launcher's PID and log
   file is `signaldesk.*`, so saved data and the old launcher keep working. Don't rename them without a migration.
 
 ## Recommended next work
 
-1. Show each source's results as they arrive instead of waiting for the slowest tool.
-2. Investigate Open OSINT `get_whois` failing with RDAP HTTP 403.
-3. Tailor arguments per tool where schemas allow (e.g. limit theHarvester's sources) so slow tools can rejoin the
+1. Investigate Open OSINT `get_whois` failing with RDAP HTTP 403.
+2. Tailor arguments per tool where schemas allow (e.g. limit theHarvester's sources) so slow tools can rejoin the
    automatic search.
+3. Fill map-area arguments properly: `get_ais_vessels` (maritime searches) receives the search text as its
+   required `bbox` instead of `west,south,east,north` coordinates.
 4. Configure API keys for the Open OSINT tools listed above if the user wants those sources.
 
 ## Working rules from the user
