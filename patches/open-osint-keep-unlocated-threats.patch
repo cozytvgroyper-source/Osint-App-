@@ -1,0 +1,17 @@
+diff --git a/server/server/worldmonitor/cyber/v1/list-cyber-threats.ts b/server/server/worldmonitor/cyber/v1/list-cyber-threats.ts
+--- a/server/server/worldmonitor/cyber/v1/list-cyber-threats.ts
++++ b/server/server/worldmonitor/cyber/v1/list-cyber-threats.ts
+@@ -75,9 +75,11 @@ export async function listCyberThreats(
+ 
+       const hydrated = await hydrateThreatCoordinates(combined);
+ 
+-      // Filter to only threats with valid coordinates
++      // Drop threats with invalid coordinates, but keep those the free geolocation lookups could not place
++      // (patched by Public Desk: the lookups are rate-limited, and dropping them lost most OTX and AbuseIPDB data)
+       let results = hydrated
+-        .filter((t) => t.lat !== null && t.lon !== null && t.lat >= -90 && t.lat <= 90 && t.lon >= -180 && t.lon <= 180);
++        .filter((t) => (t.lat == null && t.lon == null)
++          || (t.lat != null && t.lon != null && t.lat >= -90 && t.lat <= 90 && t.lon >= -180 && t.lon <= 180));
+ 
+       // Apply optional filters BEFORE sorting + slicing (C-2 fix)
+       if (req.type && req.type !== 'CYBER_THREAT_TYPE_UNSPECIFIED') {
