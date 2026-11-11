@@ -1,0 +1,13 @@
+diff --git a/server/api/headless.js b/server/api/headless.js
+--- a/server/api/headless.js
++++ b/server/api/headless.js
+@@ -1095,7 +1095,8 @@ const MODULES = {
+       // Try internal RPC first
+       let threats = [];
+       try {
+-        const rpc = await fetchJson(ctx.origin, '/api/cyber/v1/list-cyber-threats', { limit });
++        // The feed reads page_size; without it the page size became 1 (patched by Public Desk).
++        const rpc = await fetchJson(ctx.origin, '/api/cyber/v1/list-cyber-threats', { page_size: limit });
+         threats = rpc?.threats || [];
+       } catch { /* fall through */ }
+ 

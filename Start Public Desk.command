@@ -103,6 +103,9 @@ if [[ ! -e "$API_KEYS_FILE" ]]; then
 fi
 
 if ! is_ready "http://127.0.0.1:8080/health"; then
+  # Public Desk's fixes to Open OSINT's own code (patches/), applied once and kept across Open OSINT updates.
+  source "$APP_DIR/scripts/apply-open-osint-patches.zsh"
+  apply_open_osint_patches "$OSINT_ROOT" "$APP_DIR/patches"
   echo "Starting Open OSINT data service…"
   (
     # Keys are exported only inside this subshell, so only the data service receives them.

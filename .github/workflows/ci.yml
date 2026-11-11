@@ -32,5 +32,6 @@ jobs:
           zsh -n "Start Public Desk.command"
           zsh -n "Stop Public Desk.command"
           zsh -n scripts/load-api-keys.zsh
+          zsh -n scripts/apply-open-osint-patches.zsh
       - name: Run tests
         run: npm test

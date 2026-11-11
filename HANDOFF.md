@@ -49,6 +49,8 @@ a browser and report what you observed.
 | `scripts/bind-loopback.mjs` | `node --import` preload: servers that name no address listen on 127.0.0.1 only |
 | `scripts/load-api-keys.zsh` | Reads `work/api-keys.env` (KEY=value, never sourced) and exports allowlisted data-source keys |
 | `config/api-keys.env.example` | Template the launcher copies to `work/api-keys.env` on first start |
+| `scripts/apply-open-osint-patches.zsh` | Applies `patches/*.patch` to the Open OSINT checkout before its data service starts; skips applied ones, warns on ones that no longer fit |
+| `patches/` | Public Desk's fixes to Open OSINT's own code (see Known limitations: cyber threats) |
 | `scripts/intelx-host.mjs` | `node --import` preload: sends `get_intelx` from `2.intelx.io` (paid) to `INTELX_API_ORIGIN`, default `free.intelx.io` |
 | `scripts/default-user-agent.mjs` | `node --import` preload: `fetch` calls with no User-Agent send `PublicDesk/1.0` instead of `node` |
 | `scripts/run-osint-mcp-guarded.py` | Starts Open OSINT's MCP server with a Host-header check (FastMCP 3.x has no setting) |
@@ -161,9 +163,13 @@ another folder, naming the folder to stop. `Stop Public Desk.command` stops the 
   - ThreatFox intermittently errors.
 - **API keys:** none are filled in by default; see `config/api-keys.env.example` for each source and where to
   get a free key. OTX and AbuseIPDB feed `get_cyber_threats`; Intelligence X feeds `get_intelx`.
-- **Cyber threats drop most of their data:** Open OSINT's threat feed was built for a map. It geolocates each IP
-  through free ipinfo.io / freeipapi.com lookups (at most 250, 15 s overall) and discards every threat it could not
-  place. With valid OTX and AbuseIPDB keys (OTX alone returns 1,000 indicators) `get_cyber_threats` returned 1.
+- **Cyber threats (patched):** two launcher-applied patches fix Open OSINT's threat feed. Its `cyber_threats` tool sent
+  `limit`, but the feed reads `page_size`; the missing value became 0, clamped to a page size of **1**. And the feed,
+  built for a map, discarded every threat its rate-limited free geolocation lookups could not place.
+- **Cyber threats still rank C2Intel first:** the feed sorts by severity before cutting the page. C2Intel entries are
+  HIGH and OTX entries MEDIUM, so a 10- or 50-item search shows only C2Intel; OTX appears after all HIGH entries.
+- **AbuseIPDB's free blacklist allows 5 requests a day**, and the feed requests it on every cyber search, so AbuseIPDB
+  adds data only to the first few searches of a day. The key itself (1,000 single-IP checks a day) is valid.
 - **AISStream is broken upstream:** Open OSINT's `ais_vessels` module calls `api.aisstream.io`, which does not
   resolve; AISStream only offers a WebSocket stream (`stream.aisstream.io`). A key changes the error from "not
   configured" to "fetch failed" but returns no vessels.
@@ -180,8 +186,8 @@ another folder, naming the folder to stop. `Stop Public Desk.command` stops the 
 
 ## Recommended next work
 
-1. Keep threats without coordinates in `get_cyber_threats` (an Open OSINT change, or a Public Desk-side call to the
-   OTX and AbuseIPDB feeds), so the configured keys add their data to cyber searches.
+1. Decide with the user whether cyber searches should mix sources instead of strict severity order, so OTX shows
+   up in short result lists (another patch to the feed's sort), and whether to cache the AbuseIPDB blacklist.
 2. subfinder can only rejoin the automatic search if `osint-toolbox-mcp` exposes subfinder's `-max-time` (an
    upstream change; its `timeout` limits each request, not the run).
 3. Vessel positions need Open OSINT's `ais_vessels` module rewritten for AISStream's WebSocket stream.
