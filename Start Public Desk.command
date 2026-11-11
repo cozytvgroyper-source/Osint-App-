@@ -96,15 +96,25 @@ if [[ -n "$signaldesk_pid" ]]; then
   echo "Public Desk is already running."
 fi
 
+API_KEYS_FILE="$APP_DIR/work/api-keys.env"
+if [[ ! -e "$API_KEYS_FILE" ]]; then
+  (umask 077; cp "$APP_DIR/config/api-keys.env.example" "$API_KEYS_FILE")
+  echo "Created work/api-keys.env for optional API keys (see config/api-keys.env.example)."
+fi
+
 if ! is_ready "http://127.0.0.1:8080/health"; then
   echo "Starting Open OSINT data service…"
   (
+    # Keys are exported only inside this subshell, so only the data service receives them.
+    source "$APP_DIR/scripts/load-api-keys.zsh"
+    load_api_keys "$API_KEYS_FILE"
     cd "$OSINT_ROOT/server"
     # The data service calls listen(8080) with no address, which listens on every network interface.
     # bind-loopback.mjs keeps it on this Mac only. default-user-agent.mjs replaces fetch's "node" User-Agent,
-    # which some sources (rdap.org, behind get_whois) refuse with HTTP 403.
+    # which some sources (rdap.org, behind get_whois) refuse with HTTP 403. intelx-host.mjs sends get_intelx to
+    # Intelligence X's free server, because the module hardcodes the paid one (401 for free keys).
     node --import tsx --import "$APP_DIR/scripts/bind-loopback.mjs" --import "$APP_DIR/scripts/default-user-agent.mjs" \
-      server.mjs >"$LOG_DIR/headless.log" 2>&1 &
+      --import "$APP_DIR/scripts/intelx-host.mjs" server.mjs >"$LOG_DIR/headless.log" 2>&1 &
     echo $! >"$RUNTIME_DIR/headless.pid"
   )
 fi
