@@ -193,8 +193,9 @@ another folder, naming the folder to stop. Every service port is checked by fold
   built for a map, discarded every threat its rate-limited free geolocation lookups could not place.
 - **Cyber threats still rank C2Intel first:** the feed sorts by severity before cutting the page. C2Intel entries are
   HIGH and OTX entries MEDIUM, so a 10- or 50-item search shows only C2Intel; OTX appears after all HIGH entries.
-- **AbuseIPDB's free blacklist allows 5 requests a day**, and the feed requests it on every cyber search, so AbuseIPDB
-  adds data only to the first few searches of a day. The key itself (1,000 single-IP checks a day) is valid.
+- **AbuseIPDB's free blacklist allows 5 requests a day.** A launcher-applied patch caches the full list for 6 hours
+  in the data service (at most 4 requests a day) and keeps the last list when a refresh fails, retrying after an
+  hour. The cache is in memory, so each data-service restart costs one request.
 - **AISStream is broken upstream:** Open OSINT's `ais_vessels` module calls `api.aisstream.io`, which does not
   resolve; AISStream only offers a WebSocket stream (`stream.aisstream.io`). A key changes the error from "not
   configured" to "fetch failed" but returns no vessels.
@@ -212,7 +213,7 @@ another folder, naming the folder to stop. Every service port is checked by fold
 ## Recommended next work
 
 1. Decide with the user whether cyber searches should mix sources instead of strict severity order, so OTX shows
-   up in short result lists (another patch to the feed's sort), and whether to cache the AbuseIPDB blacklist.
+   up in short result lists (another patch to the feed's sort). The user chose not to do this for now.
 2. subfinder can only rejoin the automatic search if `osint-toolbox-mcp` exposes subfinder's `-max-time` (an
    upstream change; its `timeout` limits each request, not the run).
 3. Vessel positions need Open OSINT's `ais_vessels` module rewritten for AISStream's WebSocket stream.

@@ -1,0 +1,55 @@
+diff --git a/server/server/worldmonitor/cyber/v1/_shared.ts b/server/server/worldmonitor/cyber/v1/_shared.ts
+--- a/server/server/worldmonitor/cyber/v1/_shared.ts
++++ b/server/server/worldmonitor/cyber/v1/_shared.ts
+@@ -672,20 +672,42 @@ export async function fetchOtxSource(limit: number, days: number): Promise<Sourc
+ // Source 5: AbuseIPDB
+ // ========================================================================
+ 
+-export async function fetchAbuseIpDbSource(limit: number): Promise<SourceResult> {
+-  const apiKey = cleanString(process.env.ABUSEIPDB_API_KEY || '', 200);
+-  if (!apiKey) return { ok: false, threats: [] };
+-
++// Public Desk: AbuseIPDB cache (start)
++// Patched by Public Desk. The free plan allows 5 blacklist requests a day and every cyber search asked for one,
++// so the full list is fetched at most every 6 hours. When a refresh fails (429 once the daily limit is used), the
++// last good list is kept and the next attempt waits an hour.
++const ABUSEIPDB_CACHE_MS = 6 * 60 * 60 * 1000;
++const ABUSEIPDB_RETRY_MS = 60 * 60 * 1000;
++const abuseIpDbCache = { records: null as any[] | null, fetchedAt: 0, retryAt: 0 };
++
++async function abuseIpDbRecords(apiKey: string): Promise<any[] | null> {
++  const now = Date.now();
++  if (abuseIpDbCache.records && now - abuseIpDbCache.fetchedAt < ABUSEIPDB_CACHE_MS) return abuseIpDbCache.records;
++  if (now < abuseIpDbCache.retryAt) return abuseIpDbCache.records;
+   try {
+-    const url = `${ABUSEIPDB_BLACKLIST_URL}?confidenceMinimum=90&limit=${Math.min(limit, 500)}`;
+-    const response = await fetch(url, {
++    const response = await fetch(`${ABUSEIPDB_BLACKLIST_URL}?confidenceMinimum=90&limit=500`, {
+       headers: { Accept: 'application/json', Key: apiKey, 'User-Agent': CHROME_UA },
+       signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+     });
+-    if (!response.ok) return { ok: false, threats: [] };
+-
++    if (!response.ok) throw new Error(`AbuseIPDB HTTP ${response.status}`);
+     const payload = await response.json();
+-    const records: any[] = Array.isArray(payload?.data) ? payload.data : [];
++    abuseIpDbCache.records = Array.isArray(payload?.data) ? payload.data : [];
++    abuseIpDbCache.fetchedAt = now;
++    return abuseIpDbCache.records;
++  } catch {
++    abuseIpDbCache.retryAt = now + ABUSEIPDB_RETRY_MS;
++    return abuseIpDbCache.records;
++  }
++}
++// Public Desk: AbuseIPDB cache (end)
++
++export async function fetchAbuseIpDbSource(limit: number): Promise<SourceResult> {
++  const apiKey = cleanString(process.env.ABUSEIPDB_API_KEY || '', 200);
++  if (!apiKey) return { ok: false, threats: [] };
++
++  try {
++    const records = await abuseIpDbRecords(apiKey);
++    if (!records) return { ok: false, threats: [] };
+ 
+     const parsed: RawThreat[] = [];
+     for (const record of records) {
