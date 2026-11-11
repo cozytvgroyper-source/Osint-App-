@@ -2,18 +2,10 @@
 // source answers instead of waiting for the slowest one. `outcomes[i]` is undefined while plan[i] is still running,
 // otherwise a Promise.allSettled-style entry whose value is {tool, outcome: classifyToolResult(...)}.
 
-const NOT_FINDINGS = new Set(['Related Links', 'Search Plan', 'Planner Diagnostics', 'Still Running']);
+const NOT_FINDINGS = new Set(['Related Links', 'Still Running']);
 
-export function buildSearchReport({query, intent, plan, outcomes, diagnostics, links = [], categoryForTool, sourceLabel, elapsedMs = 0}) {
+export function buildSearchReport({query, intent, plan, outcomes, links = [], categoryForTool, sourceLabel, elapsedMs = 0}) {
   const report = {}; const errors = []; const servers = new Set(); const pending = [];
-  if (plan.length) {
-    report['Search Plan'] = {
-      eyebrow: 'DYNAMIC MCP ROUTING',
-      description: 'Public Desk inspected every connected tool and selected the most relevant passive capabilities for this query.',
-      data: plan.map(item => ({tool: item.tool.name, server: item.tool.serverName, reason: item.reason}))
-    };
-  }
-  if (diagnostics) report['Planner Diagnostics'] = {eyebrow: 'DEVELOPMENT MODE', description: 'Why each tool was or was not chosen. Shown because Public Desk was opened with ?diagnostics.', data: diagnostics};
   if (!plan.length) errors.push({source: 'Relevant MCP server', error: 'No connected server currently provides the tools needed for this search category. Connect the matching server and try again.'});
 
   plan.forEach(({tool}, index) => {
@@ -40,7 +32,6 @@ export function buildSearchReport({query, intent, plan, outcomes, diagnostics, l
     };
   }
   if (links.length) report['Related Links'] = {eyebrow: 'FOLLOW-UP SOURCES', description: 'Useful external sources for verifying and expanding this search.', data: {links}};
-
   const findingCount = Object.keys(report).filter(key => !NOT_FINDINGS.has(key)).length;
   const answered = plan.length - pending.length;
   const description = finished ? `${intent.label} for “${query}”` : `${intent.label} for “${query}” — ${answered} of ${plan.length} sources answered`;
