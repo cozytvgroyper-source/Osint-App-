@@ -1,7 +1,8 @@
 # Public Desk handoff
 
 Updated 2026-11-11 (security hardening, CI, progressive results, search pivots and Deep Search workflow).
-This file is the current reference. `CLAUDE_CODE_HANDOFF.md` (Codex's hardening pass) and `CODEX_HANDOFF.md` (the
+This file is the current reference. `docs/history/CLAUDE_CODE_HANDOFF.md` (Codex's hardening pass) and
+`docs/history/CODEX_HANDOFF.md` (the
 Codex brief for search-overhaul steps 2–4) are historical records. First written
 2026-11-10; it replaces the original Codex handoff, which lived outside the repo and is now out of date.
 

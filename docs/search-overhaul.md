@@ -79,7 +79,7 @@ Every search records, per tool: server, tier, why it was chosen, the exact value
 finish times, and the outcome (data, empty, error).
 
 **Decision A: the panel is shown inline** in the completed result, after the findings. This replaces the earlier
-owner requirement that completed searches show only findings and Related Links (`CLAUDE_CODE_HANDOFF.md`, Owner
+owner requirement that completed searches show only findings and Related Links (`docs/history/CLAUDE_CODE_HANDOFF.md`, Owner
 Requirements); findings still come first.
 
 Also in this step: merge duplicate findings across tools (implemented for simple domain, host, email, IP and URL
