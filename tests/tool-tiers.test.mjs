@@ -93,3 +93,17 @@ test('re-tiers domain tools whose source contacts the target',()=>{
   assert.equal(toolRisk(byName('omega_c2')).level,2);
   assert.equal(toolRisk(byName('omega_apiosint')).level,2);
 });
+
+test('full Omega source review: re-tiers tools whose code contacts targets or spends credits',()=>{
+  const risk=name=>toolRisk(byName(name));
+  // dashboard and livedash run port scans and subdomain brute forcing; dossier scans ports and brute-forces subdomains.
+  assert.deepEqual([risk('omega_dashboard').level,risk('omega_dashboard').flags],[2,['side-effects']]);
+  assert.deepEqual([risk('omega_livedash').level,risk('omega_livedash').flags],[2,['side-effects']]);
+  assert.equal(risk('omega_dossier').level,2);
+  // deepweb and torcheck fetch .onion targets through tor2web; typosquat sends HTTP requests to every look-alike domain.
+  assert.equal(risk('omega_deepweb').level,1);
+  assert.equal(risk('omega_torcheck').level,1);
+  assert.equal(risk('omega_typosquat').level,1);
+  // executive calls OpenAI when a key is set.
+  assert.deepEqual(risk('omega_executive').flags,['credits']);
+});
