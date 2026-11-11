@@ -48,9 +48,36 @@ const headlessUpstream=`    run: async (ctx, params) => {
       if (threats.length < 10) {
 `;
 
+// The upstream lines around the AbuseIPDB blacklist fetch (server/worldmonitor/cyber/v1/_shared.ts, commit 0750ba2).
+const sharedTarget='server/server/worldmonitor/cyber/v1/_shared.ts';
+const sharedUpstream=`// ========================================================================
+// Source 5: AbuseIPDB
+// ========================================================================
+
+export async function fetchAbuseIpDbSource(limit: number): Promise<SourceResult> {
+  const apiKey = cleanString(process.env.ABUSEIPDB_API_KEY || '', 200);
+  if (!apiKey) return { ok: false, threats: [] };
+
+  try {
+    const url = \`\${ABUSEIPDB_BLACKLIST_URL}?confidenceMinimum=90&limit=\${Math.min(limit, 500)}\`;
+    const response = await fetch(url, {
+      headers: { Accept: 'application/json', Key: apiKey, 'User-Agent': CHROME_UA },
+      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+    });
+    if (!response.ok) return { ok: false, threats: [] };
+
+    const payload = await response.json();
+    const records: any[] = Array.isArray(payload?.data) ? payload.data : [];
+
+    const parsed: RawThreat[] = [];
+    for (const record of records) {
+      const ip = cleanString(record?.ipAddress || record?.ip || '', 80).toLowerCase();
+      if (!isIpAddress(ip)) continue;
+`;
+
 function scratch(contents,headless=headlessUpstream){
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'public-desk-osint-'));
-  for(const [file,text] of [[target,contents],[headlessTarget,headless]]){
+  for(const [file,text] of [[target,contents],[headlessTarget,headless],[sharedTarget,sharedUpstream]]){
     fs.mkdirSync(path.dirname(path.join(root,file)),{recursive:true});
     fs.writeFileSync(path.join(root,file),text);
   }
@@ -118,4 +145,62 @@ test('when Open OSINT changed, it warns, leaves the file alone and does not stop
 test('a missing Open OSINT checkout is not an error',()=>{
   const run=spawnSync('zsh',['-fc',`source ${JSON.stringify(script)}; apply_open_osint_patches /nonexistent/osint ${JSON.stringify(patches)}`],{encoding:'utf8'});
   assert.equal(run.status,0);
+});
+
+// AbuseIPDB's free plan allows 5 blacklist requests a day; every cyber search used one. The patch caches the list.
+test('the AbuseIPDB patch applies and fetches the full list through a cache',()=>{
+  const root=scratch(upstream);
+  const {out}=apply(root);
+  const shared=fs.readFileSync(path.join(root,sharedTarget),'utf8');
+  assert.match(out,/Applied open-osint-abuseipdb-cache/);
+  assert.match(shared,/const records = await abuseIpDbRecords\(apiKey\);/);
+  assert.match(shared,/confidenceMinimum=90&limit=500/);
+  fs.rmSync(root,{recursive:true,force:true});
+});
+
+// Runs the patched cache code itself (TypeScript, so it needs Node's type stripping: Node 22.6 or later).
+const [major,minor]=process.versions.node.split('.').map(Number);
+test('the AbuseIPDB cache serves one fetch for six hours and keeps the list when a refresh fails',{skip:major<22||(major===22&&minor<6)?'needs Node 22.6+ type stripping':false},()=>{
+  const root=scratch(upstream);
+  apply(root);
+  const shared=fs.readFileSync(path.join(root,sharedTarget),'utf8');
+  const helper=shared.slice(shared.indexOf('// Public Desk: AbuseIPDB cache (start)'),shared.indexOf('// Public Desk: AbuseIPDB cache (end)'));
+  const module=path.join(root,'cache.ts');
+  fs.writeFileSync(module,`const ABUSEIPDB_BLACKLIST_URL='https://api.abuseipdb.com/api/v2/blacklist';const CHROME_UA='test';const UPSTREAM_TIMEOUT_MS=1000;\n${helper}\nexport {abuseIpDbRecords};\n`);
+  const driver=`import {abuseIpDbRecords} from ${JSON.stringify(module)};
+let now=1_000_000_000_000;Date.now=()=>now;const hour=3_600_000;
+let calls=0;let next=200;
+globalThis.fetch=async url=>{calls++;if(next!==200)return new Response('{}',{status:next});return new Response(JSON.stringify({data:[{ipAddress:'192.0.2.'+calls}]}),{status:200});};
+const ip=r=>r?r[0].ipAddress:null;const log=[];
+log.push(['first',ip(await abuseIpDbRecords('k')),calls]);
+now+=5*hour;log.push(['5h later, cached',ip(await abuseIpDbRecords('k')),calls]);
+now+=2*hour;log.push(['7h, refreshed',ip(await abuseIpDbRecords('k')),calls]);
+now+=7*hour;next=429;log.push(['429 keeps last list',ip(await abuseIpDbRecords('k')),calls]);
+now+=0.5*hour;log.push(['30 min later, no retry',ip(await abuseIpDbRecords('k')),calls]);
+now+=0.6*hour;next=200;log.push(['after the hour, retried',ip(await abuseIpDbRecords('k')),calls]);
+process.stdout.write(JSON.stringify(log));`;
+  const run=spawnSync(process.execPath,['--experimental-strip-types','--no-warnings','--input-type=module','-e',driver],{encoding:'utf8'});
+  fs.rmSync(root,{recursive:true,force:true});
+  assert.equal(run.status,0,run.stderr);
+  assert.deepEqual(JSON.parse(run.stdout),[
+    ['first','192.0.2.1',1],
+    ['5h later, cached','192.0.2.1',1],
+    ['7h, refreshed','192.0.2.2',2],
+    ['429 keeps last list','192.0.2.2',3],
+    ['30 min later, no retry','192.0.2.2',3],
+    ['after the hour, retried','192.0.2.4',4]
+  ]);
+});
+
+test('with no saved list, a refused refresh means no AbuseIPDB data rather than an error',{skip:major<22||(major===22&&minor<6)?'needs Node 22.6+ type stripping':false},()=>{
+  const root=scratch(upstream);
+  apply(root);
+  const shared=fs.readFileSync(path.join(root,sharedTarget),'utf8');
+  const helper=shared.slice(shared.indexOf('// Public Desk: AbuseIPDB cache (start)'),shared.indexOf('// Public Desk: AbuseIPDB cache (end)'));
+  const module=path.join(root,'cache.ts');
+  fs.writeFileSync(module,`const ABUSEIPDB_BLACKLIST_URL='u';const CHROME_UA='t';const UPSTREAM_TIMEOUT_MS=1000;\n${helper}\nexport {abuseIpDbRecords};\n`);
+  const run=spawnSync(process.execPath,['--experimental-strip-types','--no-warnings','--input-type=module','-e',`import {abuseIpDbRecords} from ${JSON.stringify(module)};globalThis.fetch=async()=>new Response('{}',{status:429});process.stdout.write(JSON.stringify(await abuseIpDbRecords('k')));`],{encoding:'utf8'});
+  fs.rmSync(root,{recursive:true,force:true});
+  assert.equal(run.status,0,run.stderr);
+  assert.equal(run.stdout,'null');
 });
