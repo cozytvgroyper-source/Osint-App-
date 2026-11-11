@@ -54,6 +54,32 @@ function singularWords(text){
   });
 }
 
+// Intents chosen from topic words when the search names no target, checked in order.
+// Each entry: id, label, preferred tools, and the topic-word pattern.
+const TOPIC_INTENTS=[
+  ['sanctions','Sanctions screening',['get_opensanctions','get_sanctions'],/\b(sanction|ofac|sdn|pep|embargo)\b/i],
+  ['hazard','Natural hazard intelligence',['get_earthquakes','get_natural_events','get_disaster_alerts'],/\b(earthquake|wildfire|hurricane|storm|flood|volcano|disaster|natural hazard)\b/i],
+  ['maritime','Maritime intelligence',['get_maritime_news','get_chokepoints','get_ais_vessels'],/\b(vessel|ship|maritime|port|chokepoint|piracy)\b/i],
+  ['aviation','Aviation intelligence',['get_notams','get_aviation_news','get_aircraft'],/\b(aircraft|flight|airport|aviation|notam|airspace)\b/i],
+  ['cyber','Cyber threat intelligence',['get_cyber_news','get_ransomware','get_threatfox'],/\b(cyber|ransomware|malware|threat actor|ioc|phishing|botnet)\b/i],
+  ['research','Research literature',['get_arxiv'],/\b(paper|research|study|academic|arxiv|literature)\b/i],
+  ['crypto','Cryptocurrency and market context',['get_crypto','get_fear_greed','get_stablecoins'],/\b(crypto|bitcoin|ethereum|stablecoin|blockchain)\b/i],
+  ['markets','Market and company profile',['get_fmp_quote','get_fmp_profile','get_sec_filings'],/\b(stock|share price|ticker|equity|market quote)\b/i],
+  ['economy','Economic indicators',['get_economic_macro','get_bis_rates','get_bis_fx'],/\b(gdp|inflation|unemployment|economic|economy|interest rate|exchange rate)\b/i],
+  ['filings','Corporate filings',['get_sec_filings','get_opencorporates'],/\b(sec filing|10-k|10-q|8-k|edgar)\b/i],
+  ['github','Public development activity',['get_github_activity','get_hn_search'],/\b(github|repository|open source project|developer activity)\b/i],
+  ['satellite','Satellite and imagery context',['get_satellite_snapshot','get_satellites'],/\b(satellite|imagery|orbit|spacecraft)\b/i],
+  ['election','Election monitoring',['get_election_monitor','get_news_rss'],/\b(election|vote|polling|ballot)\b/i],
+  ['health','Health and outbreak intelligence',['get_health_advisories','get_news_rss'],/\b(outbreak|disease|health advisory|epidemic|pandemic)\b/i],
+  ['nuclear','Nuclear and arms-control intelligence',['get_nuclear_status','get_radiation_safecast'],/\b(nuclear|arms control|radiation|iaea)\b/i],
+  ['energy','Energy and commodities intelligence',['get_energy_commodities_news','get_critical_minerals'],/\b(oil|gas|lng|energy|commodity|uranium|mineral)\b/i],
+  ['offshore','Offshore entity intelligence',['get_offshore_leaks','get_opencorporates'],/\b(offshore|panama papers|paradise papers|pandora papers|shell company)\b/i],
+  ['food','Food-security intelligence',['get_food_security','get_news_rss'],/\b(food security|famine|hunger|crop)\b/i],
+  ['location','Location and country context',['get_geocode','get_country_facts','get_travel_advisories'],/\b(country|city|location|coordinates|geocode|travel advisory|place)\b/i],
+  ['organization','Organization intelligence',['get_wikidata','get_opencorporates','get_news_rss'],/\b(company|corporation|business|filing|organization|hospital|university|nonprofit)\b/i],
+  ['news','Current-event coverage',['get_gdelt','get_news_velocity','get_news_rss'],/\b(latest|recent|news|current|today|event|developments)\b/i],
+];
+
 const intent=(id,label,tools)=>({id,label,tools});
 export function searchIntent(query){
   const q=query.trim(); const singular=singularWords(q); const has=pattern=>pattern.test(q)||pattern.test(singular);
@@ -70,27 +96,8 @@ export function searchIntent(query){
   if(/^@?[a-z0-9_.-]{2,32}$/i.test(q)&&(/^@/.test(q)||/\b(username|handle|account)\b/i.test(q)))return intent('username','Public username presence',['sherlock_username_search','blackbird_username_search']);
   if(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(q))return intent('email','Public email-account presence',['holehe_email_search']);
   if(/^\+?[\d\s().-]{8,}$/.test(q))return intent('phone','Public phone information',['phoneinfoga_scan']);
-  if(has(/\b(sanction|ofac|sdn|pep|embargo)\b/i))return intent('sanctions','Sanctions screening',['get_opensanctions','get_sanctions']);
-  if(has(/\b(earthquake|wildfire|hurricane|storm|flood|volcano|disaster|natural hazard)\b/i))return intent('hazard','Natural hazard intelligence',['get_earthquakes','get_natural_events','get_disaster_alerts']);
-  if(has(/\b(vessel|ship|maritime|port|chokepoint|piracy)\b/i))return intent('maritime','Maritime intelligence',['get_maritime_news','get_chokepoints','get_ais_vessels']);
-  if(has(/\b(aircraft|flight|airport|aviation|notam|airspace)\b/i))return intent('aviation','Aviation intelligence',['get_notams','get_aviation_news','get_aircraft']);
-  if(has(/\b(cyber|ransomware|malware|threat actor|ioc|phishing|botnet)\b/i))return intent('cyber','Cyber threat intelligence',['get_cyber_news','get_ransomware','get_threatfox']);
-  if(has(/\b(paper|research|study|academic|arxiv|literature)\b/i))return intent('research','Research literature',['get_arxiv']);
-  if(has(/\b(crypto|bitcoin|ethereum|stablecoin|blockchain)\b/i))return intent('crypto','Cryptocurrency and market context',['get_crypto','get_fear_greed','get_stablecoins']);
-  if(has(/\b(stock|share price|ticker|equity|market quote)\b/i))return intent('markets','Market and company profile',['get_fmp_quote','get_fmp_profile','get_sec_filings']);
-  if(has(/\b(gdp|inflation|unemployment|economic|economy|interest rate|exchange rate)\b/i))return intent('economy','Economic indicators',['get_economic_macro','get_bis_rates','get_bis_fx']);
-  if(has(/\b(sec filing|10-k|10-q|8-k|edgar)\b/i))return intent('filings','Corporate filings',['get_sec_filings','get_opencorporates']);
-  if(has(/\b(github|repository|open source project|developer activity)\b/i))return intent('github','Public development activity',['get_github_activity','get_hn_search']);
-  if(has(/\b(satellite|imagery|orbit|spacecraft)\b/i))return intent('satellite','Satellite and imagery context',['get_satellite_snapshot','get_satellites']);
-  if(has(/\b(election|vote|polling|ballot)\b/i))return intent('election','Election monitoring',['get_election_monitor','get_news_rss']);
-  if(has(/\b(outbreak|disease|health advisory|epidemic|pandemic)\b/i))return intent('health','Health and outbreak intelligence',['get_health_advisories','get_news_rss']);
-  if(has(/\b(nuclear|arms control|radiation|iaea)\b/i))return intent('nuclear','Nuclear and arms-control intelligence',['get_nuclear_status','get_radiation_safecast']);
-  if(has(/\b(oil|gas|lng|energy|commodity|uranium|mineral)\b/i))return intent('energy','Energy and commodities intelligence',['get_energy_commodities_news','get_critical_minerals']);
-  if(has(/\b(offshore|panama papers|paradise papers|pandora papers|shell company)\b/i))return intent('offshore','Offshore entity intelligence',['get_offshore_leaks','get_opencorporates']);
-  if(has(/\b(food security|famine|hunger|crop)\b/i))return intent('food','Food-security intelligence',['get_food_security','get_news_rss']);
-  if(has(/\b(country|city|location|coordinates|geocode|travel advisory|place)\b/i))return intent('location','Location and country context',['get_geocode','get_country_facts','get_travel_advisories']);
-  if(has(/\b(company|corporation|business|filing|organization|hospital|university|nonprofit)\b/i))return intent('organization','Organization intelligence',['get_wikidata','get_opencorporates','get_news_rss']);
-  if(has(/\b(latest|recent|news|current|today|event|developments)\b/i))return intent('news','Current-event coverage',['get_gdelt','get_news_velocity','get_news_rss']);
+  const topic=TOPIC_INTENTS.find(([,,,pattern])=>has(pattern));
+  if(topic)return intent(...topic);
   return intent('entity','Entity and related coverage',['get_wikidata','get_news_rss','get_hn_search']);
 }
 
