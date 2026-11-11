@@ -8,12 +8,18 @@ Every omega-mcp tool calls server._run_omega_module, so this wrapper replaces th
 stdout while the module runs and, when the module returned nothing, returns the printed text instead of
 "completed". Structured results and errors pass through unchanged; printed output never reaches stdout.
 
+omega-cli also saves a report for most lookups under the home folder (~/.omega/reports, ~/omega-reports and
+~/.config/omega-cli). Those name investigation targets, so the wrapper points HOME at work/omega-home (owner-only,
+git-ignored with the rest of work/) for this process alone; uvx, which keeps its package cache under HOME, is
+unaffected because it started before this script.
+
 Usage (see config/omega-mcp.json): uvx --from <omega-mcp-server> --with <omega-cli> ... python run-omega-mcp-captured.py
 """
 
 import contextlib
 import io
 import os
+import pathlib
 import re
 import sys
 
@@ -69,7 +75,16 @@ def capture_module_output(run_module):
     return run_captured
 
 
+def use_private_home(app_dir):
+    home = pathlib.Path(app_dir) / "work" / "omega-home"
+    home.mkdir(parents=True, exist_ok=True)
+    home.chmod(0o700)
+    os.environ["HOME"] = str(home)
+    return home
+
+
 def main():
+    use_private_home(pathlib.Path(__file__).resolve().parent.parent)
     # Rich sizes tables from COLUMNS when output is not a terminal; 80 columns truncates most cells.
     os.environ.setdefault("COLUMNS", "160")
     from omega_mcp_server import server

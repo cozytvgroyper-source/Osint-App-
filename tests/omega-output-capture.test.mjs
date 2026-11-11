@@ -81,3 +81,26 @@ test('starts Omega through the stdout-capturing wrapper with pinned packages', a
   assert.ok(server.args.includes('git+https://github.com/Ekoelogan/omega-cli@24767fb8794e0cfe6f608eee3407ba1f40b501cb'));
   assert.deepEqual(server.args.slice(-2), ['python', 'scripts/run-omega-mcp-captured.py']);
 });
+
+test('gives omega-cli a private home inside work/ so its reports stay in the app folder', () => {
+  const script = `
+import importlib.util, json, os, pathlib, stat, tempfile
+spec = importlib.util.spec_from_file_location('captured', ${JSON.stringify(wrapper)})
+captured = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(captured)
+app = pathlib.Path(tempfile.mkdtemp())
+home = captured.use_private_home(app)
+reports = pathlib.Path(os.path.expanduser('~/.omega/reports'))
+print(json.dumps({
+  'home': str(home), 'expected': str(app / 'work' / 'omega-home'),
+  'env': os.environ['HOME'], 'pathHome': str(pathlib.Path.home()), 'reports': str(reports),
+  'mode': oct(stat.S_IMODE(home.stat().st_mode)),
+}))
+`;
+  const out = JSON.parse(execFileSync('python3', ['-c', script], { encoding: 'utf8' }));
+  assert.equal(out.home, out.expected);
+  assert.equal(out.env, out.expected);
+  assert.equal(out.pathHome, out.expected);
+  assert.equal(out.reports, `${out.expected}/.omega/reports`);
+  assert.equal(out.mode, '0o700', 'reports name investigation targets, so only the owner may read them');
+});
