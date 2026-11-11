@@ -85,7 +85,10 @@ Keep them when changing the server or launcher.
 2. `searchIntent` picks the intent from the target, otherwise from topic words (plurals are recognised).
 3. `explainSearchPlan` scores every connected tool against the search words, with the target's own text removed, and
    against the topic words. It selects up to 6 tools, at most 4 per server.
-4. `argsForSearch` sends a tool only the target when there is one, otherwise the cleaned phrase.
+4. `argsForSearch` sends a tool only the target when there is one. Otherwise it sends the subject: the phrase
+   without the matched intent's topic words and with framing words ("in", "latest", "news", "price"…) trimmed
+   from the ends, so "OFAC sanctions on Rosneft" sends "Rosneft" and "Bank of America sanctions" keeps its "of".
+   This matters because Open OSINT's `search` parameter keeps only items containing the whole value.
 5. `classifyToolResult` sorts each response; only real data becomes a result category. Errors and empty answers are
    listed under Unavailable Sources with their actual reason.
 
@@ -139,7 +142,8 @@ another folder, naming the folder to stop. `Stop Public Desk.command` stops the 
 - **Omega quirks:** Omega turns some network failures into an empty "ok" result, so "no results" isn't proof.
   `omega_monitor` always fails (not implemented in omega-cli).
 - **Domain-like words:** tokens such as "node.js" are treated as domain targets.
-- **Searches without a target** send the whole phrase, including topic words (e.g. "sanctions Rosneft").
+- **Subject trimming is word-list based:** a name that contains its own topic word loses it ("Port of Rotterdam"
+  sends "Rotterdam"), and a topic-only search such as "latest ransomware" still sends "ransomware" as a filter.
 - **Speed:** domain searches take about 25–35 s, because the selected lookups run in parallel and the slowest
   sets the pace.
 - **Legacy internal names:** browser storage keys keep the `signaldesk.` prefix, and the launcher's PID and log
@@ -148,11 +152,10 @@ another folder, naming the folder to stop. `Stop Public Desk.command` stops the 
 ## Recommended next work
 
 1. Show each source's results as they arrive instead of waiting for the slowest tool.
-2. Trim topic words from searches without a target (send "Rosneft" to sanctions tools).
-3. Investigate Open OSINT `get_whois` failing with RDAP HTTP 403.
-4. Tailor arguments per tool where schemas allow (e.g. limit theHarvester's sources) so slow tools can rejoin the
+2. Investigate Open OSINT `get_whois` failing with RDAP HTTP 403.
+3. Tailor arguments per tool where schemas allow (e.g. limit theHarvester's sources) so slow tools can rejoin the
    automatic search.
-5. Configure API keys for the Open OSINT tools listed above if the user wants those sources.
+4. Configure API keys for the Open OSINT tools listed above if the user wants those sources.
 
 ## Working rules from the user
 
