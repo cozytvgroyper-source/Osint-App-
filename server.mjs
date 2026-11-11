@@ -461,10 +461,17 @@ const server = http.createServer(async (req, res) => {
     });
     res.end(data);
   } catch (error) {
-    if (error?.code === 'ENOENT') return json(res, 404, { error: 'Not found' });
-    json(res, 502, { error: error.message || 'Request failed' });
+    const status = errorStatus(error);
+    json(res, status, { error: status === 404 ? 'Not found' : error.message || 'Request failed' });
   }
 });
+
+// A refused MCP address is a bad request (400); a missing file is 404; anything else is an upstream failure (502).
+function errorStatus(error) {
+  if (error?.code === 'ENOENT') return 404;
+  if (error?.code === 'ENDPOINT_POLICY') return 400;
+  return 502;
+}
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const restored = await restoreConsensusSignIn();
@@ -476,4 +483,4 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   });
 }
 
-export { validatedEndpoint, fetchValidated, parseMcpResponse, readLimitedResponse, cleanupStaleUploads, trackUpload, deleteTrackedUpload, loadConsensusAuth, saveConsensusAuth, clearConsensusAuth, SECURITY_HEADERS, requestGuard, prunePendingSignIns, dataSourcesAction };
+export { validatedEndpoint, fetchValidated, parseMcpResponse, readLimitedResponse, cleanupStaleUploads, trackUpload, deleteTrackedUpload, loadConsensusAuth, saveConsensusAuth, clearConsensusAuth, SECURITY_HEADERS, requestGuard, prunePendingSignIns, dataSourcesAction, errorStatus };

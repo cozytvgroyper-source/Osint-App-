@@ -4,6 +4,11 @@
 
 const NOT_FINDINGS = new Set(['Related Links', 'Still Running', 'Planner Diagnostics']);
 
+// Whether a report holds real findings. The result view uses this to decide whether to list source errors.
+export function reportHasFindings(report) {
+  return Object.keys(report || {}).some(key => !NOT_FINDINGS.has(key));
+}
+
 export function buildSearchReport({query, intent, plan, outcomes, diagnostics = null, links = [], categoryForTool, sourceLabel, elapsedMs = 0}) {
   const report = {}; const errors = []; const servers = new Set(); const pending = [];
   if (!plan.length) errors.push({source: 'Relevant MCP server', error: 'No connected server currently provides the tools needed for this search category. Connect the matching server and try again.'});

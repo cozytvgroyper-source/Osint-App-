@@ -70,3 +70,11 @@ test('explains when no connected server can answer',()=>{
   assert.match(payload.data.errors[0].error,/No connected server/);
   assert.ok(!('Still Running' in payload.data.report));
 });
+
+// The result view shows source errors only when a search found nothing; diagnostics and links are not findings.
+test('diagnostics, related links and the still-running list do not count as findings', async () => {
+  const { reportHasFindings } = await import('../public/search-report.js');
+  assert.equal(reportHasFindings({ 'Planner Diagnostics': {}, 'Related Links': {} }), false);
+  assert.equal(reportHasFindings({ 'Still Running': {} }), false);
+  assert.equal(reportHasFindings({ 'Registration Data': {}, 'Related Links': {} }), true);
+});

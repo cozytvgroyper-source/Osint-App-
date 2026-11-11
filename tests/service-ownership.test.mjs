@@ -7,9 +7,20 @@ import { spawn, spawnSync } from 'node:child_process';
 
 const script = new URL('../scripts/service-ownership.zsh', import.meta.url).pathname;
 
-function zsh(source) {
-  return spawnSync('/bin/zsh', ['-c', `source ${JSON.stringify(script)}; ${source}`], { encoding: 'utf8' });
+function zsh(source, env = {}) {
+  return spawnSync('/bin/zsh', ['-c', `source ${JSON.stringify(script)}; ${source}`], { encoding: 'utf8', env: { ...process.env, ...env } });
 }
+
+// Without lsof the launcher cannot tell who owns a port, so it must refuse rather than treat the port as free.
+test('refuses to reuse or stop anything when lsof cannot be run', () => {
+  const missing = { PUBLIC_DESK_LSOF: '/nonexistent/lsof' };
+  const refused = zsh(`refuse_foreign_listener 'Test service' 4173 '/app' 'server.mjs'`, missing);
+  assert.notEqual(refused.status, 0);
+  assert.match(refused.stdout, /cannot check who is using port 4173/);
+  // The test shell itself matches its own folder and command, so only the missing lsof makes this fail.
+  assert.equal(zsh(`process_belongs_to_service $$ "$PWD" 'zsh'`).status, 0);
+  assert.notEqual(zsh(`process_belongs_to_service $$ "$PWD" 'zsh'`, missing).status, 0);
+});
 
 test('service identity requires both the exact folder and command marker', () => {
   assert.equal(zsh(`identity_values_match '/app' 'node /app/server.mjs' '/app' 'server.mjs'`).status, 0);

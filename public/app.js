@@ -1,6 +1,6 @@
 import {explainSearchPlan,summarizePlanDiagnostics} from './search-planner.js';
 import {classifyToolResult,hasUsefulData,parseToolResult} from './result-classifier.js';
-import {buildSearchReport} from './search-report.js';
+import {buildSearchReport,reportHasFindings} from './search-report.js';
 import {recordToolHealth,serverConnectionLabel,toolCountLabel} from './tool-health.js';
 import {argsForSearch,extractTarget,searchIntent} from './search-query.js';
 import {loadStoredState,mergeStoredServers,persistStoredState} from './browser-storage.js';
@@ -253,7 +253,7 @@ function renderCategory(name,entry){
 function renderReadableResult(result){
   const parsed=parseToolResult(result); const payload=parsed?.data??parsed; const report=payload?.report;
   if(report&&typeof report==='object'){
-    const entries=Object.entries(report); const hasFindings=entries.some(([name])=>!['Related Links','Still Running'].includes(name));
+    const entries=Object.entries(report); const hasFindings=reportHasFindings(report);
     const content=entries.map(([name,entry])=>renderCategory(name,entry)).join('');
     const errors=!('Still Running' in report)&&!hasFindings&&Array.isArray(payload.errors)&&payload.errors.length?`<section class="result-category warning"><div class="category-head"><div><p class="eyebrow">SEARCH RESULT</p><h3>No results returned</h3></div></div>${renderArray(payload.errors)}</section>`:'';
     return `${content}${errors}`||'<p class="empty-copy">No matching results returned.</p>';

@@ -1,6 +1,8 @@
 # Public Desk handoff
 
-Updated 2026-11-11 (security hardening, CI, progressive results, topic-word trimming). First written 2026-11-10; it replaces the original Codex handoff, which lived outside the repo and is now out of date.
+Updated 2026-11-11 (security hardening, CI, progressive results, topic-word trimming, Codex's hardening pass).
+`CLAUDE_CODE_HANDOFF.md` records the plan and verification of Codex's hardening pass; this file is the current
+reference. First written 2026-11-10; it replaces the original Codex handoff, which lived outside the repo and is now out of date.
 
 ## Objective
 
@@ -31,7 +33,9 @@ git diff --check
 ```
 
 GitHub Actions (`.github/workflows/ci.yml`) runs the syntax checks, `py_compile`, `zsh -n` on the launchers and
-`npm test` on Node 20 and 22 for every pull request and push to `main`. For UI changes, also exercise the feature in
+`npm test` on Node 20 and 22, on macOS runners (free for this public repo), for every pull request and push to
+`main`. macOS has zsh and lsof built in, so CI downloads no packages; Ubuntu runners needed zsh from apt, which a
+runner DNS outage blocked for over an hour on 2026-11-11. For UI changes, also exercise the feature in
 a browser and report what you observed.
 
 ## Architecture
@@ -45,6 +49,9 @@ a browser and report what you observed.
 | `public/search-planner.js` | `explainSearchPlan` / `planSearchTools` (tool selection) and `summarizePlanDiagnostics` |
 | `public/result-classifier.js` | `classifyToolResult`: whether a response is data, empty, or an error |
 | `public/tool-health.js` | Per-tool working/failing counts and the "N of M servers connected" label |
+| `public/browser-storage.js` | Safe loading and saving of browser data: damaged entries are skipped, evidence is capped (100 items, 2.5 MB), bearer tokens are never stored |
+| `scripts/endpoint-policy.mjs` | Which MCP addresses the server may call: the bundled `127.0.0.1:8892–8894` endpoints, or public HTTPS addresses (checked after DNS and on every redirect) |
+| `scripts/service-ownership.zsh` | Launcher checks that a port or saved PID belongs to this folder before reusing or stopping it; fails closed without `lsof` |
 | `tests/fixtures/mcp-tools.json` | The real 240-tool list from the three local servers; planner tests run against it |
 | `scripts/bind-loopback.mjs` | `node --import` preload: servers that name no address listen on 127.0.0.1 only |
 | `scripts/api-keys.mjs` | The 14 keyed data sources (fields, tools fed, sign-up link, note) and the `work/api-keys.env` format: parse, update, status |
@@ -89,8 +96,12 @@ Keep them when changing the server or launcher.
   and with `default-user-agent.mjs`, because rdap.org (behind `get_whois`) answers Node's default `node`
   User-Agent with HTTP 403. About 22 of its 37 fetching modules set no User-Agent of their own. It also loads
   `intelx-host.mjs`, because free Intelligence X keys get 401 from the hardcoded `2.intelx.io`.
-- **Upload and sign-in:** uploads are size-limited, renamed, written 0600 and deleted after analysis; pending
-  Consensus sign-ins expire after 10 minutes (at most 20, oldest dropped).
+- **Upload and sign-in:** uploads are size-limited, renamed, written 0600 in a 0700 folder and deleted after
+  analysis; any left behind expire after 30 minutes and are swept at server start. Pending Consensus sign-ins
+  expire after 10 minutes (at most 20, oldest dropped).
+- **MCP destinations and responses:** the server calls only the bundled local MCP endpoints or public HTTPS
+  addresses, re-checking every redirect (`scripts/endpoint-policy.mjs`); a refused address is answered with 400.
+  Responses are capped at 5 MB, and event streams at 1,000 events of at most 1 MB each.
 - **API keys:** the user's keys live in `work/api-keys.env` (0600, git-ignored; `work/` is 0700), written only by the
   Data sources panel (`POST /api/data-sources[/connect|/disconnect|/remove]`, behind the same request guard) or by
   hand. Writes go to a private temporary file renamed into place, one at a time. Only the Open OSINT data service
@@ -150,7 +161,8 @@ main searches and Tool Library runs (stored in `localStorage`). The workspace sh
 
 `Start Public Desk.command` checks MCP bridges with an MCP `initialize` request; a plain GET always gets HTTP 400.
 It reuses services that are already running and refuses to start when Public Desk or a bridge on its port belongs to
-another folder, naming the folder to stop. `Stop Public Desk.command` stops the PIDs saved in `work/runtime/`.
+another folder, naming the folder to stop. Every service port is checked by folder and command marker
+(`scripts/service-ownership.zsh`), and `Stop Public Desk.command` stops a saved PID only if it passes the same check.
 
 ## Files, news and external links
 
@@ -164,10 +176,10 @@ another folder, naming the folder to stop. `Stop Public Desk.command` stops the 
 
 ## Known limitations
 
-- **Server-side request block is shallow:** `validatedEndpoint` blocks only the literal cloud-metadata hostnames
-  (`169.254.169.254` forms that the URL parser normalises, `metadata.google.internal`); spellings such as
-  `[::ffff:169.254.169.254]` or a trailing dot get through, and redirects are followed. That matters only on cloud
-  hosts, and since the request guard only local programs can reach `/api/mcp`.
+- **No extra local MCP servers:** the destination policy allows only the three bundled local endpoints and public
+  HTTPS addresses, so a new local MCP server needs an entry in `scripts/endpoint-policy.mjs`.
+- **DNS can change between check and call:** an added server's address is checked, then fetched with a fresh DNS
+  lookup, so a hostile server you add yourself could switch to a private address in between.
 - **Data service CORS:** the third-party data service lets `worldmonitor.app` / `h1dr4.dev` pages read its responses
   (public OSINT data). It is no longer reachable from the network.
 - **Upstream failures, not app bugs:**

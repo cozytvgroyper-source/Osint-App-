@@ -2,6 +2,10 @@ name: CI
 
 # Runs the same checks used before every pull request: syntax checks for every script and the full test
 # suite, on the oldest supported Node version (package.json "engines") and the current LTS.
+#
+# Runs on macOS because Public Desk is a Mac app: zsh and lsof (used by the launchers and the process-ownership
+# tests) are built in, so the job downloads no packages, and the launchers are checked on the system they run on.
+# On Ubuntu the job had to install zsh first, and a runner DNS outage on 2026-11-11 blocked CI for over an hour.
 on:
   pull_request:
   push:
@@ -12,8 +16,8 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+    runs-on: macos-latest
+    timeout-minutes: 15
     strategy:
       matrix:
         node: [20, 22]
@@ -28,9 +32,9 @@ jobs:
         run: python3 -m py_compile scripts/*.py
       - name: Syntax-check the Mac launchers
         run: |
-          sudo apt-get install -y --no-install-recommends zsh >/dev/null
           zsh -n "Start Public Desk.command"
           zsh -n "Stop Public Desk.command"
           zsh -n scripts/apply-open-osint-patches.zsh
+          zsh -n scripts/service-ownership.zsh
       - name: Run tests
         run: npm test

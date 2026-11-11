@@ -7,7 +7,7 @@
   <title>Public Desk — OSINT workspace</title>
   <link rel="stylesheet" href="/styles.css?v=14" />
   <link rel="stylesheet" href="/results.css?v=13" />
-  <link rel="stylesheet" href="/theme.css?v=16" />
+  <link rel="stylesheet" href="/theme.css?v=17" />
 </head>
 <body>
   <div class="shell">
@@ -62,7 +62,7 @@
       </section>
 
       <section id="servers" class="view">
-        <div class="section-heading"><div><p class="eyebrow">CONNECTIONS</p><h2>MCP servers</h2><p class="subtle">Connect any Streamable HTTP MCP server. Credentials are held only for this browser session.</p></div><button class="primary" id="addServer">＋ Add server</button></div>
+        <div class="section-heading"><div><p class="eyebrow">CONNECTIONS</p><h2>MCP servers</h2><p class="subtle">The bundled local servers, plus any MCP server you add over HTTPS. Bearer tokens are held only in this browser tab.</p></div><button class="primary" id="addServer">＋ Add server</button></div>
         <div id="serverList" class="server-grid"></div>
         <div class="section-heading"><div><p class="eyebrow">CONNECTIONS</p><h2>Data sources</h2><p class="subtle">API keys for the services behind Open OSINT's tools. Keys are saved on this Mac only, in work/api-keys.env, and are never shown again. Connect and Disconnect apply right away.</p></div><span class="subtle" id="dataSourceCount"></span></div>
         <div id="dataSourceList" class="server-grid"><div class="empty-state">Loading data sources…</div></div>
@@ -90,9 +90,9 @@
   <dialog id="serverDialog">
     <form method="dialog" id="serverForm"><div class="dialog-head"><div><p class="eyebrow">NEW CONNECTION</p><h2>Add MCP server</h2></div><button type="button" data-close-dialog class="icon-button" aria-label="Close">×</button></div>
       <label>Name<input name="name" required placeholder="OSINT MCP" /></label>
-      <label>Endpoint<input name="endpoint" required type="url" value="http://127.0.0.1:8892/mcp" /></label>
+      <label>Endpoint<input name="endpoint" required type="url" placeholder="https://example.com/mcp" /></label>
       <label>Bearer token <span>(optional)</span><input name="token" type="password" autocomplete="off" placeholder="Stored in this tab only" /></label>
-      <p class="form-note">Public Desk uses MCP Streamable HTTP. For the nearby osint-mcp project, start Docker and use the prefilled endpoint.</p>
+      <p class="form-note">Public Desk uses MCP Streamable HTTP. Added servers must use HTTPS and a public address. To bring back a bundled server you disabled, add its address: http://127.0.0.1:8892/mcp (Open OSINT), :8893 (OSINT Toolbox) or :8894 (Omega).</p>
       <div class="dialog-actions"><button type="button" data-close-dialog class="ghost">Cancel</button><button value="default" class="primary" id="saveServer">Connect server</button></div>
     </form>
   </dialog>
@@ -115,6 +115,6 @@
   <dialog id="resultDialog" class="result-dialog"><div class="dialog-head"><div><p class="eyebrow">INVESTIGATION RESULT</p><h2 id="resultTitle">Result</h2></div><button class="icon-button" data-close-result aria-label="Close">×</button></div><div id="resultBody" class="result-body"></div><div class="dialog-actions"><button class="ghost" data-close-result>Close</button><button class="primary" id="saveEvidence">Save to evidence</button></div></dialog>
 
   <div id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/app.js?v=28"></script>
+  <script type="module" src="/app.js?v=29"></script>
 </body>
 </html>
