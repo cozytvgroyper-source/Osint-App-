@@ -29,7 +29,10 @@ jobs:
       - name: Syntax-check the Mac launchers
         run: |
           # lsof lets the process-ownership tests check real processes instead of failing closed.
-          sudo apt-get install -y --no-install-recommends zsh lsof >/dev/null
+          # Refresh the package list and retry once: a stale list or a brief DNS failure on the runner
+          # otherwise fails the job before any test runs.
+          install() { sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends zsh lsof >/dev/null; }
+          install || { sleep 15; install; }
           zsh -n "Start Public Desk.command"
           zsh -n "Stop Public Desk.command"
           zsh -n scripts/apply-open-osint-patches.zsh
