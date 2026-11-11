@@ -133,6 +133,11 @@ function searchSubject(text,intentId){
   return trimFraming(withoutTopic)||trimFraming(text)||text;
 }
 
+// Arguments that keep a tool within the 45-second request limit in automatic searches. Tool Library runs
+// build their own arguments and are unaffected. theHarvester queries every source by default (223 s for
+// example.com); these keyless certificate and DNS sources took 11-20 s.
+const AUTO_SEARCH_ARGS={theharvester_domain_search:{sources:'crtsh,hackertarget,rapiddns,otx'}};
+
 export function argsForSearch(tool,query){
   const props=tool.inputSchema?.properties||{}; const required=tool.inputSchema?.required||[]; const args={};
   let clean=query.replace(/^(?:https?:\/\/)/i,'').replace(/^@/,'').replace(/\/$/,'').trim();
@@ -153,5 +158,6 @@ export function argsForSearch(tool,query){
   if(props.output_format)args.output_format='json';
   if(props.format)args.format='json';
   for(const key of required){if(args[key]!==undefined)continue;const schema=props[key]||{};args[key]=schema.type==='number'?10:schema.type==='boolean'?false:countryQuery;}
+  Object.assign(args,AUTO_SEARCH_ARGS[tool.name]);
   return args;
 }
