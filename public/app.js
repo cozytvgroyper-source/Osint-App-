@@ -1,5 +1,6 @@
 import {explainSearchPlan,summarizePlanDiagnostics} from './search-planner.js';
 import {classifyToolResult,hasUsefulData,parseToolResult} from './result-classifier.js';
+import {buildSearchReport} from './search-report.js';
 import {recordToolHealth,serverConnectionLabel,toolCountLabel} from './tool-health.js';
 import {argsForSearch,extractTarget,searchIntent} from './search-query.js';
 
@@ -285,29 +286,8 @@ async function smartInvestigate(query){
     if(response.error)throw new Error(response.error.message||'Tool call failed');
     return{tool,outcome:classifyToolResult(response.result)};
   }));
-  const report={}; const errors=[]; const servers=new Set();
-  if(plan.length)report['Search Plan']={eyebrow:'DYNAMIC MCP ROUTING',description:'Public Desk inspected every connected tool and selected the most relevant passive capabilities for this query.',data:plan.map(item=>({tool:item.tool.name,server:item.tool.serverName,reason:item.reason}))};
-  if(diagnosticsEnabled)report['Planner Diagnostics']={eyebrow:'DEVELOPMENT MODE',description:'Why each tool was or was not chosen. Shown because Public Desk was opened with ?diagnostics.',data:summarizePlanDiagnostics(explained)};
-  if(!selected.length)errors.push({source:'Relevant MCP server',error:'No connected server currently provides the tools needed for this search category. Connect the matching server and try again.'});
-  settled.forEach((outcome,index)=>{
-    const tool=selected[index];
-    noteToolHealth(tool.serverId,tool.name,outcome.status==='fulfilled'?outcome.value.outcome.kind:'error');
-    if(outcome.status==='fulfilled'){
-      servers.add(tool.serverName);
-      const result=outcome.value.outcome;
-      if(result.kind==='error')errors.push({source:sourceLabel(tool.name),error:result.error});
-      else if(result.kind==='empty')errors.push({source:sourceLabel(tool.name),error:'No matching records returned for this subject.'});
-      else{
-        const category=categoryForTool(tool); let key=category;
-        if(report[key])key=`${category} — ${sourceLabel(tool.name)}`;
-        report[key]={eyebrow:`${tool.serverName} · ${sourceLabel(tool.name)}`,description:tool.description||`Results from ${tool.serverName}`,data:result.data};
-      }
-    }else errors.push({source:sourceLabel(tool.name),error:outcome.reason?.message||'Source unavailable'});
-  });
-  const links=relatedLinks(intent,query);
-  if(links.length)report['Related Links']={eyebrow:'FOLLOW-UP SOURCES',description:'Useful external sources for verifying and expanding this search.',data:{links}};
-  const findingCount=Object.keys(report).filter(key=>!['Related Links','Search Plan','Planner Diagnostics'].includes(key)).length;
-  const result={content:[{type:'text',text:JSON.stringify({description:`${intent.label} for “${query}”`,data:{query,modulesQueried:selected.length,modulesWithResults:findingCount,durationMs:0,report,errors}})}]};
+  settled.forEach((outcome,index)=>{const tool=selected[index];noteToolHealth(tool.serverId,tool.name,outcome.status==='fulfilled'?outcome.value.outcome.kind:'error');});
+  const {result,servers}=buildSearchReport({query,intent,plan,outcomes:settled,diagnostics:diagnosticsEnabled?summarizePlanDiagnostics(explained):null,links:relatedLinks(intent,query),categoryForTool,sourceLabel});
   const time=new Date().toISOString(); state.lastResult={title:query,result,time,server:[...servers].join(', ')||'Connected MCP'};
   state.history.unshift({title:query,time,server:state.lastResult.server}); renderAll(); showResult(query,result);
 }
