@@ -4,6 +4,7 @@ import {buildSearchReport,reportHasFindings} from './search-report.js';
 import {recordToolHealth,serverConnectionLabel,toolCountLabel} from './tool-health.js';
 import {argsForSearch,extractTarget,searchIntent} from './search-query.js';
 import {loadStoredState,mergeStoredServers,persistStoredState} from './browser-storage.js';
+import {groupToolsByTier,runRequirements,toolRisk,toolUsage} from './tool-tiers.js';
 
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
@@ -26,7 +27,8 @@ const state = {
   disabledBundledEndpoints: removedBundledEndpoints,
   activeTool: null,
   lastResult: null,
-  pendingFile: null
+  pendingFile: null,
+  tierFilter: 'all'
 };
 const clientSessionId=sessionStorage.getItem('signaldesk.clientSessionId')||crypto.randomUUID();
 sessionStorage.setItem('signaldesk.clientSessionId',clientSessionId);
@@ -181,10 +183,22 @@ async function dataSourceAction(action,id,values){
 }
 
 function allTools(){ return state.servers.flatMap(server=>(server.tools||[]).map(tool=>({...tool,serverId:server.id,serverName:server.name}))); }
+// Tool Library groups tools by risk tier (tool-tiers.js): what running each one does to the target.
+const FLAG_LABELS={credits:'💳 Uses AI credits','side-effects':'⚙ Side effects'};
+function tierBadge(risk){return `<span class="tier-badge tier-${escapeHtml(risk.key)}" title="${escapeHtml(risk.targetSees)}">${escapeHtml(risk.label)}</span>`;}
 function renderTools(){
-  const filter=$('#toolFilter').value.trim().toLowerCase(); const tools=allTools().filter(t=>(t.name+' '+(t.description||'')+' '+(t.serverName||'')).toLowerCase().includes(filter));
-  $('#toolCount').textContent=tools.length?`${tools.length} tools across ${new Set(tools.map(t=>t.serverId)).size} connected server(s).`:'Connect a server to discover tools.';
-  $('#toolLibrary').innerHTML=tools.length?tools.map(t=>`<article class="tool-card"><div class="tool-card-head"><code>${escapeHtml(t.name)}</code><span class="badge">${escapeHtml(t.serverName)}</span></div><p>${escapeHtml(t.description||'No description provided.')}</p><button class="text-button" data-run="${escapeHtml(t.serverId)}::${escapeHtml(t.name)}">Run tool →</button></article>`).join(''):'<div class="empty-state">No tools to show yet.</div>';
+  const filter=$('#toolFilter').value.trim().toLowerCase();
+  const matching=allTools().filter(t=>(t.name+' '+(t.description||'')+' '+(t.serverName||'')).toLowerCase().includes(filter));
+  const groups=groupToolsByTier(matching);
+  const chips=[['all','All',matching.length],...groups.map(group=>[group.tier.key,group.tier.label,group.tools.length])];
+  if(!chips.some(([key])=>key===state.tierFilter))state.tierFilter='all';
+  $('#tierFilters').innerHTML=matching.length?chips.map(([key,label,count])=>`<button class="tier-chip${state.tierFilter===key?' active':''}" data-tier-filter="${escapeHtml(key)}">${escapeHtml(label)} <span>${count}</span></button>`).join(''):'';
+  const shown=groups.filter(group=>state.tierFilter==='all'||group.tier.key===state.tierFilter);
+  $('#toolCount').textContent=matching.length?`${matching.length} tools across ${new Set(matching.map(t=>t.serverId)).size} connected server(s), grouped by what running them does to the target.`:'Connect a server to discover tools.';
+  $('#toolLibrary').innerHTML=shown.length?shown.map(group=>`<section class="tier-group"><div class="tier-group-head">${tierBadge(toolRisk(group.tools[0]))}<p class="subtle">${escapeHtml(group.tier.targetSees)}</p></div><div class="tool-grid">${group.tools.map(t=>{
+    const risk=toolRisk(t);const flags=risk.flags.map(flag=>`<span class="badge">${escapeHtml(FLAG_LABELS[flag]||flag)}</span>`).join('');
+    return `<article class="tool-card"><div class="tool-card-head"><code>${escapeHtml(t.name)}</code>${tierBadge(risk)}</div><p class="tool-meta">${escapeHtml(t.serverName)} · ${escapeHtml(toolUsage(t))}${risk.needsReview?' · <span title="Tier set from a short description; confirm in docs/search-overhaul.md">needs review</span>':''}</p>${flags?`<div class="tool-flags">${flags}</div>`:''}<p>${escapeHtml(t.description||'No description provided.')}</p><button class="text-button" data-run="${escapeHtml(t.serverId)}::${escapeHtml(t.name)}">${risk.level>=2?`Run ${escapeHtml(risk.label.toLowerCase())} tool →`:'Run tool →'}</button></article>`;
+  }).join('')}</div></section>`).join(''):'<div class="empty-state">No tools to show yet.</div>';
 }
 function renderEvidence(){
   $('#evidenceList').innerHTML=state.evidence.length?state.evidence.map((item,index)=>`<article class="evidence-card"><div><p class="eyebrow">${new Date(item.time).toLocaleString()}</p><h3>${escapeHtml(item.title)}</h3><pre>${escapeHtml(JSON.stringify(item.result,null,2))}</pre></div><button class="icon-button" data-delete-evidence="${index}" title="Remove">×</button></article>`).join(''):'<div class="empty-state">Save a tool result to build a traceable case file.</div>';
@@ -197,7 +211,21 @@ function renderAll(){renderWorkflows();renderHistory();renderConnections();rende
 function openTool(tool, serverId){
   state.activeTool={tool,serverId}; $('#runToolName').textContent=tool.name; $('#runToolDescription').textContent=tool.description||'';
   const props=tool.inputSchema?.properties||{}; const sample={}; Object.entries(props).forEach(([key,schema])=>sample[key]=schema.default??(schema.type==='number'?0:schema.type==='boolean'?false:''));
+  // Risky tools need explicit confirmation before they can run (Tier 2+: authorization; Tier 3: type the name).
+  const risk=toolRisk(tool);const needs=runRequirements(risk);
+  $('#runRisk').innerHTML=`<div class="run-risk run-risk-${escapeHtml(risk.key)}"><div>${tierBadge(risk)}<span>${escapeHtml(risk.targetSees)}</span></div>`
+    +(needs.authorization?'<label class="run-check"><input type="checkbox" id="runAuthorize" /> I own this target or have written permission to test it.</label>':'')
+    +(needs.typeName?`<label class="run-confirm">Type <code>${escapeHtml(tool.name)}</code> to confirm<input id="runConfirmName" autocomplete="off" spellcheck="false" /></label>`:'')
+    +(needs.credits?'<label class="run-check"><input type="checkbox" id="runCredits" /> This tool may spend paid AI credits.</label>':'')+'</div>';
   $('#runArgs').value=JSON.stringify(sample,null,2); $('#runError').textContent=''; $('#runDialog').showModal();
+}
+// Returns why a tool may not run yet, or '' when every confirmation it needs is given.
+function runBlockedReason(tool){
+  const needs=runRequirements(toolRisk(tool));
+  if(needs.authorization&&!$('#runAuthorize')?.checked)return 'Confirm that you own this target or have written permission to test it.';
+  if(needs.typeName&&$('#runConfirmName')?.value.trim()!==tool.name)return `Type ${tool.name} exactly to confirm.`;
+  if(needs.credits&&!$('#runCredits')?.checked)return 'Confirm that this tool may spend paid AI credits.';
+  return '';
 }
 
 async function runTool(tool,serverId,args,title=tool.name){
@@ -367,6 +395,7 @@ document.addEventListener('click',async event=>{
   const remove=event.target.closest('[data-remove]'); if(remove){const server=state.servers.find(s=>s.id===remove.dataset.remove);if(server&&bundledServers.some(item=>item.endpoint===server.endpoint))removedBundledEndpoints.add(server.endpoint);state.servers=state.servers.filter(s=>s.id!==remove.dataset.remove);renderAll();}
   const run=event.target.closest('[data-run]'); if(run){const [serverId,name]=run.dataset.run.split('::');const tool=allTools().find(t=>t.serverId===serverId&&t.name===name);if(tool)openTool(tool,serverId);}
   const del=event.target.closest('[data-delete-evidence]');if(del&&confirm('Remove this saved evidence item?')){state.evidence.splice(Number(del.dataset.deleteEvidence),1);renderAll();}
+  const tierChip=event.target.closest('[data-tier-filter]');if(tierChip){state.tierFilter=tierChip.dataset.tierFilter;renderTools();}
   const moreNews=event.target.closest('[data-load-more-news]');if(moreNews){intelNews.visibleLimit+=30;renderIntelNews();}
   const sourceEdit=event.target.closest('[data-source-edit]');if(sourceEdit){const source=dataSources.list.find(s=>s.id===sourceEdit.dataset.sourceEdit);if(source)openKeyDialog(source);}
   const sourceConnect=event.target.closest('[data-source-connect]');if(sourceConnect)dataSourceAction('connect',sourceConnect.dataset.sourceConnect);
@@ -382,7 +411,7 @@ $('#newInvestigation').onclick=()=>{switchView('workspace');$('#query').focus();
 $('#cmdButton').onclick=()=>{switchView('workspace');$('#query').focus();};
 document.addEventListener('keydown',event=>{if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='k'){event.preventDefault();switchView('workspace');$('#query').focus();}});
 $('#saveServer').addEventListener('click',e=>{e.preventDefault();const form=new FormData($('#serverForm'));const server={id:crypto.randomUUID(),name:form.get('name').trim(),endpoint:form.get('endpoint').trim(),status:'offline',tools:[]};if(!server.name||!server.endpoint)return;removedBundledEndpoints.delete(server.endpoint);state.servers.push(server);state.tokens.set(server.id,form.get('token'));$('#serverDialog').close();renderAll();connect(server);});
-$('#executeTool').addEventListener('click',async e=>{e.preventDefault();try{const args=JSON.parse($('#runArgs').value);$('#runDialog').close();await runTool(state.activeTool.tool,state.activeTool.serverId,args);}catch(error){$('#runError').textContent=error.message;}});
+$('#executeTool').addEventListener('click',async e=>{e.preventDefault();const blocked=runBlockedReason(state.activeTool.tool);if(blocked){$('#runError').textContent=blocked;return;}try{const args=JSON.parse($('#runArgs').value);$('#runDialog').close();await runTool(state.activeTool.tool,state.activeTool.serverId,args);}catch(error){$('#runError').textContent=error.message;}});
 $$('[data-close-result]').forEach(b=>b.onclick=()=>$('#resultDialog').close());
 $$('[data-close-dialog]').forEach(button=>button.onclick=()=>button.closest('dialog')?.close());
 $('#saveEvidence').onclick=()=>{if(state.lastResult){state.evidence.unshift(state.lastResult);renderAll();toast('Saved to evidence');$('#resultDialog').close();}};

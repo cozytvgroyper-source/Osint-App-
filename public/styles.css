@@ -9,3 +9,16 @@
 .source-card{display:flex;flex-direction:column}.source-card .form-note{margin-bottom:0}.source-card .server-actions{margin-top:auto;padding-top:16px;flex-wrap:wrap}
 .server-actions a.ghost{flex:1;text-align:center;text-decoration:none;font-size:13px}
 #keyNote a{color:var(--accent-dark)}#keyFields label{display:grid;gap:7px;font-size:12px;font-weight:700;margin:14px 0}
+/* Tool Library risk tiers (tool-tiers.js): green passive, blue light touch, amber active, red intrusive/unreviewed. */
+.tier-passive{--tier:#1f9d63}.tier-light{--tier:#2f7fd8}.tier-active{--tier:#d98a12}.tier-intrusive,.tier-unreviewed{--tier:#d4453b}
+.tier-badge{display:inline-block;font:700 10px var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--tier);background:color-mix(in srgb,var(--tier) 14%,var(--surface));border:1px solid color-mix(in srgb,var(--tier) 40%,transparent);padding:4px 8px;border-radius:6px;white-space:nowrap}
+.tier-unreviewed{border-style:dashed}
+.tier-filters{display:flex;flex-wrap:wrap;gap:8px;margin:-4px 0 18px}
+.tier-chip{border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--muted);padding:7px 12px;font:650 12px var(--sans);cursor:pointer}
+.tier-chip span{opacity:.7;margin-left:4px}.tier-chip:hover{color:var(--ink)}.tier-chip.active{color:var(--ink);border-color:var(--accent-dark);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 35%,transparent)}
+.tier-groups{display:grid;gap:26px}.tier-group-head{display:flex;align-items:center;gap:12px;margin-bottom:12px}.tier-group-head .subtle{margin:0}
+.tool-card .tool-meta{font-size:11px;margin:6px 0 0;color:var(--muted)}.tool-flags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.run-risk{border:1px solid color-mix(in srgb,var(--tier,var(--line)) 45%,var(--line));background:color-mix(in srgb,var(--tier,var(--surface)) 7%,var(--surface));border-radius:12px;padding:12px 14px;margin:12px 0;display:grid;gap:10px;font-size:12px}
+.run-risk>div{display:flex;gap:10px;align-items:center}.run-risk-passive{--tier:#1f9d63}.run-risk-light{--tier:#2f7fd8}.run-risk-active{--tier:#d98a12}.run-risk-intrusive,.run-risk-unreviewed{--tier:#d4453b}
+dialog form .run-check{display:flex;gap:8px;align-items:flex-start;font-weight:600;margin:0}dialog form .run-check input{width:auto;margin-top:2px}
+dialog form .run-confirm{display:grid;gap:6px;font-weight:600;margin:0}
