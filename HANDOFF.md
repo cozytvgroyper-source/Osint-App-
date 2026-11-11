@@ -214,9 +214,11 @@ another folder, naming the folder to stop. Every service port is checked by fold
 
 ## Recommended next work
 
-1. Decide with the user whether cyber searches should mix sources instead of strict severity order, so OTX shows
+1. **Search overhaul:** follow `docs/search-overhaul.md`. Step 1 (risk tiers in Tool Library) is PR #33; steps 2–4
+   (Sources panel, Deep Search with server-side enforcement, Omega review) wait on its open decisions A–D.
+2. Decide with the user whether cyber searches should mix sources instead of strict severity order, so OTX shows
    up in short result lists (another patch to the feed's sort). The user chose not to do this for now.
-2. subfinder can only rejoin the automatic search if `osint-toolbox-mcp` exposes subfinder's `-max-time` (an
+3. subfinder can only rejoin the automatic search if `osint-toolbox-mcp` exposes subfinder's `-max-time` (an
    upstream change; its `timeout` limits each request, not the run). Checked 2026-11-11: neither 1.1.0, the latest
    release, nor the GitHub `main` branch exposes it; asking the maintainer would be a public post, so needs approval.
 
