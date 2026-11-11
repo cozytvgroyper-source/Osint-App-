@@ -86,7 +86,7 @@ Also in this step: merge duplicate findings across tools (implemented for simple
 lists, with every contributing source named), passive one-click pivot searches on exact IP, email and domain values,
 and the source log saved with each search in history and evidence.
 
-## Step 3: Deep Search page
+## Step 3: Deep Search page (implemented)
 
 A separate page with amber/red styling, never mixed with the main search.
 
@@ -115,10 +115,11 @@ A separate page with amber/red styling, never mixed with the main search.
 - Tests cover: the main search cannot run Tier 1+; a grant for one target cannot be reused for another; expired
   grants fail.
 
-The current Tool Library issues a two-minute, one-use grant after the matching confirmations. It also protects
+The Tool Library issues a two-minute, one-use grant after the matching confirmations. It also protects
 Tier 0 tools that spend credits or have side effects. The grant is bound to the endpoint, tool name and exact
-arguments in addition to the visible target and selected level. The remaining Step 3 work is the Deep Search page,
-sequential execution, Cancel and the local audit log.
+arguments in addition to the visible target and selected level. Deep Search uses a 15-minute grant for its reviewed
+plan, runs the selected calls sequentially with a two-minute per-tool limit, cancels the in-flight upstream request
+when the browser cancels, and appends the final outcome to `work/deep-search-audit.jsonl` with mode 0600.
 
 ## Step 4: Review Omega for passive coverage
 

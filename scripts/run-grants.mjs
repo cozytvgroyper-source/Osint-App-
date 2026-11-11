@@ -65,7 +65,7 @@ export function createRunGrant(request, grants, {now = Date.now(), ttl = RUN_GRA
     const allowed = {endpoint, name, arguments: item.arguments ?? {}};
     allowedCalls.set(callKey(allowed), {endpoint, name, level: risk.level});
   }
-  if (!highestRisk && !spendsCredits && !hasSideEffects) throw new RunGrantError('This passive lookup does not need a run grant', 400);
+  if (purpose !== 'deep-search' && !highestRisk && !spendsCredits && !hasSideEffects) throw new RunGrantError('This passive lookup does not need a run grant', 400);
   if (!confirmation.acknowledged) throw new RunGrantError('Confirm that the target may notice this request');
   if ((purpose === 'deep-search' || highestRisk >= 2) && !confirmation.authorization) {
     throw new RunGrantError('Confirm that you own this target or have written permission to test it');
@@ -88,7 +88,7 @@ export function authorizeMcpToolCall(payload, grants, {now = Date.now()} = {}) {
   const name = String(payload?.params?.name || '').trim();
   const endpoint = endpointKey(payload?.endpoint);
   const risk = toolRisk({name, serverName: serverNameForEndpoint(endpoint)});
-  if (risk.level === 0 && !risk.flags.some(flag => flag === 'credits' || flag === 'side-effects')) return {required: false, risk};
+  if (!payload?.runGrant && risk.level === 0 && !risk.flags.some(flag => flag === 'credits' || flag === 'side-effects')) return {required: false, risk};
 
   pruneRunGrants(grants, now);
   const token = String(payload?.runGrant || '');

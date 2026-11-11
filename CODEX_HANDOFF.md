@@ -75,10 +75,10 @@ Acceptance:
 Also in step 2 (see the doc): merge duplicate findings across tools, and pivot buttons on IPs, emails and domains.
 These can be separate PRs.
 
-**Steps 3 and 4** follow the doc. Step 3's server-side run grants are now implemented: the server refuses controlled
-tool calls unless a matching, unexpired Tool Library confirmation authorised the exact call. The remaining Step 3
-work is the Deep Search page and its execution and audit logs. Decision B puts Intrusive in Deep Search; decision C
-means no scope list.
+**Step 3 is complete.** Deep Search now includes its explicit scope and level selector, visible selectable plan,
+authorization and typed Intrusive confirmation, sequential execution, Cancel, longer controlled timeouts and a
+private local audit log. The server still refuses every call that does not match its grant. Next is Step 4's review
+of Omega Tier 0 tools for useful passive coverage.
 
 ## Traps
 
