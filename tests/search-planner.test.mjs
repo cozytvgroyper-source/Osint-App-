@@ -40,6 +40,12 @@ test('only automatically selects reviewed passive Omega tools',()=>{
   assert.deepEqual(plan.map(item=>item.tool.name),['omega_whois']);
 });
 
+test('allows the useful reviewed breach lookup but keeps placeholder-only Omega output manual',()=>{
+  assert.equal(isPassiveSearchTool(tool('omega_breach','Breach leak database check','Omega MCP')),true);
+  assert.equal(isPassiveSearchTool(tool('omega_archive','Web archive snapshot retrieval','Omega MCP')),false);
+  assert.equal(isPassiveSearchTool(tool('omega_threatintel','Threat intelligence context','Omega MCP')),false);
+});
+
 test('treats omega-prefixed tools as Omega even under another server name',()=>{
   assert.equal(isPassiveSearchTool(tool('omega_plugin','Plugin manager','Renamed Server')),false);
 });
