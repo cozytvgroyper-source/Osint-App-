@@ -19,7 +19,7 @@ The worktree was clean when this handoff was written.
 | Objective | Status | Branch | Verification |
 | --- | --- | --- | --- |
 | 1 Pin OSINT Toolbox | Completed | `fix/pin-osint-toolbox` | Locally resolved working package was `1.1.0`; configuration pin and regression test added; full suite passes 102 tests. |
-| 2 Make browser state recoverable and bounded | Not started | - | - |
+| 2 Make browser state recoverable and bounded | Completed | `fix/browser-state-durability` | Safe typed recovery, evidence count and byte limits, quota handling, token stripping, and focused tests added; full suite passes 107 tests. |
 | 3 Verify process ownership before reuse or stop | Not started | - | - |
 | 4 Bound MCP responses | Not started | - | - |
 | 5 Expire abandoned uploads | Not started | - | - |

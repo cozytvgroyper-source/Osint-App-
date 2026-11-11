@@ -3,6 +3,7 @@ import {classifyToolResult,hasUsefulData,parseToolResult} from './result-classif
 import {buildSearchReport} from './search-report.js';
 import {recordToolHealth,serverConnectionLabel,toolCountLabel} from './tool-health.js';
 import {argsForSearch,extractTarget,searchIntent} from './search-query.js';
+import {loadStoredState,persistStoredState} from './browser-storage.js';
 
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
@@ -14,7 +15,8 @@ const bundledServers=[
 ];
 const removedBundledEndpoints=new Set();
 // Storage keys keep the original 'signaldesk.' prefix so saved data survives the Public Desk rename.
-const storedServers=JSON.parse(localStorage.getItem('signaldesk.servers') || '[]');
+const storedState=loadStoredState(localStorage);
+const storedServers=storedState.servers;
 const retainedServers=storedServers.filter(server=>!removedBundledEndpoints.has(server.endpoint)).map(server=>{
   const bundled=bundledServers.find(candidate=>candidate.endpoint===server.endpoint);
   return {...bundled,...server,status:'offline',tools:[]};
@@ -24,9 +26,9 @@ const startupServers=[...missingBundled,...retainedServers];
 const state = {
   servers: startupServers.length?startupServers:bundledServers,
   tokens: new Map(),
-  history: JSON.parse(localStorage.getItem('signaldesk.history') || '[]'),
-  evidence: JSON.parse(localStorage.getItem('signaldesk.evidence') || '[]'),
-  toolHealth: JSON.parse(localStorage.getItem('signaldesk.toolHealth') || '{}'),
+  history: storedState.history,
+  evidence: storedState.evidence,
+  toolHealth: storedState.toolHealth,
   activeTool: null,
   lastResult: null,
   pendingFile: null
@@ -37,13 +39,16 @@ const sessionKeyFor=serverId=>`${clientSessionId}:${serverId}`;
 // Development mode: open Public Desk at /?diagnostics to see why the planner chose each tool.
 const diagnosticsEnabled=new URLSearchParams(location.search).has('diagnostics');
 let latestSearchId=0;
+let pendingStorageWarnings=[...storedState.warnings];
+let lastStorageWarning='';
 const intelNews={events:[],metrics:null,categories:[],generatedAt:'',loaded:false,loading:false,error:''};
 
 function persist() {
-  localStorage.setItem('signaldesk.servers', JSON.stringify(state.servers.map(({ tools, ...server }) => ({ ...server, status: 'offline' }))));
-  localStorage.setItem('signaldesk.history', JSON.stringify(state.history.slice(0, 20)));
-  localStorage.setItem('signaldesk.evidence', JSON.stringify(state.evidence));
-  localStorage.setItem('signaldesk.toolHealth', JSON.stringify(state.toolHealth));
+  const saved=persistStoredState(localStorage,state);
+  state.evidence=saved.evidence;
+  const warning=[...pendingStorageWarnings,...saved.warnings].at(-1)||'';
+  pendingStorageWarnings=[];
+  if(warning&&warning!==lastStorageWarning){lastStorageWarning=warning;queueMicrotask(()=>toast(warning));}
 }
 
 function escapeHtml(value='') { return String(value).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
