@@ -210,6 +210,8 @@ another folder, naming the folder to stop. Every service port is checked by fold
   adds the saved `URLHAUS_AUTH_KEY` to MalwareBazaar and ThreatFox API requests, and never to other hosts.
 - **Omega quirks:** Omega turns some network failures into an empty "ok" result, so "no results" isn't proof.
   `omega_monitor` always fails (not implemented in omega-cli).
+  Many tools return only `completed` because omega-cli prints results to stdout, which the stdio bridge discards
+  as invalid JSON-RPC; the real output is visible only in `work/logs/omega.log`.
 - **Empty-result wrappers:** some Open OSINT tools return explanatory text and counters alongside empty result arrays.
   The classifier can count those wrappers as data, so a deliberately nonexistent target may show a source section
   with zero matching records instead of the consolidated "No results returned" message.
@@ -231,7 +233,9 @@ another folder, naming the folder to stop. Every service port is checked by fold
    grants and the private local audit log. Step 4 has started: `omega_breach` is approved for automatic search after
    a live structured response; `omega_archive` and `omega_threatintel` returned only `completed` and remain manual.
    The identity batch also approved `omega_email` and `omega_gitrecon`; `omega_username` currently errors and
-   `omega_phoneosint` returns only `completed`. Continue the same evidence-based review of the remaining Tier 0 tools.
+   `omega_phoneosint` returns only `completed`. The network batch (recon, ipdossier, geoint, torcheck, typosquat,
+   social) approved none. Most `completed` results are caused by omega-cli printing to the MCP stdio channel (see
+   `docs/search-overhaul.md`, step 4); fix that first, then re-review the `completed` tools and continue the rest.
 2. Decide with the user whether cyber searches should mix sources instead of strict severity order, so OTX shows
    up in short result lists (another patch to the feed's sort). The user chose not to do this for now.
 3. subfinder can only rejoin the automatic search if `osint-toolbox-mcp` exposes subfinder's `-max-time` (an
