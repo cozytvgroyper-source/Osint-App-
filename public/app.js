@@ -138,6 +138,47 @@ function renderConnections(){
 function renderServers(){
   $('#serverList').innerHTML=state.servers.length?state.servers.map(s=>`<article class="server-card"><div class="server-card-top"><span class="badge">STREAMABLE HTTP</span><span class="server-dot ${s.status==='connected'?'connected':''}"></span></div><h3>${escapeHtml(s.name)}</h3><p class="endpoint">${escapeHtml(s.endpoint)}</p><p class="subtle">${s.status==='connected'?toolCountHtml(s):s.needsAuth?'Sign in is required to search academic research.':s.disconnected?'Disconnected':s.error?escapeHtml(s.error):'Not connected'}</p>${s.caution?`<p class="form-note">${escapeHtml(s.caution)}</p>`:''}<div class="server-actions"><button class="ghost" data-remove="${s.id}">Remove</button>${s.needsAuth?`<a class="primary" href="/api/oauth/consensus/start">Sign in to Consensus</a>`:s.status==='connected'?`<button class="ghost" data-disconnect="${s.id}">Disconnect</button><button class="primary" data-connect="${s.id}">Refresh</button>`:`<button class="primary" data-connect="${s.id}">${s.status==='connecting'?'Connecting…':'Connect'}</button>`}</div></article>`).join(''):'<div class="empty-state">Add your first MCP server to begin.</div>';
 }
+// Data sources: API keys for the services behind Open OSINT's tools, saved by the server in work/api-keys.env.
+// The server reports statuses and which fields are saved, never key values, and key inputs are cleared on close.
+const dataSources={list:[],loaded:false,error:'',editing:null};
+const SOURCE_STATUS={connected:'Connected · key saved',disconnected:'Disconnected · key kept',not_configured:'Not connected'};
+async function loadDataSources(){
+  try{dataSources.list=(await api('/api/data-sources',{})).sources;dataSources.error='';}
+  catch(error){dataSources.error=`Could not load data sources: ${error.message}`;}
+  dataSources.loaded=true;renderDataSources();
+}
+function replaceDataSource(source){dataSources.list=dataSources.list.map(item=>item.id===source.id?source:item);renderDataSources();}
+function renderDataSources(){
+  const list=dataSources.list;const connected=list.filter(s=>s.status==='connected');
+  const count=dataSources.loaded&&!dataSources.error?`${connected.length} of ${list.length} connected`:'';
+  $('#dataSourceCount').textContent=count;$('#dataSourceSummary').textContent=count;
+  $('#dataSourceStrip').innerHTML=dataSources.error?`<div class="empty-state">${escapeHtml(dataSources.error)}</div>`:connected.length?connected.map(s=>`<span class="source-pill"><span class="server-dot connected"></span>${escapeHtml(s.name)}</span>`).join(''):dataSources.loaded?'<div class="empty-state">No data sources connected yet.</div>':'';
+  if(dataSources.error){$('#dataSourceList').innerHTML=`<div class="empty-state">${escapeHtml(dataSources.error)}</div>`;return;}
+  if(!dataSources.loaded)return;
+  $('#dataSourceList').innerHTML=list.map(s=>{
+    const dot=s.status==='connected'?'connected':s.status==='disconnected'?'':'idle';
+    const feeds=s.feeds.length?`Feeds ${s.feeds.join(', ')}`:'No search tool uses it directly';
+    const id=escapeHtml(s.id);
+    const actions=s.status==='not_configured'
+      ?`<a class="ghost" href="${escapeHtml(s.signup)}" target="_blank" rel="noopener noreferrer">Get a key ↗</a><button class="primary" data-source-edit="${id}">Connect</button>`
+      :`<button class="ghost" data-source-remove="${id}">Remove</button><button class="ghost" data-source-edit="${id}">Change key</button>${s.status==='connected'?`<button class="primary" data-source-disconnect="${id}">Disconnect</button>`:`<button class="primary" data-source-connect="${id}">Connect</button>`}`;
+    return `<article class="server-card source-card"><div class="server-card-top"><span class="badge">API KEY</span><span class="server-dot ${dot}"></span></div><h3>${escapeHtml(s.name)}</h3><p class="endpoint">${escapeHtml(feeds)}</p><p class="subtle">${SOURCE_STATUS[s.status]||''}</p><p class="form-note">${escapeHtml(s.note)}</p><div class="server-actions">${actions}</div></article>`;
+  }).join('');
+}
+function openKeyDialog(source){
+  dataSources.editing=source.id;
+  $('#keyDialogTitle').textContent=`${source.status==='not_configured'?'Connect':'Change key for'} ${source.name}`;
+  $('#keyFields').innerHTML=source.fields.map(f=>{const saved=source.saved.includes(f.env);const email=/EMAIL/.test(f.env);return `<label>${escapeHtml(f.label)}<input name="${escapeHtml(f.env)}" type="${email?'email':'password'}" autocomplete="off" spellcheck="false" placeholder="${saved?'Saved. Leave empty to keep it.':'Paste here'}" /></label>`;}).join('');
+  $('#keyNote').innerHTML=`Get a key at <a href="${escapeHtml(source.signup)}" target="_blank" rel="noopener noreferrer">${escapeHtml(new URL(source.signup).host)}</a>. It is saved on this Mac only and is not shown again.`;
+  $('#keyError').textContent='';$('#saveKey').textContent=source.status==='not_configured'?'Connect':'Save';
+  $('#keyDialog').showModal();$('#keyFields input')?.focus();
+}
+async function dataSourceAction(action,id,values){
+  const source=dataSources.list.find(s=>s.id===id);if(!source)return;
+  try{const result=await api(`/api/data-sources/${action}`,values?{id,values}:{id});replaceDataSource(result.source);toast(`${source.name} ${action==='remove'?'key removed':action==='disconnect'?'disconnected':'connected'}`);return true;}
+  catch(error){if(values){$('#keyError').textContent=error.message;}else toast(error.message);return false;}
+}
+
 function allTools(){ return state.servers.flatMap(server=>(server.tools||[]).map(tool=>({...tool,serverId:server.id,serverName:server.name}))); }
 function renderTools(){
   const filter=$('#toolFilter').value.trim().toLowerCase(); const tools=allTools().filter(t=>(t.name+' '+(t.description||'')+' '+(t.serverName||'')).toLowerCase().includes(filter));
@@ -150,7 +191,7 @@ function renderEvidence(){
 // Keep each part ("116 tools", "98 working") on one line so narrow cards wrap only between parts.
 function toolCountHtml(server){return escapeHtml(toolCountLabel(server,state.toolHealth).replace(/(?<!·) (?!·)/g,'\u00a0'));}
 function noteToolHealth(serverId,toolName,kind){state.toolHealth=recordToolHealth(state.toolHealth,serverId,toolName,kind,new Date().toISOString());}
-function renderAll(){renderWorkflows();renderHistory();renderConnections();renderServers();renderTools();renderEvidence();persist();}
+function renderAll(){renderWorkflows();renderHistory();renderConnections();renderServers();renderDataSources();renderTools();renderEvidence();persist();}
 
 function openTool(tool, serverId){
   state.activeTool={tool,serverId}; $('#runToolName').textContent=tool.name; $('#runToolDescription').textContent=tool.description||'';
@@ -324,6 +365,10 @@ document.addEventListener('click',async event=>{
   const remove=event.target.closest('[data-remove]'); if(remove){state.servers=state.servers.filter(s=>s.id!==remove.dataset.remove);renderAll();}
   const run=event.target.closest('[data-run]'); if(run){const [serverId,name]=run.dataset.run.split('::');const tool=allTools().find(t=>t.serverId===serverId&&t.name===name);if(tool)openTool(tool,serverId);}
   const del=event.target.closest('[data-delete-evidence]');if(del){state.evidence.splice(Number(del.dataset.deleteEvidence),1);renderAll();}
+  const sourceEdit=event.target.closest('[data-source-edit]');if(sourceEdit){const source=dataSources.list.find(s=>s.id===sourceEdit.dataset.sourceEdit);if(source)openKeyDialog(source);}
+  const sourceConnect=event.target.closest('[data-source-connect]');if(sourceConnect)dataSourceAction('connect',sourceConnect.dataset.sourceConnect);
+  const sourceDisconnect=event.target.closest('[data-source-disconnect]');if(sourceDisconnect)dataSourceAction('disconnect',sourceDisconnect.dataset.sourceDisconnect);
+  const sourceRemove=event.target.closest('[data-source-remove]');if(sourceRemove){const source=dataSources.list.find(s=>s.id===sourceRemove.dataset.sourceRemove);if(source&&confirm(`Remove the saved key for ${source.name}? You will need to paste it again to reconnect.`))dataSourceAction('remove',source.id);}
 });
 
 $('#investigateForm').addEventListener('submit',async e=>{e.preventDefault();const q=$('#query').value.trim();if(!q&&!state.pendingFile)return;try{if(state.pendingFile)await analyzeSelectedFile(state.pendingFile,q);else await smartInvestigate(q);}catch(error){toast(error.message);}});
@@ -349,5 +394,15 @@ if(new URLSearchParams(location.search).get('consensus')==='connected'){
   history.replaceState({},'',location.pathname);
   toast('Consensus sign-in complete');
 }
+$('#saveKey').addEventListener('click',async e=>{
+  e.preventDefault();const id=dataSources.editing;if(!id)return;
+  const values=Object.fromEntries([...$$('#keyFields input')].map(input=>[input.name,input.value.trim()]).filter(([,value])=>value));
+  const source=dataSources.list.find(s=>s.id===id);
+  if(!Object.keys(values).length&&source?.status==='not_configured'){$('#keyError').textContent='Paste the key first.';return;}
+  if(await dataSourceAction('connect',id,values))$('#keyDialog').close();
+});
+// Drop typed keys from the page as soon as the dialog closes, whether saved or cancelled.
+$('#keyDialog').addEventListener('close',()=>{$('#keyFields').innerHTML='';dataSources.editing=null;});
 renderAll();
+loadDataSources();
 setTimeout(()=>state.servers.filter(server=>!server.disconnected).forEach(server=>connect(server)),100);

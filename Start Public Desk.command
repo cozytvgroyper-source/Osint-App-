@@ -108,15 +108,15 @@ if ! is_ready "http://127.0.0.1:8080/health"; then
   apply_open_osint_patches "$OSINT_ROOT" "$APP_DIR/patches"
   echo "Starting Open OSINT data service…"
   (
-    # Keys are exported only inside this subshell, so only the data service receives them.
-    source "$APP_DIR/scripts/load-api-keys.zsh"
-    load_api_keys "$API_KEYS_FILE"
     cd "$OSINT_ROOT/server"
-    # The data service calls listen(8080) with no address, which listens on every network interface.
-    # bind-loopback.mjs keeps it on this Mac only. default-user-agent.mjs replaces fetch's "node" User-Agent,
-    # which some sources (rdap.org, behind get_whois) refuse with HTTP 403. intelx-host.mjs sends get_intelx to
-    # Intelligence X's free server, because the module hardcodes the paid one (401 for free keys).
-    node --import tsx --import "$APP_DIR/scripts/bind-loopback.mjs" --import "$APP_DIR/scripts/default-user-agent.mjs" \
+    # live-api-keys.mjs reads the user's data-source keys from work/api-keys.env and follows changes made in the
+    # Data sources panel, so only the data service ever holds them. It loads first: intelx-host.mjs reads its
+    # setting at start. The data service calls listen(8080) with no address, which listens on every network
+    # interface; bind-loopback.mjs keeps it on this Mac only. default-user-agent.mjs replaces fetch's "node"
+    # User-Agent, which some sources (rdap.org, behind get_whois) refuse with HTTP 403. intelx-host.mjs sends
+    # get_intelx to Intelligence X's free server, because the module hardcodes the paid one (401 for free keys).
+    PUBLIC_DESK_API_KEYS_FILE="$API_KEYS_FILE" node --import tsx --import "$APP_DIR/scripts/live-api-keys.mjs" \
+      --import "$APP_DIR/scripts/bind-loopback.mjs" --import "$APP_DIR/scripts/default-user-agent.mjs" \
       --import "$APP_DIR/scripts/intelx-host.mjs" server.mjs >"$LOG_DIR/headless.log" 2>&1 &
     echo $! >"$RUNTIME_DIR/headless.pid"
   )
