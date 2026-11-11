@@ -102,10 +102,9 @@ A separate page with amber/red styling, never mixed with the main search.
 5. **Audit log:** every Tier 1+ run is appended to `work/deep-search-audit.jsonl` (time, target, level, tools,
    outcome). It is git-ignored and never contains API keys.
 
-### Server-side enforcement (part of step 3)
+### Server-side enforcement (implemented in step 3)
 
-Today `/api/mcp` runs whatever tool call it receives; only the page decides. With Deep Search, risky tools gain a
-legitimate route, so the server must decide too:
+`/api/mcp` now enforces the shared risk table instead of trusting the page alone:
 
 - The server resolves each tool call's tier with the same table (`tool-tiers.js` is shared by the page and server).
 - Tier 0 calls pass as today.
@@ -115,6 +114,11 @@ legitimate route, so the server must decide too:
 - Calls without a matching grant are refused with HTTP 403 and a clear reason.
 - Tests cover: the main search cannot run Tier 1+; a grant for one target cannot be reused for another; expired
   grants fail.
+
+The current Tool Library issues a two-minute, one-use grant after the matching confirmations. It also protects
+Tier 0 tools that spend credits or have side effects. The grant is bound to the endpoint, tool name and exact
+arguments in addition to the visible target and selected level. The remaining Step 3 work is the Deep Search page,
+sequential execution, Cancel and the local audit log.
 
 ## Step 4: Review Omega for passive coverage
 

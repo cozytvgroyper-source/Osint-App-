@@ -57,12 +57,13 @@ test('flags tools that spend AI credits or have side effects',()=>{
   assert.deepEqual(toolRisk(byName('get_whois')).flags,[]);
 });
 
-test('Tier 2 and up need authorization before running; Tier 3 also needs the tool name typed; credits need consent',()=>{
-  assert.deepEqual(runRequirements(toolRisk(byName('get_whois'))),{authorization:false,typeName:false,credits:false});
-  assert.deepEqual(runRequirements(toolRisk(byName('omega_ports'))),{authorization:true,typeName:false,credits:false});
-  assert.deepEqual(runRequirements(toolRisk(byName('omega_vuln'))),{authorization:true,typeName:true,credits:false});
-  assert.deepEqual(runRequirements(toolRisk(byName('omega_aisummary'))),{authorization:false,typeName:false,credits:true});
-  assert.deepEqual(runRequirements(toolRisk({name:'unknown_tool',serverName:'X'})),{authorization:true,typeName:true,credits:false});
+test('controlled runs require the matching acknowledgement, authorization, typed name and flag consent',()=>{
+  assert.deepEqual(runRequirements(toolRisk(byName('get_whois'))),{acknowledgement:false,authorization:false,typeName:false,credits:false,sideEffects:false});
+  assert.deepEqual(runRequirements(toolRisk(byName('omega_ports'))),{acknowledgement:true,authorization:true,typeName:false,credits:false,sideEffects:false});
+  assert.deepEqual(runRequirements(toolRisk(byName('omega_vuln'))),{acknowledgement:true,authorization:true,typeName:true,credits:false,sideEffects:false});
+  assert.deepEqual(runRequirements(toolRisk(byName('omega_aisummary'))),{acknowledgement:true,authorization:false,typeName:false,credits:true,sideEffects:false});
+  assert.deepEqual(runRequirements(toolRisk(byName('omega_notifier'))),{acknowledgement:true,authorization:false,typeName:false,credits:false,sideEffects:true});
+  assert.deepEqual(runRequirements(toolRisk({name:'unknown_tool',serverName:'X'})),{acknowledgement:true,authorization:true,typeName:true,credits:false,sideEffects:false});
 });
 
 test('groups tools by tier, safest first, keeping empty tiers out',()=>{

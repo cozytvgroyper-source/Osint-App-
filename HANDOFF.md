@@ -1,8 +1,9 @@
 # Public Desk handoff
 
-Updated 2026-11-11 (security hardening, CI, progressive results, topic-word trimming, Codex's hardening pass).
+Updated 2026-11-11 (security hardening, CI, progressive results, search pivots and server-issued run grants).
 `CLAUDE_CODE_HANDOFF.md` records the plan and verification of Codex's hardening pass; this file is the current
-reference. `CODEX_HANDOFF.md` briefs Codex on the work since then and its next task (search overhaul step 2). First written 2026-11-10; it replaces the original Codex handoff, which lived outside the repo and is now out of date.
+reference. `CODEX_HANDOFF.md` briefs Codex on the work since then and the remaining search-overhaul work. First written
+2026-11-10; it replaces the original Codex handoff, which lived outside the repo and is now out of date.
 
 ## Objective
 
@@ -225,8 +226,9 @@ another folder, naming the folder to stop. Every service port is checked by fold
 1. **Search overhaul:** follow `docs/search-overhaul.md`. Step 1 (risk tiers in Tool Library) is merged (PR #33), and
    the owner decided A–D on 2026-11-11: Sources panel inline, Intrusive included in Deep Search, no saved scope list,
    all 14 best-guess tiers confirmed. Step 2 is complete: inline Sources, duplicate consolidation and passive pivots
-   for IPs, emails and domains are implemented. Next is Step 3, beginning with server-side run grants before the
-   Deep Search interface.
+   for IPs, emails and domains are implemented. Step 3's server-side run grants are implemented: every Light touch,
+   Active, Intrusive, credit-spending or side-effect Tool Library call needs a two-minute, one-use grant bound to its
+   target, tier, endpoint, tool and exact arguments. Next is the Deep Search interface, execution log and audit log.
 2. Decide with the user whether cyber searches should mix sources instead of strict severity order, so OTX shows
    up in short result lists (another patch to the feed's sort). The user chose not to do this for now.
 3. subfinder can only rejoin the automatic search if `osint-toolbox-mcp` exposes subfinder's `-max-time` (an
