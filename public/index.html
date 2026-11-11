@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#07110f" />
   <title>Public Desk — OSINT workspace</title>
-  <link rel="stylesheet" href="/styles.css?v=13" />
+  <link rel="stylesheet" href="/styles.css?v=14" />
   <link rel="stylesheet" href="/results.css?v=13" />
   <link rel="stylesheet" href="/theme.css?v=16" />
 </head>
@@ -52,6 +52,9 @@
         <div class="section-heading"><div><p class="eyebrow">CONNECTIONS</p><h3>Available servers</h3></div><button class="text-button" data-view-link="servers">Manage servers →</button></div>
         <div class="workflow-grid" id="workflowGrid"></div>
 
+        <div class="section-heading"><div><p class="eyebrow">CONNECTIONS</p><h3>Data sources</h3><p class="subtle" id="dataSourceSummary"></p></div><button class="text-button" data-view-link="servers">Manage data sources →</button></div>
+        <div class="source-strip" id="dataSourceStrip"></div>
+
         <div class="lower-grid">
           <section class="panel"><div class="panel-head"><div><p class="eyebrow">RECENT ACTIVITY</p><h3>Investigation history</h3></div><button class="icon-button" id="clearHistory" title="Clear history">⌫</button></div><div id="history" class="history"></div></section>
           <section class="panel connection-panel"><div class="panel-head"><div><p class="eyebrow">CONNECTIONS</p><h3>MCP server health</h3><p class="subtle" id="connectionCount"></p></div><button class="text-button" data-view-link="servers">Manage →</button></div><div id="connectionSummary"></div></section>
@@ -61,6 +64,8 @@
       <section id="servers" class="view">
         <div class="section-heading"><div><p class="eyebrow">CONNECTIONS</p><h2>MCP servers</h2><p class="subtle">Connect any Streamable HTTP MCP server. Credentials are held only for this browser session.</p></div><button class="primary" id="addServer">＋ Add server</button></div>
         <div id="serverList" class="server-grid"></div>
+        <div class="section-heading"><div><p class="eyebrow">CONNECTIONS</p><h2>Data sources</h2><p class="subtle">API keys for the services behind Open OSINT's tools. Keys are saved on this Mac only, in work/api-keys.env, and are never shown again. Connect and Disconnect apply right away.</p></div><span class="subtle" id="dataSourceCount"></span></div>
+        <div id="dataSourceList" class="server-grid"><div class="empty-state">Loading data sources…</div></div>
       </section>
 
       <section id="library" class="view">
@@ -92,6 +97,14 @@
     </form>
   </dialog>
 
+  <dialog id="keyDialog">
+    <form method="dialog" id="keyForm"><div class="dialog-head"><div><p class="eyebrow">DATA SOURCE</p><h2 id="keyDialogTitle">Connect</h2></div><button type="button" data-close-dialog class="icon-button" aria-label="Close">×</button></div>
+      <div id="keyFields"></div>
+      <p class="form-note" id="keyNote"></p><p id="keyError" class="form-error"></p>
+      <div class="dialog-actions"><button type="button" data-close-dialog class="ghost">Cancel</button><button value="default" class="primary" id="saveKey">Connect</button></div>
+    </form>
+  </dialog>
+
   <dialog id="runDialog">
     <form method="dialog" id="runForm"><div class="dialog-head"><div><p class="eyebrow">RUN TOOL</p><h2 id="runToolName">Tool</h2></div><button type="button" data-close-dialog class="icon-button" aria-label="Close">×</button></div>
       <p id="runToolDescription" class="subtle"></p><label>Arguments (JSON)<textarea id="runArgs" rows="9">{}</textarea></label><p id="runError" class="form-error"></p>
@@ -102,6 +115,6 @@
   <dialog id="resultDialog" class="result-dialog"><div class="dialog-head"><div><p class="eyebrow">INVESTIGATION RESULT</p><h2 id="resultTitle">Result</h2></div><button class="icon-button" data-close-result aria-label="Close">×</button></div><div id="resultBody" class="result-body"></div><div class="dialog-actions"><button class="ghost" data-close-result>Close</button><button class="primary" id="saveEvidence">Save to evidence</button></div></dialog>
 
   <div id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/app.js?v=26"></script>
+  <script type="module" src="/app.js?v=27"></script>
 </body>
 </html>

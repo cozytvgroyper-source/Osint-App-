@@ -1,72 +1,75 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
-import {spawnSync} from 'node:child_process';
+import {DATA_SOURCES,parseKeyFile,updateKeyFile,sourceStatuses,effectiveEnv,validateKeyValue} from '../scripts/api-keys.mjs';
 
-// The launcher reads work/api-keys.env with scripts/load-api-keys.zsh and passes the keys to the Open OSINT data
-// service only. These tests run the loader under zsh with fake values and report what it exported.
-const loader=new URL('../scripts/load-api-keys.zsh',import.meta.url).pathname;
-const names=['AISSTREAM_API_KEY','OTX_API_KEY','ABUSEIPDB_API_KEY','INTELX_API_KEY','INTELX_API_ORIGIN','GROQ_API_KEY','NOT_A_SOURCE','PATH_LIKE'];
+// work/api-keys.env holds the user's data-source keys as KEY=value lines, plus PUBLIC_DESK_DISABLED for sources the
+// user disconnected. The file is only ever parsed as text: nothing in it runs. These tests use fake values.
 
-function load(contents,{create=true}={}){
-  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'public-desk-keys-'));
-  const file=path.join(dir,'api-keys.env');
-  if(create)fs.writeFileSync(file,contents,{mode:0o644});
-  const script=`source ${JSON.stringify(loader)}; load_api_keys ${JSON.stringify(file)} || exit 3
-for name in ${names.join(' ')}; do [[ -n "\${(P)name+set}" ]] && print -r -- "$name=\${(P)name}"; done
-exit 0`;
-  const run=spawnSync('zsh','-fc'.split(' ').concat(script),{encoding:'utf8',env:{HOME:process.env.HOME,PATH:process.env.PATH}});
-  const exported=Object.fromEntries(run.stdout.split('\n').filter(line=>/^[A-Z_]+=/.test(line)).map(line=>[line.slice(0,line.indexOf('=')),line.slice(line.indexOf('=')+1)]));
-  const mode=create?fs.statSync(file).mode&0o777:null;
-  fs.rmSync(dir,{recursive:true,force:true});
-  return {status:run.status,exported,stdout:run.stdout,stderr:run.stderr,mode};
-}
-
-test('exports the data-source keys that have values',()=>{
-  const {status,exported}=load('AISSTREAM_API_KEY=ais-test-1\nOTX_API_KEY="otx-test-2"\nABUSEIPDB_API_KEY=\'abuse-test-3\'\nINTELX_API_KEY=\n');
-  assert.equal(status,0);
-  assert.deepEqual(exported,{AISSTREAM_API_KEY:'ais-test-1',OTX_API_KEY:'otx-test-2',ABUSEIPDB_API_KEY:'abuse-test-3'});
+test('reads allowlisted keys with values, stripping one pair of quotes and keeping "=" inside values',()=>{
+  const {values}=parseKeyFile('AISSTREAM_API_KEY=ais-test-1\nOTX_API_KEY="otx-test-2"\nABUSEIPDB_API_KEY=\'abuse-test-3\'\nINTELX_API_KEY=abc=def==\nURLHAUS_AUTH_KEY=\n');
+  assert.deepEqual(Object.fromEntries(values),{AISSTREAM_API_KEY:'ais-test-1',OTX_API_KEY:'otx-test-2',ABUSEIPDB_API_KEY:'abuse-test-3',INTELX_API_KEY:'abc=def=='});
 });
 
-test('skips comments, blank lines and empty values',()=>{
-  const {exported}=load('# AISStream: https://aisstream.io\n\n   \nAISSTREAM_API_KEY=\n# OTX_API_KEY=commented-out\n');
-  assert.deepEqual(exported,{});
+test('skips comments, blank lines, unknown names and paid AI keys',()=>{
+  const {values}=parseKeyFile('# OTX_API_KEY=commented-out\n\n   \nGROQ_API_KEY=groq-test\nNOT_A_SOURCE=x\nOTX_API_KEY=otx-test\n');
+  assert.deepEqual(Object.fromEntries(values),{OTX_API_KEY:'otx-test'});
 });
 
-test('ignores names outside the allowlist, including paid AI keys',()=>{
-  const {exported,stdout}=load('GROQ_API_KEY=groq-test\nNOT_A_SOURCE=x\nOTX_API_KEY=otx-test\n');
-  assert.deepEqual(exported,{OTX_API_KEY:'otx-test'});
-  assert.match(stdout,/Ignoring GROQ_API_KEY/);
+test('never treats file text as a command; values stay literal',()=>{
+  const {values}=parseKeyFile('OTX_API_KEY=$(touch /tmp/x)\ntouch /tmp/x\nINTELX_API_KEY=`id`\n');
+  assert.equal(values.get('OTX_API_KEY'),'$(touch /tmp/x)');
+  assert.equal(values.get('INTELX_API_KEY'),'`id`');
 });
 
-test('never runs text from the file as a command',()=>{
-  const marker=path.join(os.tmpdir(),`public-desk-keys-ran-${process.pid}`);
-  fs.rmSync(marker,{force:true});
-  const {exported}=load(`OTX_API_KEY=$(touch ${marker})\ntouch ${marker}\nINTELX_API_KEY=\`touch ${marker}\`\n`);
-  assert.equal(fs.existsSync(marker),false);
-  assert.equal(exported.OTX_API_KEY,`$(touch ${marker})`);
+test('lists every keyed source with the tools it feeds and where to get a key',()=>{
+  assert.ok(DATA_SOURCES.length>=14);
+  for(const source of DATA_SOURCES){
+    assert.ok(source.id&&source.name&&source.signup.startsWith('https://')&&source.fields.length,source.id);
+    assert.ok(Array.isArray(source.feeds),source.id);
+  }
+  assert.deepEqual(DATA_SOURCES.find(s=>s.id==='acled').fields.map(f=>f.env),['ACLED_ACCESS_TOKEN','ACLED_EMAIL']);
 });
 
-test('passes the Intelligence X server setting for paid keys',()=>{
-  assert.equal(load('INTELX_API_ORIGIN=https://2.intelx.io\n').exported.INTELX_API_ORIGIN,'https://2.intelx.io');
+test('a source is connected when all its fields are saved and it is not disconnected',()=>{
+  const text='OTX_API_KEY=otx-test\nABUSEIPDB_API_KEY=abuse-test\nACLED_ACCESS_TOKEN=acled-token\nPUBLIC_DESK_DISABLED=abuseipdb\n';
+  const status=Object.fromEntries(sourceStatuses(parseKeyFile(text)).map(s=>[s.id,s.status]));
+  assert.equal(status.otx,'connected');
+  assert.equal(status.abuseipdb,'disconnected');
+  assert.equal(status.acled,'not_configured','ACLED needs both the token and the email');
+  assert.equal(status.intelx,'not_configured');
 });
 
-test('keeps an equals sign inside a value',()=>{
-  assert.equal(load('INTELX_API_KEY=abc=def==\n').exported.INTELX_API_KEY,'abc=def==');
+test('statuses never include key values',()=>{
+  const statuses=sourceStatuses(parseKeyFile('OTX_API_KEY=secret-value-123\n'));
+  assert.doesNotMatch(JSON.stringify(statuses),/secret-value-123/);
 });
 
-test('prints key names, never their values, and makes the file private',()=>{
-  const {stdout,mode}=load('AISSTREAM_API_KEY=secret-value-123\n');
-  assert.match(stdout,/AISSTREAM_API_KEY/);
-  assert.doesNotMatch(stdout,/secret-value-123\n?.*loaded|loaded.*secret-value-123/);
-  assert.ok(!stdout.split('\n').some(line=>line.includes('secret-value-123')&&!line.startsWith('AISSTREAM_API_KEY=')));
-  assert.equal(mode,0o600);
+test('only connected sources reach the data service',()=>{
+  const env=effectiveEnv(parseKeyFile('OTX_API_KEY=otx-test\nABUSEIPDB_API_KEY=abuse-test\nINTELX_API_ORIGIN=https://2.intelx.io\nPUBLIC_DESK_DISABLED=abuseipdb\n'));
+  assert.deepEqual(env,{OTX_API_KEY:'otx-test',INTELX_API_ORIGIN:'https://2.intelx.io'});
 });
 
-test('a missing key file is not an error',()=>{
-  const {status,exported}=load('',{create:false});
-  assert.equal(status,0);
-  assert.deepEqual(exported,{});
+test('connect saves a key in place and keeps the rest of the file',()=>{
+  const before='# OTX: https://otx.alienvault.com\nOTX_API_KEY=\n\n# AbuseIPDB\nABUSEIPDB_API_KEY=abuse-test\n';
+  const after=updateKeyFile(before,{set:{OTX_API_KEY:'otx-new'}});
+  assert.equal(after,'# OTX: https://otx.alienvault.com\nOTX_API_KEY=otx-new\n\n# AbuseIPDB\nABUSEIPDB_API_KEY=abuse-test\n');
+  assert.equal(updateKeyFile('',{set:{GREYNOISE_API_KEY:'gn-test'}}),'GREYNOISE_API_KEY=gn-test\n','appends a missing name');
+});
+
+test('disconnect keeps the key; connect without a new key turns it back on; remove deletes it',()=>{
+  let text='OTX_API_KEY=otx-test\n';
+  text=updateKeyFile(text,{disabled:['otx']});
+  assert.equal(parseKeyFile(text).values.get('OTX_API_KEY'),'otx-test');
+  assert.equal(sourceStatuses(parseKeyFile(text)).find(s=>s.id==='otx').status,'disconnected');
+  text=updateKeyFile(text,{disabled:[]});
+  assert.equal(sourceStatuses(parseKeyFile(text)).find(s=>s.id==='otx').status,'connected');
+  text=updateKeyFile(text,{unset:['OTX_API_KEY']});
+  assert.equal(parseKeyFile(text).values.has('OTX_API_KEY'),false);
+  assert.match(text,/^OTX_API_KEY=$/m,'keeps the empty line so the template stays readable');
+});
+
+test('rejects key values that could break the file',()=>{
+  for(const bad of ['','   ','two words','line\nbreak','tab\there','"quoted"',"it's",'x'.repeat(501),'\u0000'])assert.throws(()=>validateKeyValue(bad),JSON.stringify(bad));
+  assert.equal(validateKeyValue('  otx-1234_ABCD.efg=  '),'otx-1234_ABCD.efg=');
+  assert.equal(validateKeyValue('name@example.org'),'name@example.org');
 });

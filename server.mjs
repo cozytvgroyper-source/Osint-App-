@@ -1,10 +1,11 @@
 import http from 'node:http';
-import { chmod, mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pathToFileURL } from 'node:url';
 import { createHash, randomBytes } from 'node:crypto';
+import { DATA_SOURCES, parseKeyFile, sourceStatuses, updateKeyFile, validateKeyValue } from './scripts/api-keys.mjs';
 
 const ROOT = fileURLToPath(new URL('./public/', import.meta.url));
 const UPLOAD_ROOT = fileURLToPath(new URL('./work/uploads/', import.meta.url));
@@ -17,6 +18,11 @@ const CONSENSUS_ISSUER = 'https://consensus.app';
 const CONSENSUS_REDIRECT = `http://127.0.0.1:${PORT}/api/oauth/consensus/callback`;
 // Keeps the Consensus sign-in across restarts. work/ is git-ignored; the file is readable only by this user.
 const CONSENSUS_AUTH_FILE = fileURLToPath(new URL('./work/consensus-auth.json', import.meta.url));
+// Data-source API keys for the Open OSINT data service, which reads this file live (scripts/live-api-keys.mjs).
+const API_KEYS = {
+  file: fileURLToPath(new URL('./work/api-keys.env', import.meta.url)),
+  template: fileURLToPath(new URL('./config/api-keys.env.example', import.meta.url))
+};
 
 const mime = {
   '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8',
@@ -149,6 +155,63 @@ async function loadConsensusAuth(file, redirectUri) {
   } catch {
     return null;
   }
+}
+
+async function readKeyFile({ file, template }) {
+  try {
+    return await readFile(file, 'utf8');
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+    return readFile(template, 'utf8').catch(() => '');
+  }
+}
+
+// Written to a private temporary file and renamed into place, so the data service never reads a half-written file.
+async function writeKeyFile(file, text) {
+  await mkdir(dirname(file), { recursive: true, mode: 0o700 });
+  const temporary = `${file}.${process.pid}.${randomBytes(4).toString('hex')}.tmp`;
+  await writeFile(temporary, text, { mode: 0o600 });
+  await chmod(temporary, 0o600);
+  await rename(temporary, file);
+}
+
+// The Data sources panel's actions. Responses carry statuses and saved field names, never key values.
+let keyFileQueue = Promise.resolve();
+function dataSourcesAction(action, payload = {}, paths = API_KEYS) {
+  const run = async () => {
+    const text = await readKeyFile(paths);
+    const parsed = parseKeyFile(text);
+    if (action === 'list') return { status: 200, body: { sources: sourceStatuses(parsed) } };
+    const source = DATA_SOURCES.find(item => item.id === payload.id);
+    if (!source) return { status: 400, body: { error: 'Unknown data source' } };
+    const others = [...parsed.disabled].filter(id => id !== source.id);
+    let update;
+    if (action === 'connect') {
+      const set = {};
+      try {
+        for (const field of source.fields) {
+          const given = payload.values?.[field.env];
+          if (given !== undefined && String(given).trim() !== '') set[field.env] = validateKeyValue(given);
+          else if (!parsed.values.has(field.env)) return { status: 400, body: { error: `${field.label} is required for ${source.name}.` } };
+        }
+      } catch (error) {
+        return { status: 400, body: { error: error.message } };
+      }
+      update = { set, disabled: others };
+    } else if (action === 'disconnect') {
+      update = { disabled: [...others, source.id] };
+    } else if (action === 'remove') {
+      update = { unset: source.fields.map(field => field.env), disabled: others };
+    } else {
+      return { status: 404, body: { error: 'Not found' } };
+    }
+    const next = updateKeyFile(text, update);
+    await writeKeyFile(paths.file, next);
+    return { status: 200, body: { source: sourceStatuses(parseKeyFile(next)).find(item => item.id === source.id) } };
+  };
+  const result = keyFileQueue.then(run, run);
+  keyFileQueue = result.catch(() => {});
+  return result;
 }
 
 async function clearConsensusAuth(file) {
@@ -313,6 +376,11 @@ const server = http.createServer(async (req, res) => {
       sessions.delete(payload.sessionKey);
       return json(res, 200, { disconnected: true });
     }
+    const dataSourcesRoute = url.pathname.match(/^\/api\/data-sources(?:\/(connect|disconnect|remove))?$/);
+    if (req.method === 'POST' && dataSourcesRoute) {
+      const result = await dataSourcesAction(dataSourcesRoute[1] || 'list', await body(req, 10_000));
+      return json(res, result.status, result.body);
+    }
     if (req.method === 'POST' && url.pathname === '/api/health') {
       const payload = await body(req);
       const endpoint = validatedEndpoint(payload.endpoint);
@@ -346,4 +414,4 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   });
 }
 
-export { validatedEndpoint, parseMcpResponse, loadConsensusAuth, saveConsensusAuth, clearConsensusAuth, SECURITY_HEADERS, requestGuard, prunePendingSignIns };
+export { validatedEndpoint, parseMcpResponse, loadConsensusAuth, saveConsensusAuth, clearConsensusAuth, SECURITY_HEADERS, requestGuard, prunePendingSignIns, dataSourcesAction };

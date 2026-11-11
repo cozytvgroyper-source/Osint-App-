@@ -47,7 +47,8 @@ a browser and report what you observed.
 | `public/tool-health.js` | Per-tool working/failing counts and the "N of M servers connected" label |
 | `tests/fixtures/mcp-tools.json` | The real 240-tool list from the three local servers; planner tests run against it |
 | `scripts/bind-loopback.mjs` | `node --import` preload: servers that name no address listen on 127.0.0.1 only |
-| `scripts/load-api-keys.zsh` | Reads `work/api-keys.env` (KEY=value, never sourced) and exports allowlisted data-source keys |
+| `scripts/api-keys.mjs` | The 14 keyed data sources (fields, tools fed, sign-up link, note) and the `work/api-keys.env` format: parse, update, status |
+| `scripts/live-api-keys.mjs` | Data service preload: keeps its environment in step with `work/api-keys.env`, so panel changes apply without a restart |
 | `config/api-keys.env.example` | Template the launcher copies to `work/api-keys.env` on first start |
 | `scripts/apply-open-osint-patches.zsh` | Applies `patches/*.patch` to the Open OSINT checkout before its data service starts; skips applied ones, warns on ones that no longer fit |
 | `patches/` | Public Desk's fixes to Open OSINT's own code (see Known limitations: cyber threats) |
@@ -90,10 +91,13 @@ Keep them when changing the server or launcher.
   `intelx-host.mjs`, because free Intelligence X keys get 401 from the hardcoded `2.intelx.io`.
 - **Upload and sign-in:** uploads are size-limited, renamed, written 0600 and deleted after analysis; pending
   Consensus sign-ins expire after 10 minutes (at most 20, oldest dropped).
-- **API keys:** the user's keys live in `work/api-keys.env` (0600, git-ignored; `work/` is 0700). The launcher
-  passes them only to the Open OSINT data service, reads the file line by line so nothing in it runs, exports only
-  allowlisted data-source keys (no AI or hosting keys, which spend credits), and prints key names, never values.
-  Keys change only after Stop and Start. Never read, print or commit that file.
+- **API keys:** the user's keys live in `work/api-keys.env` (0600, git-ignored; `work/` is 0700), written only by the
+  Data sources panel (`POST /api/data-sources[/connect|/disconnect|/remove]`, behind the same request guard) or by
+  hand. Writes go to a private temporary file renamed into place, one at a time. Only the Open OSINT data service
+  reads the keys (`live-api-keys.mjs`); the file is parsed as text, so nothing in it runs. Only allowlisted
+  data-source keys are used (no AI or hosting keys, which spend credits). Responses and logs carry statuses and key
+  names, never values; the panel's key inputs are password fields cleared when the dialog closes. Never read,
+  print or commit that file.
 
 ## Main search
 
@@ -128,6 +132,14 @@ Keep this passive-by-default boundary.
 Development mode: open `http://127.0.0.1:4173/?diagnostics` to add a **Planner Diagnostics** section showing the
 target, the matched words, the selected tools with scores, the closest misses, and skip counts per reason.
 
+## Data sources
+
+The MCP servers page lists 14 keyed data sources under **Data sources**, and the workspace shows `N of 14 connected`
+with a pill per connected source. Each card names the tools the source feeds and any known problem. **Connect**
+pastes a key (or turns a disconnected one back on), **Disconnect** keeps the key but stops using it
+(`PUBLIC_DESK_DISABLED=` in the file), **Change key** replaces it and **Remove** deletes it. Keys are not verified
+on Connect (the user chose this), so a wrong key shows up only as missing data in searches.
+
 ## Server cards
 
 Each connected server shows `N tools · W working · F failing · U not yet run`, based on each tool's latest outcome in
@@ -161,8 +173,8 @@ another folder, naming the folder to stop. `Stop Public Desk.command` stops the 
   - GreyNoise returns 404 for IPs it has no record of.
   - MalwareBazaar needs an API key (401).
   - ThreatFox intermittently errors.
-- **API keys:** none are filled in by default; see `config/api-keys.env.example` for each source and where to
-  get a free key. OTX and AbuseIPDB feed `get_cyber_threats`; Intelligence X feeds `get_intelx`.
+- **API keys:** none are filled in by default; connect them in the Data sources panel, which links each source's
+  sign-up page. OTX and AbuseIPDB feed `get_cyber_threats`; Intelligence X feeds `get_intelx`.
 - **Cyber threats (patched):** two launcher-applied patches fix Open OSINT's threat feed. Its `cyber_threats` tool sent
   `limit`, but the feed reads `page_size`; the missing value became 0, clamped to a page size of **1**. And the feed,
   built for a map, discarded every threat its rate-limited free geolocation lookups could not place.
