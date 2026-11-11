@@ -46,6 +46,13 @@ test('allows the useful reviewed breach lookup but keeps placeholder-only Omega 
   assert.equal(isPassiveSearchTool(tool('omega_threatintel','Threat intelligence context','Omega MCP')),false);
 });
 
+test('allows reviewed structured Omega email and Git reconnaissance lookups',()=>{
+  assert.equal(isPassiveSearchTool(tool('omega_email','Email validation and domain records','Omega MCP')),true);
+  assert.equal(isPassiveSearchTool(tool('omega_gitrecon','Public Git repository reconnaissance','Omega MCP')),true);
+  assert.equal(isPassiveSearchTool(tool('omega_username','Username search','Omega MCP')),false);
+  assert.equal(isPassiveSearchTool(tool('omega_phoneosint','Phone lookup','Omega MCP')),false);
+});
+
 test('treats omega-prefixed tools as Omega even under another server name',()=>{
   assert.equal(isPassiveSearchTool(tool('omega_plugin','Plugin manager','Renamed Server')),false);
 });

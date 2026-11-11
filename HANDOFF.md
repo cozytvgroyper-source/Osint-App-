@@ -230,7 +230,8 @@ another folder, naming the folder to stop. Every service port is checked by fold
    a selectable plan, authorization and typed Intrusive confirmation, sequential execution, Cancel, server-enforced
    grants and the private local audit log. Step 4 has started: `omega_breach` is approved for automatic search after
    a live structured response; `omega_archive` and `omega_threatintel` returned only `completed` and remain manual.
-   Continue the same evidence-based review of the remaining Tier 0 Omega tools.
+   The identity batch also approved `omega_email` and `omega_gitrecon`; `omega_username` currently errors and
+   `omega_phoneosint` returns only `completed`. Continue the same evidence-based review of the remaining Tier 0 tools.
 2. Decide with the user whether cyber searches should mix sources instead of strict severity order, so OTX shows
    up in short result lists (another patch to the feed's sort). The user chose not to do this for now.
 3. subfinder can only rejoin the automatic search if `osint-toolbox-mcp` exposes subfinder's `-max-time` (an

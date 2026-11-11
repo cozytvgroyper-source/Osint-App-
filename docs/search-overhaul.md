@@ -131,6 +131,10 @@ First live review, 2026-11-11: `omega_breach` returned structured target and bre
 search. `omega_archive` and `omega_threatintel` returned only a generic `completed` marker for `example.com`, so they
 remain Tool Library-only until they expose usable findings.
 
+Identity review: `omega_email` returned structured format, domain and MX data for a reserved address, and
+`omega_gitrecon` returned public repositories for GitHub's `octocat` test account; both are approved. `omega_username`
+failed with an asyncio event-loop error and `omega_phoneosint` returned only `completed`, so both remain manual.
+
 ## Decisions (owner, 2026-11-11)
 
 | | Question | Decision |

@@ -83,6 +83,11 @@ test('real searches still reach the right sources',()=>{
   assert.deepEqual(new Set(names('latest healthcare cyber threats')),new Set(['get_cyber_news','get_threatfox','get_ransomware','get_cyber_threats']));
 });
 
+test('reviewed Omega identity sources join email and username searches',()=>{
+  assert.ok(searchIntent('user@example.com').tools.includes('omega_email'));
+  assert.ok(searchIntent('@octocat').tools.includes('omega_gitrecon'));
+});
+
 test('never auto-selects tools that probe the target, such as DNS zone transfers',()=>{
   for(const query of ['example.com whois','example.com','https://example.com/login']){
     assert.ok(!plan(query).some(item=>item.tool.name==='dnsrecon_domain_scan'),query);
