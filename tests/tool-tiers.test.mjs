@@ -84,3 +84,12 @@ test('re-tiers Omega tools whose captured output showed target contact or outsid
   assert.equal(toolRisk(byName('omega_archive')).level,0);
   assert.deepEqual(toolRisk(byName('omega_archive')).flags,['side-effects']);
 });
+
+test('re-tiers domain tools whose source contacts the target',()=>{
+  // Source review, 2026-11-11: harvester fetches the target's own pages and cvemap runs techfp against the target.
+  assert.equal(toolRisk(byName('omega_harvester')).level,1);
+  assert.equal(toolRisk(byName('omega_cvemap')).level,1);
+  // c2 runs a JARM TLS fingerprint and banner grabs; apiosint requests a list of API paths on the target.
+  assert.equal(toolRisk(byName('omega_c2')).level,2);
+  assert.equal(toolRisk(byName('omega_apiosint')).level,2);
+});
