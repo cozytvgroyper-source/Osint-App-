@@ -50,11 +50,18 @@ test('gives two sources in the same category separate sections',()=>{
   assert.deepEqual(Object.keys(parse(built).data.report).filter(key=>key.startsWith('Network')),['Network','Network — bgp','Network — greynoise']);
 });
 
-test('keeps related links but leaves diagnostics out of search results',()=>{
-  const built=buildSearchReport({...base,diagnostics:{target:'ip'},links:[{title:'x',url:'https://example.com'}],outcomes:[done(0,'data',{data:{a:1}}),done(1,'empty'),done(2,'empty')]});
+test('keeps related links and leaves diagnostics out of ordinary search results',()=>{
+  const built=buildSearchReport({...base,links:[{title:'x',url:'https://example.com'}],outcomes:[done(0,'data',{data:{a:1}}),done(1,'empty'),done(2,'empty')]});
   const payload=parse(built);
   assert.ok(!('Planner Diagnostics' in payload.data.report));
   assert.ok('Related Links' in payload.data.report);
+  assert.equal(payload.data.modulesWithResults,1);
+});
+
+test('adds planner diagnostics only when development mode supplies them',()=>{
+  const built=buildSearchReport({...base,diagnostics:{target:'ip'},outcomes:[done(0,'data',{data:{a:1}}),done(1,'empty'),done(2,'empty')]});
+  const payload=parse(built);
+  assert.deepEqual(payload.data.report['Planner Diagnostics'].data,{target:'ip'});
   assert.equal(payload.data.modulesWithResults,1);
 });
 

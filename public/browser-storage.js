@@ -2,7 +2,8 @@ export const STORAGE_KEYS = {
   servers: 'signaldesk.servers',
   history: 'signaldesk.history',
   evidence: 'signaldesk.evidence',
-  toolHealth: 'signaldesk.toolHealth'
+  toolHealth: 'signaldesk.toolHealth',
+  disabledBundled: 'signaldesk.disabledBundledServers'
 };
 
 export const MAX_EVIDENCE_ITEMS = 100;
@@ -29,6 +30,16 @@ function recoverArray(values, predicate) {
   return values.filter(predicate);
 }
 
+export function mergeStoredServers(bundledServers, storedServers, disabledEndpoints = []) {
+  const disabled = new Set(disabledEndpoints);
+  const retained = storedServers.filter(server => !disabled.has(server.endpoint)).map(server => {
+    const bundled = bundledServers.find(candidate => candidate.endpoint === server.endpoint);
+    return { ...bundled, ...server, status: 'offline', tools: [] };
+  });
+  const missing = bundledServers.filter(bundled => !disabled.has(bundled.endpoint) && !retained.some(server => server.endpoint === bundled.endpoint));
+  return [...missing, ...retained];
+}
+
 export function limitEvidence(evidence, { maxItems = MAX_EVIDENCE_ITEMS, maxBytes = MAX_EVIDENCE_BYTES } = {}) {
   const kept = [];
   let bytes = 2;
@@ -47,10 +58,11 @@ export function loadStoredState(storage) {
   const history = readEntry(storage, STORAGE_KEYS.history, [], Array.isArray, values => recoverArray(values, validHistory), 'history');
   const savedEvidence = readEntry(storage, STORAGE_KEYS.evidence, [], Array.isArray, values => recoverArray(values, validEvidence), 'evidence');
   const toolHealth = readEntry(storage, STORAGE_KEYS.toolHealth, {}, isRecord, null, 'tool health');
+  const disabledBundled = readEntry(storage, STORAGE_KEYS.disabledBundled, [], Array.isArray, values => values.filter(value => typeof value === 'string'), 'disabled bundled servers');
   const bounded = limitEvidence(savedEvidence.value);
-  const warnings = [...servers.warnings, ...history.warnings, ...savedEvidence.warnings, ...toolHealth.warnings];
+  const warnings = [...servers.warnings, ...history.warnings, ...savedEvidence.warnings, ...toolHealth.warnings, ...disabledBundled.warnings];
   if (bounded.dropped) warnings.push(`${bounded.dropped} older or oversized evidence item${bounded.dropped === 1 ? '' : 's'} could not be retained.`);
-  return { servers: servers.value, history: history.value.slice(0, 20), evidence: bounded.evidence, toolHealth: toolHealth.value, warnings };
+  return { servers: servers.value, history: history.value.slice(0, 20), evidence: bounded.evidence, toolHealth: toolHealth.value, disabledBundledEndpoints: disabledBundled.value, warnings };
 }
 
 function storedServers(servers) {
@@ -63,7 +75,8 @@ export function persistStoredState(storage, state, options = {}) {
     [STORAGE_KEYS.servers, storedServers(state.servers)],
     [STORAGE_KEYS.history, state.history.slice(0, 20)],
     [STORAGE_KEYS.evidence, bounded.evidence],
-    [STORAGE_KEYS.toolHealth, state.toolHealth]
+    [STORAGE_KEYS.toolHealth, state.toolHealth],
+    [STORAGE_KEYS.disabledBundled, [...(state.disabledBundledEndpoints || [])]]
   ];
   const warnings = [];
   if (bounded.dropped) warnings.push(`Evidence storage is limited to ${options.maxItems ?? MAX_EVIDENCE_ITEMS} items and ${Math.round((options.maxBytes ?? MAX_EVIDENCE_BYTES) / 1_000_000 * 10) / 10} MB. Export evidence before saving more.`);

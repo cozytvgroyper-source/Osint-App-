@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { loadStoredState, limitEvidence, persistStoredState, STORAGE_KEYS } from '../public/browser-storage.js';
+import { loadStoredState, limitEvidence, mergeStoredServers, persistStoredState, STORAGE_KEYS } from '../public/browser-storage.js';
 
 class MemoryStorage {
   constructor(entries = {}) { this.values = new Map(Object.entries(entries)); this.failKey = null; }
@@ -63,4 +63,17 @@ test('never persists bearer-token-like fields from server records', () => {
   persistStoredState(storage, { servers: [{ name: 'Custom', endpoint: 'https://example.com/mcp', token: 'secret', authorization: 'Bearer secret', tools: [{}] }], history: [], evidence: [], toolHealth: {} });
   const saved = storage.getItem(STORAGE_KEYS.servers);
   assert.doesNotMatch(saved, /secret|authorization|tools/);
+});
+
+test('persists bundled-server disable choices without affecting other saved state', () => {
+  const storage = new MemoryStorage();
+  persistStoredState(storage, { servers: [], history: [], evidence: [], toolHealth: {}, disabledBundledEndpoints: new Set(['http://127.0.0.1:8894/mcp']) });
+  assert.deepEqual(loadStoredState(storage).disabledBundledEndpoints, ['http://127.0.0.1:8894/mcp']);
+});
+
+test('disabled bundled servers stay absent after startup while custom servers remain', () => {
+  const bundled=[{id:'local',name:'Local',endpoint:'http://127.0.0.1:8892/mcp'}];
+  const custom={id:'custom',name:'Custom',endpoint:'https://example.com/mcp'};
+  assert.deepEqual(mergeStoredServers(bundled,[bundled[0],custom],new Set([bundled[0].endpoint])).map(server=>server.id),['custom']);
+  assert.deepEqual(mergeStoredServers(bundled,[],[]).map(server=>server.id),['local']);
 });

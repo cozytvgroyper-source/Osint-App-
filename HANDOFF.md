@@ -109,10 +109,11 @@ Keep them when changing the server or launcher.
    without the matched intent's topic words and with framing words ("in", "latest", "news", "price"…) trimmed
    from the ends, so "OFAC sanctions on Rosneft" sends "Rosneft" and "Bank of America sanctions" keeps its "of".
    This matters because Open OSINT's `search` parameter keeps only items containing the whole value.
-5. `classifyToolResult` sorts each response; only real data becomes a result category. Errors and empty answers are
-   listed under Unavailable Sources with their actual reason.
-6. The result window opens at once with the plan and a **Still Running** list, and each source's findings or error
-   appear as it answers ("2 of 4 sources answered"). A newer search makes an older one's late answers stale.
+5. `classifyToolResult` sorts each response; only real data becomes a result category. When there are no findings,
+   errors and empty answers appear under Unavailable Sources with their actual reason.
+6. The result window opens at once with a **Still Running** list, and each source's findings appear as it answers.
+   Completed searches with findings show only those findings and Related Links. A newer search makes an older one's
+   late answers stale.
 
 Never auto-run, but still available in Tool Library:
 

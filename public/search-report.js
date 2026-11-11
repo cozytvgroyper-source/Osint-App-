@@ -2,9 +2,9 @@
 // source answers instead of waiting for the slowest one. `outcomes[i]` is undefined while plan[i] is still running,
 // otherwise a Promise.allSettled-style entry whose value is {tool, outcome: classifyToolResult(...)}.
 
-const NOT_FINDINGS = new Set(['Related Links', 'Still Running']);
+const NOT_FINDINGS = new Set(['Related Links', 'Still Running', 'Planner Diagnostics']);
 
-export function buildSearchReport({query, intent, plan, outcomes, links = [], categoryForTool, sourceLabel, elapsedMs = 0}) {
+export function buildSearchReport({query, intent, plan, outcomes, diagnostics = null, links = [], categoryForTool, sourceLabel, elapsedMs = 0}) {
   const report = {}; const errors = []; const servers = new Set(); const pending = [];
   if (!plan.length) errors.push({source: 'Relevant MCP server', error: 'No connected server currently provides the tools needed for this search category. Connect the matching server and try again.'});
 
@@ -31,6 +31,7 @@ export function buildSearchReport({query, intent, plan, outcomes, links = [], ca
       data: {sources: pending.map(tool => ({name: sourceLabel(tool.name), server: tool.serverName}))}
     };
   }
+  if (diagnostics) report['Planner Diagnostics'] = {eyebrow:'DEVELOPMENT MODE',description:'Why the automatic planner selected or skipped tools for this search.',data:diagnostics};
   if (links.length) report['Related Links'] = {eyebrow: 'FOLLOW-UP SOURCES', description: 'Useful external sources for verifying and expanding this search.', data: {links}};
   const findingCount = Object.keys(report).filter(key => !NOT_FINDINGS.has(key)).length;
   const answered = plan.length - pending.length;
