@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This handoff covers the next hardening and cleanup pass for Public Desk after the whole-app review on November 11, 2026. The app is fundamentally healthy: all 101 automated tests passed, the successful-search presentation matches the owner's request, and no critical or high-severity security issue was found. The remaining work is primarily dependency safety, state durability, process ownership, response limits, temporary-file cleanup, and smaller interface corrections.
+This handoff records the completed hardening and cleanup pass for Public Desk after the whole-app review on November 11, 2026. All planned objectives are implemented on stacked branches, all 126 automated tests pass, the full macOS launcher and ownership-aware shutdown were verified, and the successful-search presentation continues to match the owner's request.
 
 Work from the repository at:
 
@@ -12,7 +12,9 @@ Reviewed revision:
 
 `87aa829925d7f0cc867e2ee5b706058d13c21285`
 
-The worktree was clean when this handoff was written.
+Final implementation head before this verification note:
+
+`c1ec856 fix: finish interface and documentation cleanup`
 
 ## Objective Progress
 
@@ -26,6 +28,19 @@ The worktree was clean when this handoff was written.
 | 6 Harden custom MCP destinations | Completed | `fix/mcp-destination-policy` | Explicit bundled-local allowlist, HTTPS-only custom servers, DNS address screening, and per-hop redirect validation added; full suite passes 123 tests. |
 | Interface and documentation cleanup | Completed | `fix/interface-documentation-cleanup` | Persistent server disabling, Command K, progressive News loading, accurate privacy copy, development diagnostics, confirmations, and documentation updates completed; full suite passes 126 tests. |
 
+## Final Integration Verification
+
+Completed on November 11, 2026 from `fix/interface-documentation-cleanup`:
+
+- The complete macOS launcher started Public Desk and all four configured MCP servers successfully.
+- The live interface reported 4 of 4 MCP servers connected.
+- Command K moved focus to the investigation search field.
+- The live News view loaded 30 items initially and exposed `Show 30 more` while preserving original-source links.
+- Local health checks succeeded for the app service and Open OSINT bridge.
+- `Stop Public Desk.command` recognized and stopped only the five owned Public Desk processes.
+- Ports 4173, 8080, 8892, 8893, and 8894 were all closed after shutdown.
+- No paid tools or active reconnaissance were run.
+
 ## Owner Requirements
 
 - Preserve the current result-only search presentation. When useful findings exist, show the findings and Related Links. Do not restore the search plan, counts, diagnostics, raw output, or unavailable-source errors to the ordinary completed result view.
@@ -37,7 +52,7 @@ The worktree was clean when this handoff was written.
 - Make changes on a new branch. Do not work directly on `main`.
 - Do not commit files under `work/`, credentials, tokens, local logs, uploaded files, or generated runtime state.
 
-## Current Verified Behavior
+## Pre-Implementation Review Baseline
 
 - `npm test` passes 101 tests with zero failures.
 - Successful searches render findings plus Related Links.
