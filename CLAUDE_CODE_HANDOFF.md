@@ -1,5 +1,10 @@
 # Public Desk Claude Code Handoff
 
+> **Historical record.** This is Codex's plan and verification note for its November 11, 2026 hardening pass,
+> kept for reference. Everything it describes is merged and documented in `HANDOFF.md`, which is the current
+> handoff. Two follow-ups since: PR #28 fixed CI (the ownership checks used macOS's `/usr/sbin/lsof`, and CI now
+> runs on macOS) and the review findings; the working branches it lists have been deleted after merging.
+
 ## Purpose
 
 This handoff records the completed hardening and cleanup pass for Public Desk after the whole-app review on November 11, 2026. All planned objectives are implemented on stacked branches, all 126 automated tests pass, the full macOS launcher and ownership-aware shutdown were verified, and the successful-search presentation continues to match the owner's request.
