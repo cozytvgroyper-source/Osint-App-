@@ -23,7 +23,7 @@ The worktree was clean when this handoff was written.
 | 3 Verify process ownership before reuse or stop | Completed | `fix/service-ownership` | Shared folder and command-marker checks cover all five ports and every saved PID; foreign-process tests added; full suite passes 111 tests. |
 | 4 Bound MCP responses | Completed | `fix/mcp-response-limits` | Decoded streaming limit, early length rejection, SSE count and event limits, and boundary tests added; full suite passes 115 tests. |
 | 5 Expire abandoned uploads | Completed | `fix/upload-expiration` | Thirty-minute server leases, startup stale-file sweep, private upload directory, and containment tests added; full suite passes 118 tests. |
-| 6 Harden custom MCP destinations | Not started | - | - |
+| 6 Harden custom MCP destinations | Completed | `fix/mcp-destination-policy` | Explicit bundled-local allowlist, HTTPS-only custom servers, DNS address screening, and per-hop redirect validation added; full suite passes 123 tests. |
 | Interface and documentation cleanup | Not started | - | - |
 
 ## Owner Requirements

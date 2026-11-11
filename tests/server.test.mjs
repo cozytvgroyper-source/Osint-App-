@@ -2,10 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { validatedEndpoint, parseMcpResponse, readLimitedResponse } from '../server.mjs';
 
-test('accepts HTTP MCP endpoints',()=>assert.equal(validatedEndpoint('http://127.0.0.1:8892/mcp').pathname,'/mcp'));
-test('blocks embedded credentials and metadata endpoints',()=>{
-  assert.throws(()=>validatedEndpoint('http://user:pass@example.com/mcp'));
-  assert.throws(()=>validatedEndpoint('http://169.254.169.254/latest'));
+test('accepts only explicitly bundled HTTP MCP endpoints',async()=>{
+  assert.equal((await validatedEndpoint('http://127.0.0.1:8892/mcp')).pathname,'/mcp');
+  await assert.rejects(()=>validatedEndpoint('http://127.0.0.1:9999/mcp'),/HTTPS/);
+});
+test('blocks embedded credentials and metadata endpoints',async()=>{
+  await assert.rejects(()=>validatedEndpoint('https://user:pass@example.com/mcp'));
+  await assert.rejects(()=>validatedEndpoint('https://169.254.169.254/latest'));
+  await assert.rejects(()=>validatedEndpoint('https://metadata.google.internal./latest'));
 });
 test('parses JSON and SSE MCP responses',()=>{
   assert.deepEqual(parseMcpResponse('{"result":{"tools":[]}}','application/json'),{result:{tools:[]}});

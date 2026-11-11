@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { pathToFileURL } from 'node:url';
 import { createHash, randomBytes } from 'node:crypto';
 import { DATA_SOURCES, parseKeyFile, sourceStatuses, updateKeyFile, validateKeyValue } from './scripts/api-keys.mjs';
+import { fetchValidated, validatedEndpoint } from './scripts/endpoint-policy.mjs';
 
 const ROOT = fileURLToPath(new URL('./public/', import.meta.url));
 const UPLOAD_ROOT = fileURLToPath(new URL('./work/uploads/', import.meta.url));
@@ -129,14 +130,6 @@ function requestGuard({ method, url, headers }) {
   return null;
 }
 
-function validatedEndpoint(value) {
-  const url = new URL(value);
-  if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Only HTTP(S) MCP endpoints are supported');
-  if (url.username || url.password) throw new Error('Credentials must be supplied as a token, not embedded in the URL');
-  if (['169.254.169.254', 'metadata.google.internal'].includes(url.hostname)) throw new Error('Cloud metadata endpoints are blocked');
-  return url;
-}
-
 async function readLimitedResponse(response, limit = MAX_MCP_RESPONSE_BYTES) {
   const declared = Number(response.headers.get('content-length'));
   if (Number.isFinite(declared) && declared > limit) throw new Error(`MCP response exceeded the ${Math.round(limit / 1_000_000)} MB limit`);
@@ -178,7 +171,7 @@ function parseMcpResponse(text, contentType, { maxSseEvents = MAX_MCP_SSE_EVENTS
 }
 
 async function mcpRequest({ endpoint, token, method, params = {}, sessionKey }) {
-  const url = validatedEndpoint(endpoint);
+  const url = await validatedEndpoint(endpoint);
   const isNotification = method.startsWith('notifications/');
   const id = isNotification ? undefined : crypto.randomUUID();
   const headers = {
@@ -189,7 +182,7 @@ async function mcpRequest({ endpoint, token, method, params = {}, sessionKey }) 
   const effectiveToken = endpoint === CONSENSUS_ENDPOINT ? await consensusAccessToken() : token;
   if (effectiveToken) headers.authorization = `Bearer ${effectiveToken}`;
   if (sessionKey && sessions.has(sessionKey)) headers['mcp-session-id'] = sessions.get(sessionKey);
-  const response = await fetch(url, {
+  const response = await fetchValidated(url, {
     method: 'POST', headers,
     body: JSON.stringify({ jsonrpc: '2.0', ...(id ? { id } : {}), method, params }),
     signal: AbortSignal.timeout(45_000)
@@ -450,10 +443,10 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === 'POST' && url.pathname === '/api/health') {
       const payload = await body(req);
-      const endpoint = validatedEndpoint(payload.endpoint);
+      const endpoint = await validatedEndpoint(payload.endpoint);
       const healthUrl = new URL('/health', endpoint);
       const headers = payload.token ? { authorization: `Bearer ${payload.token}` } : {};
-      const response = await fetch(healthUrl, { headers, signal: AbortSignal.timeout(8_000) });
+      const response = await fetchValidated(healthUrl, { headers, signal: AbortSignal.timeout(8_000) });
       return json(res, 200, { ok: response.ok, status: response.status });
     }
     if (req.method !== 'GET') return json(res, 405, { error: 'Method not allowed' });
@@ -483,4 +476,4 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   });
 }
 
-export { validatedEndpoint, parseMcpResponse, readLimitedResponse, cleanupStaleUploads, trackUpload, deleteTrackedUpload, loadConsensusAuth, saveConsensusAuth, clearConsensusAuth, SECURITY_HEADERS, requestGuard, prunePendingSignIns, dataSourcesAction };
+export { validatedEndpoint, fetchValidated, parseMcpResponse, readLimitedResponse, cleanupStaleUploads, trackUpload, deleteTrackedUpload, loadConsensusAuth, saveConsensusAuth, clearConsensusAuth, SECURITY_HEADERS, requestGuard, prunePendingSignIns, dataSourcesAction };
