@@ -50,3 +50,25 @@ test('uses the right status codes',()=>{
   assert.equal(requestGuard(request({headers:{origin:'https://evil.example'}})).status,403);
   assert.equal(requestGuard(request({headers:{'content-type':'text/plain'}})).status,415);
 });
+
+test('lets the browser open Public Desk pages from anywhere, including after the Consensus sign-in',()=>{
+  const navigate={'sec-fetch-site':'cross-site','sec-fetch-mode':'navigate','sec-fetch-dest':'document'};
+  assert.equal(requestGuard(request({method:'GET',path:'/?consensus=connected',headers:navigate})),null);
+  assert.equal(requestGuard(request({method:'GET',path:'/',headers:{...navigate,origin:'https://consensus.app'}})),null);
+  assert.equal(requestGuard(request({method:'GET',path:'/app.js',headers:{'sec-fetch-site':'cross-site'}})),null,'static files have no side effects; CORP stops other sites using them');
+  assert.match(guardError(request({method:'GET',path:'/?x',host:'evil.example:4173'})),/host/i,'the Host check still applies');
+});
+
+test('still refuses cross-site GETs to the API',()=>{
+  assert.match(guardError(request({method:'GET',path:'/api/oauth/consensus/start',headers:{'sec-fetch-site':'cross-site','sec-fetch-mode':'navigate','sec-fetch-dest':'document'}})),/site/i);
+});
+
+test('makes room for a new sign-in instead of blocking when many are pending',async()=>{
+  const {prunePendingSignIns}=await import('../server.mjs');
+  const pending=new Map();const now=1_000_000;
+  for(let i=0;i<25;i++){prunePendingSignIns(pending,now);pending.set(`s${i}`,{createdAt:now+i});}
+  assert.ok(pending.size<=20);
+  assert.ok(pending.has('s24'),'the newest sign-in is kept');
+  pending.set('old',{createdAt:now-11*60_000});prunePendingSignIns(pending,now);
+  assert.ok(!pending.has('old'),'expired sign-ins are removed');
+});

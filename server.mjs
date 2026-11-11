@@ -48,10 +48,19 @@ const OWN_HOSTS = new Set([`127.0.0.1:${PORT}`, `localhost:${PORT}`, `[::1]:${PO
 const OWN_ORIGINS = new Set([...OWN_HOSTS].map(host => `http://${host}`));
 const OAUTH_CALLBACK_PATH = '/api/oauth/consensus/callback';
 
+// Sign-ins expire after 10 minutes; when 20 are pending the oldest is dropped, so a new sign-in always works.
+function prunePendingSignIns(pending, now = Date.now()) {
+  for (const [key, entry] of pending) if (now - entry.createdAt > 10 * 60_000) pending.delete(key);
+  while (pending.size >= 20) pending.delete(pending.keys().next().value);
+}
+
 function requestGuard({ method, url, headers }) {
   if (!OWN_HOSTS.has(String(headers.host || '').toLowerCase())) return { status: 403, error: 'Unexpected Host header' };
   // Consensus redirects the browser back here from its own site; the one-time state check protects it.
   if (url.pathname === OAUTH_CALLBACK_PATH) return null;
+  // Opening a page or file has no side effects, and browsers mark the return from the Consensus sign-in as
+  // cross-site. Other sites still cannot frame the page or use its files (see SECURITY_HEADERS).
+  if ((method === 'GET' || method === 'HEAD') && !url.pathname.startsWith('/api/')) return null;
   const fetchSite = headers['sec-fetch-site'];
   if (fetchSite === 'cross-site' || fetchSite === 'same-site') return { status: 403, error: 'Cross-site requests are not allowed' };
   const origin = headers.origin;
@@ -227,8 +236,7 @@ const server = http.createServer(async (req, res) => {
       const state = base64url(randomBytes(24));
       const verifier = base64url(randomBytes(48));
       const challenge = createHash('sha256').update(verifier).digest('base64url');
-      for (const [key, entry] of consensusOAuth.pending) if (Date.now() - entry.createdAt > 10 * 60_000) consensusOAuth.pending.delete(key);
-      if (consensusOAuth.pending.size >= 20) return json(res, 429, { error: 'Too many sign-in attempts in progress; try again in a few minutes' });
+      prunePendingSignIns(consensusOAuth.pending);
       consensusOAuth.pending.set(state, { verifier, createdAt: Date.now() });
       const authorize = new URL(`${CONSENSUS_ISSUER}/oauth/authorize/`);
       authorize.search = new URLSearchParams({
@@ -321,4 +329,4 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   });
 }
 
-export { validatedEndpoint, parseMcpResponse, loadConsensusAuth, saveConsensusAuth, clearConsensusAuth, requestGuard };
+export { validatedEndpoint, parseMcpResponse, loadConsensusAuth, saveConsensusAuth, clearConsensusAuth, requestGuard, prunePendingSignIns };
