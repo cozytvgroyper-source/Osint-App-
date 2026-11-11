@@ -1,8 +1,8 @@
 # Public Desk handoff
 
 Updated 2026-11-11 (security hardening, CI, progressive results, search pivots and Deep Search workflow).
-`CLAUDE_CODE_HANDOFF.md` records the plan and verification of Codex's hardening pass; this file is the current
-reference. `CODEX_HANDOFF.md` briefs Codex on the work since then and the remaining search-overhaul work. First written
+This file is the current reference. `CLAUDE_CODE_HANDOFF.md` (Codex's hardening pass) and `CODEX_HANDOFF.md` (the
+Codex brief for search-overhaul steps 2–4) are historical records. First written
 2026-11-10; it replaces the original Codex handoff, which lived outside the repo and is now out of date.
 
 ## Objective
@@ -34,7 +34,7 @@ git diff --check
 ```
 
 GitHub Actions (`.github/workflows/ci.yml`) runs the syntax checks, `py_compile`, `zsh -n` on the launchers and
-`npm test` on Node 20 and 22, on macOS runners (free for this public repo), for every pull request and push to
+`npm test` on Node 20, 22, 24 and 26, on macOS runners (free for this public repo), for every pull request and push to
 `main`. macOS has zsh and lsof built in, so CI downloads no packages; Ubuntu runners needed zsh from apt, which a
 runner DNS outage blocked for over an hour on 2026-11-11. For UI changes, also exercise the feature in
 a browser and report what you observed.

@@ -1,5 +1,9 @@
 # Public Desk: handoff to Codex
 
+> **Historical record.** This briefed Codex on 2026-11-11 for search-overhaul steps 2–4. Steps 2 and 3 are merged,
+> step 4 (the Omega review) is in progress, and the PRs and test counts below are out of date. `HANDOFF.md` is the
+> current handoff and `docs/search-overhaul.md` the current plan; read those instead.
+
 Written 2026-11-11 by Claude Code, after Codex's hardening pass (`CLAUDE_CODE_HANDOFF.md`, now historical).
 
 Repository: `/Users/randybill/Documents/Codex/2026-11-10/public-desk` (GitHub `cozytvgroyper-source/Osint-App-`).

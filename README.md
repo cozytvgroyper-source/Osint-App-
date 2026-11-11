@@ -5,8 +5,18 @@ A local-first, user-friendly client for MCP servers and Open OSINT workflows.
 ## Run
 
 On this Mac, double-click **Start Public Desk.command**. When finished, double-click
-**Stop Public Desk.command**. All three services bind to localhost and are available
-only on this computer.
+**Stop Public Desk.command**. The launcher starts five services, all bound to `127.0.0.1` so they are
+available only on this computer:
+
+| Service | Address |
+|---|---|
+| Open OSINT data service | `http://127.0.0.1:8080` |
+| Open OSINT MCP server | `http://127.0.0.1:8892/mcp` |
+| OSINT Toolbox MCP bridge | `http://127.0.0.1:8893/mcp` |
+| Omega MCP bridge | `http://127.0.0.1:8894/mcp` |
+| Public Desk (the app) | `http://127.0.0.1:4173` |
+
+If one MCP bridge restarts on its own, Public Desk opens a new session with it automatically.
 
 For a terminal launch of the interface only:
 
@@ -37,17 +47,22 @@ The Mac launcher also starts the bundled OSINT Toolbox and Omega MCP bridges. Om
 
 ### Omega
 
-`config/omega-mcp.json` runs Omega with `uvx` from pinned commits of
+`config/omega-mcp.json` runs Omega through `scripts/run-omega-mcp-captured.py` with `uvx` from pinned commits of
 [omega-mcp-server](https://github.com/Ekoelogan/omega-mcp-server) and its toolkit
 [omega-cli](https://github.com/Ekoelogan/omega-cli), plus `mcp==1.30.0` (the server does not run on mcp 2.x).
 The `omega-cli` package on PyPI is an unrelated project; do not install it. The first launch downloads
 these packages and can take a minute or two, so Omega may show as offline until it finishes.
+Most omega-cli modules print their findings instead of returning them; the wrapper captures that output and
+returns it as the tool's result (plain text, with terminal decoration and local report paths removed).
 
 All Omega tools appear in Tool Library. The main search only runs Omega tools whose source was reviewed
-and found to use public lookup services alone (WHOIS, DNS, IP info, crt.sh, Wayback, CVE, ASN, malware
-hash, SPF/DMARC, reverse IP, dorks, threat feeds). Running any other Omega tool from Tool Library can:
+and whose live output was useful: WHOIS, DNS, IP info, crt.sh, Wayback, CVE, ASN, malware hash, SPF/DMARC,
+reverse IP, dorks, threat feeds, breach lookup, email validation, public Git repositories and the IP dossier.
+`docs/search-overhaul.md` (step 4) records each review. Running any other Omega tool from Tool Library can:
 
-- probe the target directly (port scans, crawling, fuzzing, brute forcing, typosquat checks);
+- probe the target directly (port scans, crawling, fuzzing, brute forcing, typosquat checks; `omega_recon`
+  runs several of these at once);
+- write to a public service (`omega_archive` submits the target to the Wayback Machine's Save Page Now);
 - call OpenAI and spend credits if `OPENAI_API_KEY` is set (AI summary, analyst, assistant, executive);
 - install software on first use (`omega_screenshot` installs Playwright and Chromium);
 - send findings to a webhook (`omega_notifier`) or load third-party plugins (`omega_plugin`).
