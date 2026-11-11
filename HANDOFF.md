@@ -47,6 +47,7 @@ a browser and report what you observed.
 | `public/tool-health.js` | Per-tool working/failing counts and the "N of M servers connected" label |
 | `tests/fixtures/mcp-tools.json` | The real 240-tool list from the three local servers; planner tests run against it |
 | `scripts/bind-loopback.mjs` | `node --import` preload: servers that name no address listen on 127.0.0.1 only |
+| `scripts/default-user-agent.mjs` | `node --import` preload: `fetch` calls with no User-Agent send `PublicDesk/1.0` instead of `node` |
 | `scripts/run-osint-mcp-guarded.py` | Starts Open OSINT's MCP server with a Host-header check (FastMCP 3.x has no setting) |
 | `Start/Stop Public Desk.command` | Mac launcher; see the launcher section below |
 
@@ -78,7 +79,9 @@ Keep them when changing the server or launcher.
 - **MCP servers:** Toolbox and Omega run with `FASTMCP_HTTP_HOST_ORIGIN_PROTECTION=true` (forged Host → 421) on
   `fastmcp-slim==4.1.8`. The version is pinned because that setting's name is version-specific; re-check the 421
   before raising it. Open OSINT runs through `run-osint-mcp-guarded.py` (forged Host → 400).
-- **Data service:** started with `bind-loopback.mjs`, because its own code calls `listen(8080)` with no address.
+- **Data service:** started with `bind-loopback.mjs`, because its own code calls `listen(8080)` with no address,
+  and with `default-user-agent.mjs`, because rdap.org (behind `get_whois`) answers Node's default `node`
+  User-Agent with HTTP 403. About 22 of its 37 fetching modules set no User-Agent of their own.
 - **Upload and sign-in:** uploads are size-limited, renamed, written 0600 and deleted after analysis; pending
   Consensus sign-ins expire after 10 minutes (at most 20, oldest dropped).
 
@@ -141,7 +144,6 @@ another folder, naming the folder to stop. `Stop Public Desk.command` stops the 
 - **Data service CORS:** the third-party data service lets `worldmonitor.app` / `h1dr4.dev` pages read its responses
   (public OSINT data). It is no longer reachable from the network.
 - **Upstream failures, not app bugs:**
-  - Open OSINT `get_whois` (RDAP) often returns HTTP 403.
   - GreyNoise returns 404 for IPs it has no record of.
   - MalwareBazaar needs an API key (401).
   - ThreatFox intermittently errors.
@@ -159,10 +161,9 @@ another folder, naming the folder to stop. `Stop Public Desk.command` stops the 
 
 ## Recommended next work
 
-1. Investigate Open OSINT `get_whois` failing with RDAP HTTP 403.
-2. Tailor arguments per tool where schemas allow (e.g. limit theHarvester's sources) so slow tools can rejoin the
+1. Tailor arguments per tool where schemas allow (e.g. limit theHarvester's sources) so slow tools can rejoin the
    automatic search.
-3. Configure API keys for the Open OSINT tools listed above if the user wants those sources.
+2. Configure API keys for the Open OSINT tools listed above if the user wants those sources.
 
 ## Working rules from the user
 
