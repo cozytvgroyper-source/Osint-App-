@@ -28,9 +28,11 @@ jobs:
         run: python3 -m py_compile scripts/*.py
       - name: Syntax-check the Mac launchers
         run: |
-          sudo apt-get install -y --no-install-recommends zsh >/dev/null
+          # lsof lets the process-ownership tests check real processes instead of failing closed.
+          sudo apt-get install -y --no-install-recommends zsh lsof >/dev/null
           zsh -n "Start Public Desk.command"
           zsh -n "Stop Public Desk.command"
           zsh -n scripts/apply-open-osint-patches.zsh
+          zsh -n scripts/service-ownership.zsh
       - name: Run tests
         run: npm test

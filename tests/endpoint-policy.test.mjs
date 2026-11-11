@@ -34,3 +34,11 @@ test('rejects redirects that would change POST semantics', async () => {
   const fetchImpl=async()=>new Response('',{status:302,headers:{location:'https://example.net/mcp'}});
   await assert.rejects(()=>fetchValidated('https://example.com/mcp',{}, {resolver:publicResolver,fetchImpl}),/unsupported redirect/);
 });
+
+// Refused addresses are the caller's mistake, so the server answers 400, not 502 (an upstream failure).
+test('marks refused addresses as endpoint-policy errors', async () => {
+  for (const endpoint of ['http://example.com/mcp', 'ftp://example.com/mcp', 'https://user:pass@example.com/mcp']) {
+    await assert.rejects(() => validatedEndpoint(endpoint, { resolver: publicResolver }), error => error.code === 'ENDPOINT_POLICY', endpoint);
+  }
+  await assert.rejects(() => validatedEndpoint('https://example.com/mcp', { resolver: async () => [{ address: '10.0.0.4', family: 4 }] }), error => error.code === 'ENDPOINT_POLICY');
+});

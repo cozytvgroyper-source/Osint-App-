@@ -62,3 +62,10 @@ test('ignores a damaged or incomplete saved sign-in',async()=>{
   assert.equal(await loadConsensusAuth(file,redirect),null,'needs a client_id');
   await rm(dir,{recursive:true,force:true});
 });
+
+test('maps errors to HTTP statuses: refused address 400, missing file 404, anything else 502', async () => {
+  const { errorStatus } = await import('../server.mjs');
+  assert.equal(errorStatus(Object.assign(new Error('Custom MCP endpoints must use HTTPS'), { code: 'ENDPOINT_POLICY' })), 400);
+  assert.equal(errorStatus(Object.assign(new Error('missing'), { code: 'ENOENT' })), 404);
+  assert.equal(errorStatus(new Error('MCP server returned 500')), 502);
+});

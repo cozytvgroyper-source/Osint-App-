@@ -50,16 +50,22 @@ export function isPrivateAddress(address) {
     (bytes[0] === 0xfe && (bytes[1] & 0xc0) === 0x80) || bytes[0] === 0xff;
 }
 
+// A refused address is the caller's mistake, not an upstream failure; the server answers it with HTTP 400.
+export class EndpointPolicyError extends Error {
+  constructor(message) { super(message); this.name = 'EndpointPolicyError'; this.code = 'ENDPOINT_POLICY'; }
+}
+
 export async function validatedEndpoint(value, { resolver = lookup } = {}) {
-  const url = value instanceof URL ? new URL(value) : new URL(value);
-  if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Only HTTP(S) MCP endpoints are supported');
-  if (url.username || url.password) throw new Error('Credentials must be supplied as a token, not embedded in the URL');
+  let url;
+  try { url = new URL(value); } catch { throw new EndpointPolicyError('The MCP endpoint is not a valid URL'); }
+  if (!['http:', 'https:'].includes(url.protocol)) throw new EndpointPolicyError('Only HTTP(S) MCP endpoints are supported');
+  if (url.username || url.password) throw new EndpointPolicyError('Credentials must be supplied as a token, not embedded in the URL');
   if (ALLOWED_LOCAL_URLS.has(url.href)) return url;
-  if (url.protocol !== 'https:') throw new Error('Custom MCP endpoints must use HTTPS');
+  if (url.protocol !== 'https:') throw new EndpointPolicyError('Custom MCP endpoints must use HTTPS');
   const hostname = url.hostname.toLowerCase().replace(/\.$/, '').replace(/^\[|\]$/g, '');
-  if (hostname === 'metadata.google.internal') throw new Error('Cloud metadata endpoints are blocked');
+  if (hostname === 'metadata.google.internal') throw new EndpointPolicyError('Cloud metadata endpoints are blocked');
   const answers = isIP(hostname) ? [{ address: hostname }] : await resolver(hostname, { all: true, verbatim: true });
-  if (!answers.length || answers.some(answer => isPrivateAddress(answer.address))) throw new Error('Private, local, and metadata endpoint addresses are blocked');
+  if (!answers.length || answers.some(answer => isPrivateAddress(answer.address))) throw new EndpointPolicyError('Private, local, and metadata endpoint addresses are blocked');
   return url;
 }
 
