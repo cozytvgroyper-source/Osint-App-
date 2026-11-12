@@ -4,6 +4,7 @@
 import {createHash,randomBytes} from 'node:crypto';
 import {chmod,mkdir,readFile,readdir,rename,unlink,writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
+import {buildCaseReport,reportFilename} from './case-report.mjs';
 
 export const MAX_EVIDENCE_BYTES=5_000_000;
 export const MAX_CASE_BYTES=50_000_000;
@@ -130,7 +131,7 @@ export class CaseStore{
 
 // The /api/cases routes. Returns {status, body}, or null for a path or method that is not a case route. All routes are
 // same-origin only (server.mjs's request guard); every write is a POST, like the rest of Public Desk's API.
-const CASE_ROUTE=/^\/api\/cases(?:\/([0-9a-f]{16})(?:\/(rename|delete|evidence|searches)(?:\/([0-9a-f]{12})\/(delete))?)?)?$/;
+const CASE_ROUTE=/^\/api\/cases(?:\/([0-9a-f]{16})(?:\/(rename|delete|evidence|searches|report\.md|report\.html)(?:\/([0-9a-f]{12})\/(delete))?)?)?$/;
 export async function handleCaseRequest(store,method,pathname,readBody){
   const match=pathname.match(CASE_ROUTE);
   if(!match)return null;
@@ -142,6 +143,11 @@ export async function handleCaseRequest(store,method,pathname,readBody){
     return null;
   }
   if(!action)return method==='GET'?ok(await store.get(id)):null;
+  if(action.startsWith('report.')){
+    if(method!=='GET'||itemId)return null;
+    const record=await store.get(id),markdown=action==='report.md';
+    return {status:200,raw:buildCaseReport(record,{format:markdown?'markdown':'html'}),contentType:markdown?'text/markdown; charset=utf-8':'text/html; charset=utf-8',filename:reportFilename(record.name,markdown?'md':'html')};
+  }
   if(method!=='POST')return null;
   if(action==='rename')return ok(await store.rename(id,await readBody()));
   if(action==='delete'){await store.remove(id);return ok({deleted:true});}

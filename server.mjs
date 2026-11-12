@@ -448,6 +448,11 @@ const server = http.createServer(async (req, res) => {
     }
     if (url.pathname === '/api/cases' || url.pathname.startsWith('/api/cases/')) {
       const handled = await handleCaseRequest(cases, req.method, url.pathname, () => body(req, MAX_EVIDENCE_BYTES + 100_000));
+      if (handled?.raw !== undefined) {
+        // Reports download as files rather than opening inside the app.
+        res.writeHead(handled.status, { ...SECURITY_HEADERS, 'content-type': handled.contentType, 'content-disposition': `attachment; filename="${handled.filename}"`, 'cache-control': 'no-store' });
+        return res.end(handled.raw);
+      }
       if (handled) return json(res, handled.status, handled.body);
       return json(res, 404, { error: 'Unknown case route' });
     }
