@@ -405,11 +405,15 @@ function renderArray(items){
     return `<article class="result-item"><div class="result-item-title"><h4>${escapeHtml(title)}</h4>${pivotButton(title)}</div>${renderRecord(rest)}</article>`;
   }).join('')}</div>${items.length>25?`<p class="result-note">Showing 25 of ${items.length.toLocaleString()} items.</p>`:''}`;
 }
-function renderCategory(name,entry){
-  const data=entry?.data??entry;
+// A record's scalars, then its nested objects and lists as subgroups. Shared by categories and the ranked view.
+function renderBody(data){
   const arrays=data&&typeof data==='object'?Object.entries(data).filter(([,value])=>Array.isArray(value)):[];
   const objects=data&&typeof data==='object'?Object.entries(data).filter(([,value])=>value&&typeof value==='object'&&!Array.isArray(value)):[];
-  return `<section class="result-category"><div class="category-head"><div><p class="eyebrow">${escapeHtml(entry?.eyebrow||'CATEGORY')}</p><h3>${escapeHtml(humanize(name))}</h3></div>${entry?.description?`<p>${escapeHtml(entry.description)}</p>`:''}</div>${renderRecord(data)}${objects.map(([key,value])=>`<div class="result-subgroup"><h4>${escapeHtml(humanize(key))}</h4>${renderRecord(value)}</div>`).join('')}${arrays.map(([key,items])=>`<div class="result-subgroup"><h4>${escapeHtml(humanize(key))}</h4>${renderArray(items)}</div>`).join('')}</section>`;
+  return `${renderRecord(data)}${objects.map(([key,value])=>`<div class="result-subgroup"><h4>${escapeHtml(humanize(key))}</h4>${renderRecord(value)}</div>`).join('')}${arrays.map(([key,items])=>`<div class="result-subgroup"><h4>${escapeHtml(humanize(key))}</h4>${renderArray(items)}</div>`).join('')}`;
+}
+function renderCategory(name,entry){
+  const data=entry?.data??entry;
+  return `<section class="result-category"><div class="category-head"><div><p class="eyebrow">${escapeHtml(entry?.eyebrow||'CATEGORY')}</p><h3>${escapeHtml(humanize(name))}</h3></div>${entry?.description?`<p>${escapeHtml(entry.description)}</p>`:''}</div>${renderBody(data)}</section>`;
 }
 function renderSources(entry){
   const sources=entry?.data?.sources||[];
@@ -422,7 +426,7 @@ function renderSources(entry){
 }
 function renderReadableResult(result,openKeys=null){
   const parsed=parseToolResult(result); const payload=parsed?.data??parsed; const report=payload?.report;
-  if(payload?.ranking)return renderRankedReport(payload,{escapeHtml,renderArray,renderRecord,renderCategory,renderSources,openKeys});
+  if(payload?.ranking)return renderRankedReport(payload,{escapeHtml,renderArray,renderRecord,renderBody,renderCategory,renderSources,openKeys});
   if(report&&typeof report==='object'){
     const entries=Object.entries(report); const hasFindings=reportHasFindings(report);
     const content=entries.map(([name,entry])=>name==='Sources'?renderSources(entry):renderCategory(name,entry)).join('');

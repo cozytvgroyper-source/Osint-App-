@@ -7,6 +7,7 @@ const escapeHtml=(value='')=>String(value).replace(/[&<>'"]/g,c=>({'&':'&amp;','
 const helpers={escapeHtml,openKeys:null,
   renderArray:items=>`[A:${items.length}]`,
   renderRecord:data=>`[R:${typeof data==='string'?data:JSON.stringify(data)}]`,
+  renderBody:data=>`[B:${typeof data==='string'?data:JSON.stringify(data)}]`,
   renderCategory:name=>`[C:${name}]`,
   renderSources:()=>'[S]'};
 const labels={get_opensanctions:'OpenSanctions',get_news_rss:'News RSS'};
@@ -69,4 +70,15 @@ test('a finished search with no results opens Search details by default and mark
   assert.match(html,/No results for this search/);
   assert.match(html,/<details class="search-details" data-default-open data-details-key="search-details" open>/);
   assert.equal(carriedKeys(html).size,0);
+});
+// Final review #2: single records and facts keep their nested objects and lists (renderBody, as renderCategory shows them).
+test('a single record renders through renderBody so nested data is kept',()=>{
+  const whois={registrar:'Rosneft Registrar',nameservers:['ns1.rosneft.ru'],contact:{org:'Rosneft'}};
+  const html=renderRankedReport(build({tools:['get_whois'],outcomes:[{kind:'data',data:whois}]}),helpers);
+  assert.ok(html.includes(`[B:${JSON.stringify(whois)}]`));
+});
+test('facts render through renderBody so nested data is kept',()=>{
+  const data={found:['github'],owner:{name:'x'},results:[{name:'Rosneft'}]};
+  const html=renderRankedReport(build({tools:['get_opensanctions'],outcomes:[{kind:'data',data}]}),helpers);
+  assert.ok(html.includes(`[B:${JSON.stringify({found:['github'],owner:{name:'x'}})}]`));
 });

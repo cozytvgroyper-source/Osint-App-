@@ -35,6 +35,11 @@ test('the main search passes its subject and preferred tools to the report',()=>
 test('ranked reports use the results-only view; older saved reports keep the old layout',()=>{
   assert.match(app,/payload\?\.ranking\)return renderRankedReport\(/);
 });
+test('the ranked view gets the same record body renderCategory shows',()=>{
+  assert.match(app,/function renderBody\(data\)/);
+  assert.match(app,/renderRankedReport\(payload,\{[^}]*renderBody[^}]*\}\)/);
+  assert.match(app,/\$\{renderBody\(data\)\}<\/section>/);
+});
 test('a live redraw keeps open details open',()=>{
   assert.match(app,/details\[data-details-key\]\[open\]:not\(\[data-default-open\]\)/);
 });

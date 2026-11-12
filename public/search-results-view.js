@@ -1,7 +1,8 @@
 // Results-only view for a ranked search report. DOM-free: returns an HTML string.
-// helpers: {escapeHtml, renderArray, renderRecord, renderCategory, renderSources, openKeys}
+// helpers: {escapeHtml, renderArray, renderRecord, renderBody, renderCategory, renderSources, openKeys}
+// renderBody shows a record with its nested objects and lists, as renderCategory does.
 export function renderRankedReport(data = {}, helpers) {
-  const {escapeHtml: esc, renderArray, renderRecord, renderCategory, renderSources, openKeys = null} = helpers;
+  const {escapeHtml: esc, renderArray, renderRecord, renderBody, renderCategory, renderSources, openKeys = null} = helpers;
   const ranking = data.ranking || {};
   const report = data.report || {};
   const errors = data.errors || [];
@@ -36,9 +37,9 @@ export function renderRankedReport(data = {}, helpers) {
   for (const s of sections) {
     let body;
     if (s.single) {
-      body = renderRecord(s.matching?.[0] ?? s.nonMatching?.[0]);
+      body = renderBody(s.matching?.[0] ?? s.nonMatching?.[0]);
     } else {
-      body = (s.facts != null ? renderRecord(s.facts) : '') + renderArray(s.matching || []);
+      body = (s.facts != null ? renderBody(s.facts) : '') + renderArray(s.matching || []);
       const rest = s.nonMatching || [];
       if (rest.length) {
         const key = `more:${s.toolName}`;
