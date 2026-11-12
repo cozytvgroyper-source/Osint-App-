@@ -65,6 +65,14 @@ function persist() {
   if(warning&&warning!==lastStorageWarning){lastStorageWarning=warning;queueMicrotask(()=>toast(warning));}
 }
 
+// Opens a modal dialog with focus inside it (the first field, or else its close button) and gives focus back to the
+// control that opened it when it closes, so keyboard and screen-reader users keep their place.
+function openDialog(dialog,trigger=document.activeElement){
+  dialog.showModal();
+  const first=dialog.querySelector('input:not([type="hidden"]):not([disabled]),select:not([disabled]),textarea:not([disabled])')||dialog.querySelector('[data-close-dialog],[data-close-result]');
+  first?.focus();
+  dialog.addEventListener('close',()=>{if(trigger?.isConnected&&typeof trigger.focus==='function')trigger.focus();},{once:true});
+}
 function toast(message) { const el=$('#toast'); el.textContent=message; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2400); }
 function iconFor(name='') { if(/cyber|cve|threat|domain|ip/i.test(name))return'⌁'; if(/geo|satellite|place|flight|vessel/i.test(name))return'◈'; if(/sanction|entity|company/i.test(name))return'◎'; return'▤'; }
 
@@ -212,7 +220,7 @@ function openKeyDialog(source){
   $('#keyFields').innerHTML=source.fields.map(f=>{const saved=source.saved.includes(f.env);const email=/EMAIL/.test(f.env);return `<label>${escapeHtml(f.label)}<input name="${escapeHtml(f.env)}" type="${email?'email':'password'}" autocomplete="off" spellcheck="false" placeholder="${saved?'Saved. Leave empty to keep it.':'Paste here'}" /></label>`;}).join('');
   $('#keyNote').innerHTML=`Get a key at <a href="${escapeHtml(source.signup)}" target="_blank" rel="noopener noreferrer">${escapeHtml(new URL(source.signup).host)}</a>. It is saved on this Mac only and is not shown again.`;
   $('#keyError').textContent='';$('#saveKey').textContent=source.status==='not_configured'?'Connect':'Save';
-  $('#keyDialog').showModal();$('#keyFields input')?.focus();
+  openDialog($('#keyDialog'));
 }
 async function dataSourceAction(action,id,values){
   const source=dataSources.list.find(s=>s.id===id);if(!source)return;
@@ -344,7 +352,7 @@ function openTool(tool, serverId){
     +(needs.typeName?`<label class="run-confirm">Type <code>${escapeHtml(tool.name)}</code> to confirm<input id="runConfirmName" autocomplete="off" spellcheck="false" /></label>`:'')
     +(needs.credits?'<label class="run-check"><input type="checkbox" id="runCredits" /> This tool may spend paid AI credits.</label>':'')
     +(needs.sideEffects?'<label class="run-check"><input type="checkbox" id="runSideEffects" /> This tool may send, store, schedule, or change data.</label>':'')+'</div>';
-  $('#runArgs').value=JSON.stringify(sample,null,2); $('#runError').textContent=''; $('#runDialog').showModal();
+  $('#runArgs').value=JSON.stringify(sample,null,2); $('#runError').textContent=''; openDialog($('#runDialog'));
 }
 // Returns why a tool may not run yet, or '' when every confirmation it needs is given.
 function runBlockedReason(tool){
@@ -458,7 +466,7 @@ function showResult(title,result){
   const openKeys=refresh?new Set([...$('#resultBody').querySelectorAll('details[data-details-key][open]:not([data-default-open])')].map(el=>el.dataset.detailsKey)):null;
   $('#resultTitle').textContent=title; $('#resultBody').innerHTML=renderReadableResult(result,openKeys);
   if(refresh){dialog.scrollTop=scroll[0];$('#resultBody').scrollTop=scroll[1];}
-  if(!dialog.open)dialog.showModal();
+  if(!dialog.open)openDialog(dialog);
 }
 // Refreshes a search that is still running without reopening the window if the user has closed it.
 function updateOpenResult(title,result){if($('#resultDialog').open&&$('#resultTitle').textContent===title)showResult(title,result);}
@@ -616,7 +624,7 @@ document.addEventListener('click',async event=>{
 $('#investigateForm').addEventListener('submit',async e=>{e.preventDefault();const q=$('#query').value.trim();if(!q&&!state.pendingFile)return;try{if(state.pendingFile)await analyzeSelectedFile(state.pendingFile,q);else await smartInvestigate(q);}catch(error){toast(error.message);}});
 $('#fileInput').addEventListener('change',event=>{const file=event.target.files?.[0];if(!file)return;state.pendingFile=file;$('#fileName').textContent=file.name;$('#fileDetails').textContent=`${file.type||'Unknown type'} · ${formatBytes(file.size)}`;$('#fileIcon').textContent=file.type.startsWith('image/')?'▧':file.type.startsWith('video/')?'▶':'◇';$('#fileSelection').hidden=false;});
 $('#removeFile').onclick=clearSelectedFile;
-$('#addServer').onclick=()=>$('#serverDialog').showModal();
+$('#addServer').onclick=()=>openDialog($('#serverDialog'),$('#addServer'));
 $('#newInvestigation').onclick=()=>{switchView('workspace');$('#query').focus();};
 $('#cmdButton').onclick=()=>{switchView('workspace');$('#query').focus();};
 document.addEventListener('keydown',event=>{if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='k'){event.preventDefault();switchView('workspace');$('#query').focus();}});
@@ -655,8 +663,13 @@ $('#intelNewsFilter').oninput=()=>{intelNews.visibleLimit=30;renderIntelNews();}
 $('#intelNewsCategory').onchange=()=>{intelNews.visibleLimit=30;renderIntelNews();};
 $('#refreshIntelNews').onclick=()=>loadIntelNews(true);
 $('#exportEvidence').onclick=()=>{const c=state.activeCase;if(!c)return;const blob=new Blob([JSON.stringify(c,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`public-desk-case-${c.name.replace(/[^a-z0-9]+/gi,'-').replace(/^-|-$/g,'').toLowerCase()||c.id}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);};
-$('#themeToggle').onclick=()=>{const next=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=next;localStorage.setItem('signaldesk.theme',next);};
-document.documentElement.dataset.theme=localStorage.getItem('signaldesk.theme')||'light';
+// The switch is a toggle for the dark theme: it says which theme is on, so screen readers announce its state.
+function applyTheme(theme){
+  document.documentElement.dataset.theme=theme;
+  const toggle=$('#themeToggle');toggle.setAttribute('aria-pressed',String(theme==='dark'));toggle.setAttribute('aria-label','Dark theme');toggle.title=theme==='dark'?'Dark theme is on':'Dark theme is off';
+}
+$('#themeToggle').onclick=()=>{const next=document.documentElement.dataset.theme==='dark'?'light':'dark';applyTheme(next);localStorage.setItem('signaldesk.theme',next);};
+applyTheme(localStorage.getItem('signaldesk.theme')||'light');
 if(new URLSearchParams(location.search).get('consensus')==='connected'){
   history.replaceState({},'',location.pathname);
   toast('Consensus sign-in complete');
