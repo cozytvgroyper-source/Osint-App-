@@ -25,9 +25,10 @@ function toolText(tool){
 const OMEGA_AUTO_SEARCH_TOOLS=new Set(['omega_whois','omega_dns','omega_ipinfo','omega_crtsh','omega_wayback','omega_cve','omega_asn','omega_malware','omega_spoofcheck','omega_reverseip','omega_dorks','omega_threatfeed','omega_breach','omega_email','omega_gitrecon','omega_ipdossier','omega_intel','omega_cvssrank']);
 function isOmegaTool(tool){return tool.serverName==='Omega MCP'||/^omega_/i.test(tool.name||'');}
 // Enumeration tools that exceed the 45-second request limit with any argument the automatic search can send
-// (subfinder took 31-58 s whatever its per-request timeout). They stay available in Tool Library.
+// (subfinder took 31-58 s whatever its per-request timeout; Maigret searches 500 sites by default).
+// They stay available in Tool Library.
 // theHarvester is not listed: argsForSearch limits its sources, which keeps it near 11-20 s.
-const TOO_SLOW_FOR_AUTO_SEARCH=new Set(['subfinder_subdomain_search']);
+const TOO_SLOW_FOR_AUTO_SEARCH=new Set(['subfinder_subdomain_search','maigret_username_search']);
 // Why a tool may never be chosen automatically, or null when it may.
 function exclusionReason(tool){
   if(ACTIVE_TOOL_NAMES.test(tool.name||'')||ACTIVE_LANGUAGE.test(tool.description||''))return 'Active or side-effect tool (never auto-run)';
@@ -38,17 +39,25 @@ function exclusionReason(tool){
   return null;
 }
 function passiveCandidate(tool){return exclusionReason(tool)===null;}
-function supportsHashTarget(tool){
+function supportsHashTarget(tool,value=''){
   // Match a real hash capability as a complete word. This deliberately excludes unrelated names such as
   // "hashrate", while still accepting names like hash_lookup after separators are normalised.
-  return /\b(?:hash(?:es)?|md5|sha-?1|sha-?256)\b/i.test(toolText(tool).replace(/[_-]+/g,' '));
+  const text=toolText(tool).replace(/[_-]+/g,' ');
+  if(!/\b(?:hash(?:es)?|md5|sha\s*1|sha\s*256)\b/i.test(text))return false;
+  const advertised=new Set();
+  if(/\bmd5\b/i.test(text))advertised.add('md5');
+  if(/\bsha\s*1\b/i.test(text))advertised.add('sha1');
+  if(/\bsha\s*256\b/i.test(text))advertised.add('sha256');
+  if(!advertised.size)return true;
+  const algorithm=String(value).length===32?'md5':String(value).length===40?'sha1':String(value).length===64?'sha256':null;
+  return algorithm!==null&&advertised.has(algorithm);
 }
 // Why a tool cannot take this search's target, or null when it can.
 function targetMismatch(tool,query,target){
   const constrained=new Set(tool.inputSchema?.required||[]);
   const value=String(query).trim();
   if(constrained.has('file_path')&&!/\.(?:jpe?g|png|gif|webp|heic|mp4|mov|pdf|docx?|txt|csv|json)$/i.test(value))return 'Needs a file';
-  if(target?.type==='hash'&&!supportsHashTarget(tool))return 'Does not look up file hashes';
+  if(target?.type==='hash'&&!supportsHashTarget(tool,target.value))return 'Does not support this hash type';
   if(constrained.has('domain')&&target?.type!=='domain')return 'Needs a domain';
   if(constrained.has('email')&&target?.type!=='email')return 'Needs an email address';
   if(constrained.has('username')&&!(target?.type==='username'||/\b(?:username|handle|account)\b/i.test(value)))return 'Needs a username';
