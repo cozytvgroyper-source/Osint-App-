@@ -136,7 +136,12 @@ function searchSubject(text,intentId){
 // Arguments that keep a tool within the 45-second request limit in automatic searches. Tool Library runs
 // build their own arguments and are unaffected. theHarvester queries every source by default (223 s for
 // example.com); these keyless certificate and DNS sources took 11-20 s.
-const AUTO_SEARCH_ARGS={theharvester_domain_search:{sources:'crtsh,hackertarget,rapiddns,otx'}};
+const AUTO_SEARCH_ARGS={
+  theharvester_domain_search:{sources:'crtsh,hackertarget,rapiddns,otx'},
+  // osint-toolbox-mcp 1.1.0 adds an obsolete --no-txt flag in CSV mode. Text mode remains compatible
+  // with the installed Sherlock CLI and still returns every matching profile URL.
+  sherlock_username_search:{output_format:'txt'}
+};
 
 function supportedFormat(schema,preferred='json'){
   const allowed=Array.isArray(schema?.enum)?schema.enum:[];
