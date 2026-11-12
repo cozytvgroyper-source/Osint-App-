@@ -60,7 +60,7 @@ function iconFor(name='') { if(/cyber|cve|threat|domain|ip/i.test(name))return'�
 function switchView(id) {
   $$('.view').forEach(v => v.classList.toggle('active-view', v.id === id));
   $$('.nav').forEach(v => v.classList.toggle('active', v.dataset.view === id));
-  const labels={workspace:'Hello Groyper',servers:'Connection center',library:'Explore capabilities',deep:'Deep Search',news:'IntelMap news',evidence:'Evidence notebook'};
+  const labels={workspace:'Hello Groyper',servers:'Connection center',library:'Explore capabilities',deep:'Plan a controlled test',news:'IntelMap news',evidence:'Your case file'};
   $('#pageTitle').textContent=labels[id]||'Public Desk'; window.scrollTo({top:0,behavior:'smooth'});
   if(id==='news'&&!intelNews.loaded&&!intelNews.loading)loadIntelNews();
 }
@@ -202,7 +202,7 @@ function renderTools(){
   $('#toolCount').textContent=matching.length?`${matching.length} tools across ${new Set(matching.map(t=>t.serverId)).size} connected server(s), grouped by what running them does to the target.`:'Connect a server to discover tools.';
   $('#toolLibrary').innerHTML=shown.length?shown.map(group=>`<section class="tier-group"><div class="tier-group-head">${tierBadge(toolRisk(group.tools[0]))}<p class="subtle">${escapeHtml(group.tier.targetSees)}</p></div><div class="tool-grid">${group.tools.map(t=>{
     const risk=toolRisk(t);const flags=risk.flags.map(flag=>`<span class="badge">${escapeHtml(FLAG_LABELS[flag]||flag)}</span>`).join('');
-    return `<article class="tool-card"><div class="tool-card-head"><code>${escapeHtml(t.name)}</code>${tierBadge(risk)}</div><p class="tool-meta">${escapeHtml(t.serverName)} · ${escapeHtml(toolUsage(t))}${risk.needsReview?' · <span title="Tier set from a short description; confirm in docs/search-overhaul.md">needs review</span>':''}</p>${flags?`<div class="tool-flags">${flags}</div>`:''}<p>${escapeHtml(t.description||'No description provided.')}</p><button class="text-button" data-run="${escapeHtml(t.serverId)}::${escapeHtml(t.name)}">${risk.level>=2?`Run ${escapeHtml(risk.label.toLowerCase())} tool →`:'Run tool →'}</button></article>`;
+    return `<article class="tool-card"><div class="tool-card-head"><code>${escapeHtml(t.name)}</code>${tierBadge(risk)}</div><p class="tool-meta">${escapeHtml(t.serverName)} · ${escapeHtml(toolUsage(t))}${risk.needsReview?' · <span title="Tier set from a short description; confirm in docs/search-overhaul.md">needs review</span>':''}</p>${flags?`<div class="tool-flags">${flags}</div>`:''}<p class="tool-desc" title="${escapeHtml(t.description||'')}">${escapeHtml(t.description||'No description provided.')}</p><button class="text-button" data-run="${escapeHtml(t.serverId)}::${escapeHtml(t.name)}">${risk.level>=2?`Run ${escapeHtml(risk.label.toLowerCase())} tool →`:'Run tool →'}</button></article>`;
   }).join('')}</div></section>`).join(''):'<div class="empty-state">No tools to show yet.</div>';
 }
 function renderEvidence(){

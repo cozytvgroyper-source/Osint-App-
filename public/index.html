@@ -32,14 +32,14 @@
     <main>
       <header>
         <div><p class="eyebrow">INVESTIGATION CONSOLE</p><h1 id="pageTitle">Hello Groyper</h1></div>
-        <div class="header-actions"><button class="ghost" id="cmdButton"><kbd>⌘</kbd><kbd>K</kbd> Quick command</button><button class="primary" id="newInvestigation">＋ New investigation</button></div>
+        <div class="header-actions"><button class="ghost" id="cmdButton"><kbd>⌘</kbd><kbd>K</kbd> Search</button><button class="primary" id="newInvestigation">＋ New investigation</button></div>
       </header>
 
       <section id="workspace" class="view active-view">
         <div class="hero-card">
           <div class="hero-copy"><span class="status-pill"><i></i><span id="serverStatus">Demo workspace ready</span></span><h2>What do you want to investigate?</h2><p>Start with a person, organization, domain, vessel, aircraft, place, or current event.</p></div>
           <form id="investigateForm" class="search-box">
-            <div class="search-row"><span class="search-icon">⌕</span><input id="query" autocomplete="off" placeholder="e.g. Map recent infrastructure outages in the Baltic region" /><button type="submit">Investigate <span>→</span></button></div>
+            <div class="search-row"><span class="search-icon">⌕</span><input id="query" autocomplete="off" aria-label="Search for a person, organization, domain, place or event" placeholder="e.g. Map recent infrastructure outages in the Baltic region" /><button type="submit">Investigate <span>→</span></button></div>
             <div class="file-actions"><label class="upload-button">＋ Add file, picture, or video<input id="fileInput" type="file" accept="image/*,video/*,.pdf,.doc,.docx,.txt,.csv,.json,.rtf" /></label><div id="fileSelection" class="file-selection" hidden><span id="fileIcon">◇</span><div><b id="fileName"></b><small id="fileDetails"></small></div><button type="button" id="removeFile" aria-label="Remove selected file">×</button></div><small class="file-privacy">Analyzed locally · 50 MB maximum</small></div>
             <div class="chips" aria-label="Suggested investigations">
               <button type="button" data-prompt="Find recent cyber threats affecting healthcare">Cyber threats</button>
