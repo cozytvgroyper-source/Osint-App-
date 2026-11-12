@@ -80,10 +80,14 @@ function scratch(contents,headless=headlessUpstream){
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'public-desk-osint-'));
   const ais=upstreamFromPatch(new URL('../patches/open-osint-ais-websocket.patch',import.meta.url));
   const greynoise=upstreamFromPatch(new URL('../patches/open-osint-greynoise-not-observed.patch',import.meta.url));
-  for(const [file,text] of [[target,contents],[headlessTarget,headless],[sharedTarget,sharedUpstream],[ais.target,ais.text],[greynoise.target,greynoise.text]]){
+  const mcpPatch=new URL('../patches/open-osint-mcp-event-loop.patch',import.meta.url).pathname;
+  const mcpClient={target:'mcp/src/osint_mcp/client.py',text:fs.readFileSync(new URL('./fixtures/open-osint-client.py',import.meta.url),'utf8')};
+  for(const [file,text] of [[target,contents],[headlessTarget,headless],[sharedTarget,sharedUpstream],[ais.target,ais.text],[greynoise.target,greynoise.text],[mcpClient.target,mcpClient.text]]){
     fs.mkdirSync(path.dirname(path.join(root,file)),{recursive:true});
     fs.writeFileSync(path.join(root,file),text);
   }
+  const mcpApply=spawnSync('git',['apply',mcpPatch],{cwd:root,encoding:'utf8'});
+  assert.equal(mcpApply.status,0,mcpApply.stderr);
   return root;
 }
 function apply(root){
@@ -132,6 +136,16 @@ test('running again changes nothing and says nothing',()=>{
   assert.equal(second.status,0);
   assert.equal(second.out.trim(),'');
   assert.equal(second.file,first.file);
+  fs.rmSync(root,{recursive:true,force:true});
+});
+
+test('the MCP client sends the private launch token to the protected data service',()=>{
+  const root=scratch(upstream);
+  const {status}=apply(root);
+  const client=fs.readFileSync(path.join(root,'mcp/src/osint_mcp/client.py'),'utf8');
+  assert.equal(status,0);
+  assert.match(client,/os\.environ\.get\("PUBLIC_DESK_TOKEN"/);
+  assert.match(client,/headers = \{"Authorization": f"Bearer \{token\}"\}/);
   fs.rmSync(root,{recursive:true,force:true});
 });
 

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm, symlink, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { cleanupStaleUploads, trackUpload } from '../server.mjs';
+import { cleanupStaleUploads, deleteTrackedUpload, restoreFreshUploads, trackUpload, trackedUploadBytes } from '../server.mjs';
 
 const oldName = '11111111-1111-4111-8111-111111111111-old.txt';
 const freshName = '22222222-2222-4222-8222-222222222222-fresh.txt';
@@ -41,4 +41,33 @@ test('tracked uploads expire without a browser delete request', async () => {
     assert.equal(map.has('test-id'),false);
     await assert.rejects(()=>readFile(path),{code:'ENOENT'});
   } finally { await rm(root,{recursive:true,force:true}); }
+});
+
+test('fresh uploads from a prior process are restored into quota tracking', async () => {
+  const root=await mkdtemp(join(tmpdir(),'pd-upload-restore-'));const path=join(root,freshName);const map=new Map();
+  try {
+    await writeFile(path,'temporary');
+    assert.equal(await restoreFreshUploads(root,map,{now:Date.now(),maxAge:60_000}),1);
+    assert.equal(map.size,1);
+    assert.equal(trackedUploadBytes(map),9);
+  } finally {
+    for(const id of [...map.keys()])await deleteTrackedUpload(id,map);
+    await rm(root,{recursive:true,force:true});
+  }
+});
+
+test('tracks aggregate temporary-upload bytes and releases them on deletion',async()=>{
+  const root=await mkdtemp(join(tmpdir(),'pd-upload-quota-'));const map=new Map();
+  const first=join(root,oldName);const second=join(root,freshName);
+  try{
+    await writeFile(first,'1234');await writeFile(second,'123456');
+    trackUpload('first',first,map,60_000,4);
+    trackUpload('second',second,map,60_000,6);
+    assert.equal(trackedUploadBytes(map),10);
+    assert.equal(await deleteTrackedUpload('first',map),true);
+    assert.equal(trackedUploadBytes(map),6);
+  }finally{
+    for(const id of [...map.keys()])await deleteTrackedUpload(id,map);
+    await rm(root,{recursive:true,force:true});
+  }
 });

@@ -1,0 +1,69 @@
+diff --git a/mcp/src/osint_mcp/client.py b/mcp/src/osint_mcp/client.py
+index b87006d..db66d49 100644
+--- a/mcp/src/osint_mcp/client.py
++++ b/mcp/src/osint_mcp/client.py
+@@ -17,9 +17,21 @@ class HeadlessClient:
+ 
+     def __init__(self, base_url: str, timeout: float) -> None:
+         self._base_url = base_url
+-        self._client = httpx.AsyncClient(base_url=base_url, timeout=timeout)
+         self._timeout = timeout
+ 
++    async def _get(self, path: str, *, params: dict | None = None) -> httpx.Response:
++        """Issue a request on the active event loop.
++
++        FastMCP may run discovery and tool calls on different event loops. A
++        long-lived AsyncClient created during discovery remains bound to the
++        closed discovery loop, so keep each short local request loop-scoped.
++        """
++        async with httpx.AsyncClient(
++            base_url=self._base_url,
++            timeout=self._timeout,
++        ) as client:
++            return await client.get(path, params=params)
++
+     async def query_module(self, module_id: str, params: dict) -> dict:
+         """Query a single module. Returns the module's data extracted from modules.<id>."""
+         params = dict(params)  # don't mutate caller's dict
+@@ -29,7 +41,7 @@ class HeadlessClient:
+         if module_params:
+             query["params"] = json.dumps(module_params)
+         try:
+-            resp = await self._client.get("/api/headless", params=query)
++            resp = await self._get("/api/headless", params=query)
+             resp.raise_for_status()
+             data = resp.json()
+             return data.get("modules", {}).get(module_id, data)
+@@ -49,7 +61,7 @@ class HeadlessClient:
+         if module_params:
+             query["params"] = json.dumps(module_params)
+         try:
+-            resp = await self._client.get("/api/headless", params=query)
++            resp = await self._get("/api/headless", params=query)
+             resp.raise_for_status()
+             data = resp.json()
+             return data.get("modules", data)
+@@ -63,7 +75,7 @@ class HeadlessClient:
+     async def list_modules(self) -> dict:
+         """GET /api/headless?module=list — returns list of available modules."""
+         try:
+-            resp = await self._client.get("/api/headless", params={"module": "list"})
++            resp = await self._get("/api/headless", params={"module": "list"})
+             resp.raise_for_status()
+             return resp.json()
+         except httpx.ConnectError:
+@@ -76,7 +88,7 @@ class HeadlessClient:
+     async def health(self) -> dict:
+         """GET /health — returns health status."""
+         try:
+-            resp = await self._client.get("/health")
++            resp = await self._get("/health")
+             resp.raise_for_status()
+             return resp.json()
+         except httpx.ConnectError:
+@@ -87,4 +99,4 @@ class HeadlessClient:
+             return {"error": f"HTTP {exc.response.status_code}", "detail": exc.response.text}
+ 
+     async def close(self) -> None:
+-        await self._client.aclose()
++        return None
