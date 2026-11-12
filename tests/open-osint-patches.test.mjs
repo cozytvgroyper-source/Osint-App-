@@ -79,7 +79,8 @@ export async function fetchAbuseIpDbSource(limit: number): Promise<SourceResult>
 function scratch(contents,headless=headlessUpstream){
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'public-desk-osint-'));
   const ais=upstreamFromPatch(new URL('../patches/open-osint-ais-websocket.patch',import.meta.url));
-  for(const [file,text] of [[target,contents],[headlessTarget,headless],[sharedTarget,sharedUpstream],[ais.target,ais.text]]){
+  const greynoise=upstreamFromPatch(new URL('../patches/open-osint-greynoise-not-observed.patch',import.meta.url));
+  for(const [file,text] of [[target,contents],[headlessTarget,headless],[sharedTarget,sharedUpstream],[ais.target,ais.text],[greynoise.target,greynoise.text]]){
     fs.mkdirSync(path.dirname(path.join(root,file)),{recursive:true});
     fs.writeFileSync(path.join(root,file),text);
   }
@@ -205,4 +206,15 @@ test('with no saved list, a refused refresh means no AbuseIPDB data rather than 
   fs.rmSync(root,{recursive:true,force:true});
   assert.equal(run.status,0,run.stderr);
   assert.equal(run.stdout,'null');
+});
+
+test('the GreyNoise patch reads a community-API 404 as "not observed" instead of an error',()=>{
+  const root=scratch(upstream);
+  const run=apply(root);
+  assert.equal(run.status,0);
+  assert.match(run.out,/Applied open-osint-greynoise-not-observed to Open OSINT\./);
+  const patched=fs.readFileSync(path.join(root,'server/api/modules/greynoise.mjs'),'utf8');
+  assert.match(patched,/if \(resp\.ok \|\| resp\.status === 404\)/);
+  assert.match(patched,/classification: data\.classification \|\| \(resp\.status === 404 \? 'not observed' : ''\)/);
+  assert.equal(apply(root).out,'','applying again changes nothing and says nothing');
 });

@@ -208,6 +208,9 @@ another folder, naming the folder to stop. Every service port is checked by fold
 - **AbuseIPDB's free blacklist allows 5 requests a day.** A launcher-applied patch caches the full list for 6 hours
   in the data service (at most 4 requests a day) and keeps the last list when a refresh fails, retrying after an
   hour. The cache is in memory, so each data-service restart costs one request.
+- **GreyNoise "not observed" (patched):** GreyNoise's community API answers an IP it has never seen scanning with
+  HTTP 404 and a normal JSON body. Open OSINT's `get_greynoise` treated that as an error, so every IP search showed a
+  GreyNoise failure. A launcher-applied patch returns it as a result with `classification: "not observed"`.
 - **Vessel positions (patched):** Open OSINT's `ais_vessels` called `api.aisstream.io`, which does not exist. A
   launcher-applied patch rewrites it to subscribe to AISStream's WebSocket stream, listen up to 10 s (or until
   `limit` ships) and disconnect, using Node's built-in WebSocket. Coverage depends on AISStream's volunteer

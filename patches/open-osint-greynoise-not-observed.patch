@@ -1,0 +1,21 @@
+diff --git a/server/api/modules/greynoise.mjs b/server/api/modules/greynoise.mjs
+--- a/server/api/modules/greynoise.mjs
++++ b/server/api/modules/greynoise.mjs
+@@ -28,13 +28,15 @@ export async function run(_ctx, params) {
+       signal: AbortSignal.timeout(10000),
+     });
+ 
+-    if (resp.ok) {
++    // The community API answers an IP it has never seen with HTTP 404 and a normal JSON body ("IP not observed
++    // scanning the internet."): that is a result, not an error.
++    if (resp.ok || resp.status === 404) {
+       const data = await resp.json();
+       return {
+         ip: query,
+         noise: data.noise ?? null,
+         riot: data.riot ?? null,
+-        classification: data.classification || '',
++        classification: data.classification || (resp.status === 404 ? 'not observed' : ''),
+         name: data.name || '',
+         link: data.link || '',
+         lastSeen: data.last_seen || '',
