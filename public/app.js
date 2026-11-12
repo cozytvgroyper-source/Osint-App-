@@ -2,6 +2,7 @@ import {explainSearchPlan,summarizePlanDiagnostics} from './search-planner.js';
 import {classifyToolResult,hasUsefulData,parseToolResult} from './result-classifier.js';
 import {buildSearchReport,reportHasFindings} from './search-report.js?v=2';
 import {recordToolHealth,serverConnectionLabel,toolCountLabel} from './tool-health.js';
+import {activeCaseId,defaultCaseName,newestFirst,shortFingerprint} from './cases-client.js';
 import {argsForSearch,extractTarget,searchIntent} from './search-query.js';
 import {loadStoredState,mergeStoredServers,persistStoredState} from './browser-storage.js';
 import {groupToolsByTier,runRequirements,toolRisk,toolUsage} from './tool-tiers.js';
@@ -33,7 +34,10 @@ const state = {
   pendingFile: null,
   tierFilter: 'all',
   deepPlan: [],
-  deepController: null
+  deepController: null,
+  cases: [],
+  activeCaseId: localStorage.getItem('signaldesk.activeCase'),
+  activeCase: null
 };
 const clientSessionId=sessionStorage.getItem('signaldesk.clientSessionId')||crypto.randomUUID();
 sessionStorage.setItem('signaldesk.clientSessionId',clientSessionId);
@@ -93,6 +97,12 @@ async function loadIntelNews(force=false){
   }catch(error){intelNews.error=`Could not load IntelMap news: ${error.message}`;}finally{intelNews.loading=false;renderIntelNews();}
 }
 
+async function apiGet(path) {
+  const response = await fetch(path);
+  const data = await response.json();
+  if(!response.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
 async function api(path, payload, options={}) {
   const response = await fetch(path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload),signal:options.signal});
   const data = await response.json();
@@ -206,7 +216,53 @@ function renderTools(){
   }).join('')}</div></section>`).join(''):'<div class="empty-state">No tools to show yet.</div>';
 }
 function renderEvidence(){
-  $('#evidenceList').innerHTML=state.evidence.length?state.evidence.map((item,index)=>`<article class="evidence-card"><div><p class="eyebrow">${new Date(item.time).toLocaleString()}</p><h3>${escapeHtml(item.title)}</h3><pre>${escapeHtml(JSON.stringify(item.result,null,2))}</pre></div><button class="icon-button" data-delete-evidence="${index}" title="Remove">×</button></article>`).join(''):'<div class="empty-state">Save a tool result to build a traceable case file.</div>';
+  const options=state.cases.map(item=>`<option value="${escapeHtml(item.id)}"${item.id===state.activeCaseId?' selected':''}${item.damaged?' disabled':''}>${escapeHtml(item.name)}${item.damaged?'':` (${item.evidenceCount})`}</option>`).join('');
+  $('#caseSelect').innerHTML=state.cases.length?`<option value="">Choose a case…</option>${options}`:'<option value="">No cases yet</option>';
+  $('#caseSelect').value=state.activeCaseId||'';
+  $('#renameCase').disabled=$('#deleteCase').disabled=$('#exportEvidence').disabled=!state.activeCase;
+  const legacy=state.evidence.length;
+  $('#caseImport').hidden=!legacy;
+  $('#caseImport').innerHTML=legacy?`<p>${legacy} finding${legacy===1?' is':'s are'} saved only in this browser. Import ${legacy===1?'it':'them'} into a case on this Mac so ${legacy===1?'it survives':'they survive'} a browser change.</p><button class="primary" id="importBrowserEvidence">Import into a new case</button>`:'';
+  const current=state.activeCase;
+  $('#caseSummary').textContent=current?`${current.evidence.length} finding${current.evidence.length===1?'':'s'} · ${current.searches.length} search${current.searches.length===1?'':'es'} logged · created ${new Date(current.createdAt).toLocaleDateString()}`:'';
+  $('#evidenceList').innerHTML=!current?'<div class="empty-state">Create or choose a case to save findings. Results you save while a case is open go into it.</div>':current.evidence.length?newestFirst(current.evidence).map(item=>`<article class="evidence-card"><div><p class="eyebrow">${new Date(item.time).toLocaleString()}${item.server?` · ${escapeHtml(item.server)}`:''}</p><h3>${escapeHtml(item.title)}</h3><p class="subtle" title="SHA-256 of the saved result">Fingerprint ${escapeHtml(shortFingerprint(item.sha256))}</p><pre>${escapeHtml(JSON.stringify(item.result,null,2))}</pre></div><button class="icon-button" data-delete-evidence="${escapeHtml(item.id)}" title="Remove">×</button></article>`).join(''):'<div class="empty-state">This case has no findings yet. Open a result and choose Save to evidence.</div>';
+}
+async function loadCases(){
+  try{
+    state.cases=(await apiGet('/api/cases')).cases;
+    state.activeCaseId=activeCaseId(state.cases,state.activeCaseId);
+    state.activeCase=state.activeCaseId?await apiGet(`/api/cases/${state.activeCaseId}`):null;
+  }catch(error){toast(`Could not load cases: ${error.message}`);}
+  if(state.activeCaseId)localStorage.setItem('signaldesk.activeCase',state.activeCaseId);else localStorage.removeItem('signaldesk.activeCase');
+  renderEvidence();
+}
+async function selectCase(id){state.activeCaseId=id||null;await loadCases();}
+async function createCase(suggested){
+  const name=prompt('Name for the new case',suggested||defaultCaseName(''));
+  if(name===null||!name.trim())return null;
+  const created=await api('/api/cases',{name});
+  await selectCase(created.id);
+  return created;
+}
+function recordHistory(entry){
+  state.history.unshift(entry);
+  if(state.activeCaseId)api(`/api/cases/${state.activeCaseId}/searches`,{title:entry.title,time:entry.time,server:entry.server}).then(()=>loadCases()).catch(()=>{});
+}
+async function saveLastResultToCase(){
+  if(!state.lastResult)return;
+  if(!state.activeCase&&!(await createCase(defaultCaseName(state.lastResult.title))))return;
+  await api(`/api/cases/${state.activeCaseId}/evidence`,state.lastResult);
+  await loadCases();
+  toast(`Saved to ${state.activeCase?.name||'the case'}`);$('#resultDialog').close();
+}
+async function importBrowserEvidence(){
+  const items=[...state.evidence];
+  if(!items.length)return;
+  const created=await api('/api/cases',{name:`Imported from browser — ${new Date().toISOString().slice(0,10)}`});
+  for(const item of [...items].reverse())await api(`/api/cases/${created.id}/evidence`,item);
+  state.evidence=[];persist();
+  await selectCase(created.id);
+  toast(`Imported ${items.length} finding${items.length===1?'':'s'} into a case on this Mac`);
 }
 // Keep each part ("116 tools", "98 working") on one line so narrow cards wrap only between parts.
 function toolCountHtml(server){return escapeHtml(toolCountLabel(server,state.toolHealth).replace(/(?<!·) (?!·)/g,'\u00a0'));}
@@ -256,7 +312,7 @@ async function runTool(tool,serverId,args,title=tool.name,grant=null){
   noteToolHealth(serverId,tool.name,response.error?'error':classifyToolResult(response.result).kind);
   if(response.error){renderAll();throw new Error(response.error.message||'Tool call failed');}
   const result=response.result; state.lastResult={title,result,time:new Date().toISOString(),server:server.name};
-  state.history.unshift({title,time:state.lastResult.time,server:server.name}); renderAll(); showResult(title,result); return result;
+  recordHistory({title,time:state.lastResult.time,server:server.name}); renderAll(); showResult(title,result); return result;
 }
 
 async function callTool(tool,serverId,args,grant=null,options={}){
@@ -385,12 +441,12 @@ async function analyzeSelectedFile(file,note=''){
       'Technical Metadata':{eyebrow:`${tool.serverName} · ExifTool`,description:'Embedded metadata, media properties, timestamps, software, camera, codec, and location fields reported by ExifTool.',data:metadata}
     };
     const result={content:[{type:'text',text:JSON.stringify({description:`Local ${kind.toLowerCase()} analysis for “${file.name}”`,data:{query:note||file.name,modulesQueried:1,modulesWithResults:hasUsefulData(metadata)?1:0,report,errors:[]}})}]};
-    const time=new Date().toISOString();state.lastResult={title:file.name,result,time,server:tool.serverName};state.history.unshift({title:file.name,time,server:`${tool.serverName} · Local file`});renderAll();showResult(file.name,result);clearSelectedFile();
+    const time=new Date().toISOString();state.lastResult={title:file.name,result,time,server:tool.serverName};recordHistory({title:file.name,time,server:`${tool.serverName} · Local file`});renderAll();showResult(file.name,result);clearSelectedFile();
   }finally{await api('/api/upload/delete',{id:upload.id}).catch(()=>{});}
 }
 
 async function smartInvestigate(query){
-  const tools=allTools(); if(!tools.length){state.history.unshift({title:query,time:new Date().toISOString(),server:'Demo workspace'});renderAll();showResult(query,{message:'Connect Open OSINT to run this investigation with live sources.',suggested_next_step:'Open MCP servers and connect http://127.0.0.1:8892/mcp'});return;}
+  const tools=allTools(); if(!tools.length){recordHistory({title:query,time:new Date().toISOString(),server:'Demo workspace'});renderAll();showResult(query,{message:'Connect Open OSINT to run this investigation with live sources.',suggested_next_step:'Open MCP servers and connect http://127.0.0.1:8892/mcp'});return;}
   const intent=searchIntent(query);
   const explained=explainSearchPlan({query,intentId:intent.id,preferredNames:intent.tools,tools,maxTools:6});
   const plan=explained.selected.map(({tool,score,reason})=>({tool,score,reason}));
@@ -423,7 +479,7 @@ async function smartInvestigate(query){
   }));
   const final=show();
   if(!final)return;
-  state.history.unshift({title:query,time:state.lastResult.time,server:state.lastResult.server,sourceLog:final.sourceLog}); renderAll();
+  recordHistory({title:query,time:state.lastResult.time,server:state.lastResult.server,sourceLog:final.sourceLog}); renderAll();
 }
 
 function renderDeepPlan(){
@@ -475,7 +531,8 @@ document.addEventListener('click',async event=>{
   const disconnectButton=event.target.closest('[data-disconnect]'); if(disconnectButton){const server=state.servers.find(s=>s.id===disconnectButton.dataset.disconnect);if(server)disconnect(server);}
   const remove=event.target.closest('[data-remove]'); if(remove){const server=state.servers.find(s=>s.id===remove.dataset.remove);if(server&&bundledServers.some(item=>item.endpoint===server.endpoint))removedBundledEndpoints.add(server.endpoint);state.servers=state.servers.filter(s=>s.id!==remove.dataset.remove);renderAll();}
   const run=event.target.closest('[data-run]'); if(run){const [serverId,name]=run.dataset.run.split('::');const tool=allTools().find(t=>t.serverId===serverId&&t.name===name);if(tool)openTool(tool,serverId);}
-  const del=event.target.closest('[data-delete-evidence]');if(del&&confirm('Remove this saved evidence item?')){state.evidence.splice(Number(del.dataset.deleteEvidence),1);renderAll();}
+  const del=event.target.closest('[data-delete-evidence]');if(del&&state.activeCaseId&&confirm('Remove this finding from the case? This cannot be undone.')){api(`/api/cases/${state.activeCaseId}/evidence/${del.dataset.deleteEvidence}/delete`,{}).then(loadCases).catch(error=>toast(error.message));}
+  if(event.target.closest('#importBrowserEvidence'))importBrowserEvidence().catch(error=>toast(`Import stopped: ${error.message}. Your browser copy was kept.`));
   const tierChip=event.target.closest('[data-tier-filter]');if(tierChip){state.tierFilter=tierChip.dataset.tierFilter;renderTools();}
   const moreNews=event.target.closest('[data-load-more-news]');if(moreNews){intelNews.visibleLimit+=30;renderIntelNews();}
   const sourceEdit=event.target.closest('[data-source-edit]');if(sourceEdit){const source=dataSources.list.find(s=>s.id===sourceEdit.dataset.sourceEdit);if(source)openKeyDialog(source);}
@@ -499,13 +556,17 @@ $('#runDeepSearch').onclick=runDeepSearch;
 $('#cancelDeepRun').onclick=()=>state.deepController?.abort();
 $$('[data-close-result]').forEach(b=>b.onclick=()=>$('#resultDialog').close());
 $$('[data-close-dialog]').forEach(button=>button.onclick=()=>button.closest('dialog')?.close());
-$('#saveEvidence').onclick=()=>{if(state.lastResult){state.evidence.unshift(state.lastResult);renderAll();toast('Saved to evidence');$('#resultDialog').close();}};
+$('#saveEvidence').onclick=()=>saveLastResultToCase().catch(error=>toast(`Could not save: ${error.message}`));
+$('#caseSelect').onchange=event=>selectCase(event.target.value);
+$('#newCase').onclick=()=>createCase().catch(error=>toast(error.message));
+$('#renameCase').onclick=async()=>{if(!state.activeCase)return;const name=prompt('New name for this case',state.activeCase.name);if(name&&name.trim())await api(`/api/cases/${state.activeCaseId}/rename`,{name}).then(loadCases).catch(error=>toast(error.message));};
+$('#deleteCase').onclick=async()=>{const c=state.activeCase;if(!c||!confirm(`Delete the case "${c.name}" and its ${c.evidence.length} finding${c.evidence.length===1?'':'s'} from this Mac? This cannot be undone.`))return;await api(`/api/cases/${c.id}/delete`,{}).catch(error=>toast(error.message));state.activeCaseId=null;await loadCases();};
 $('#clearHistory').onclick=()=>{if(confirm('Clear all investigation history?')){state.history=[];renderAll();}};
 $('#toolFilter').oninput=renderTools;
 $('#intelNewsFilter').oninput=()=>{intelNews.visibleLimit=30;renderIntelNews();};
 $('#intelNewsCategory').onchange=()=>{intelNews.visibleLimit=30;renderIntelNews();};
 $('#refreshIntelNews').onclick=()=>loadIntelNews(true);
-$('#exportEvidence').onclick=()=>{const blob=new Blob([JSON.stringify(state.evidence,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`public-desk-evidence-${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href);};
+$('#exportEvidence').onclick=()=>{const c=state.activeCase;if(!c)return;const blob=new Blob([JSON.stringify(c,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`public-desk-case-${c.name.replace(/[^a-z0-9]+/gi,'-').replace(/^-|-$/g,'').toLowerCase()||c.id}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);};
 $('#themeToggle').onclick=()=>{const next=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=next;localStorage.setItem('signaldesk.theme',next);};
 document.documentElement.dataset.theme=localStorage.getItem('signaldesk.theme')||'light';
 if(new URLSearchParams(location.search).get('consensus')==='connected'){
@@ -523,4 +584,5 @@ $('#saveKey').addEventListener('click',async e=>{
 $('#keyDialog').addEventListener('close',()=>{$('#keyFields').innerHTML='';dataSources.editing=null;});
 renderAll();
 loadDataSources();
+loadCases();
 setTimeout(()=>state.servers.filter(server=>!server.disconnected).forEach(server=>connect(server)),100);
