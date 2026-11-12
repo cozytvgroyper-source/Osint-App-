@@ -1,7 +1,7 @@
 // Decides whether an MCP tool response is a real finding, an empty answer, or an error, so the
 // main search never counts a failed or content-free source as a result category.
 
-const METADATA_KEYS=/^(query|source|note|feedCount|filtered|totalBeforeFilter|jurisdiction|total|count|status|success|ok|target|timestamp|generatedAt|fetchedAt|durationMs)$/i;
+export const METADATA_KEYS=/^(query|source|note|feedCount|filtered|totalBeforeFilter|jurisdiction|total|count|status|success|ok|target|timestamp|generatedAt|fetchedAt|durationMs)$/i;
 const FAILURE_STATUS=/^(error|errored|fail|failed|failure)$/i;
 const ERROR_TEXT=/^(?:error\b|exception\b|traceback\b|failed\b|unable to\b|could not\b|no module named\b|unknown tool\b|http \d{3}\b|\d{3} (?:client|server) error\b)/i;
 const EMPTY_TEXT=/^(?:ok|completed|done|none|null|n\/a|\[\]|\{\})$/i;

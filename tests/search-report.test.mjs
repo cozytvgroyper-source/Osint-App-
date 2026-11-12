@@ -111,3 +111,27 @@ test('sources, diagnostics, related links and the still-running list do not coun
   assert.equal(reportHasFindings({ 'Still Running': {} }), false);
   assert.equal(reportHasFindings({ 'Registration Data': {}, 'Related Links': {} }), true);
 });
+
+test('adds a ranking and leaves every existing field as it was',()=>{
+  const outcomes=[done(0,'data',{data:{records:[{name:'other'}]}}),done(1,'data',{data:{records:[{name:'8.8.8.8 route'}]}}),done(2,'empty')];
+  const before=parse(buildSearchReport({...base,outcomes}));
+  const after=parse(buildSearchReport({...base,outcomes,subject:'8.8.8.8',preferredNames:['get_bgp']}));
+  const {ranking,...rest}=after.data;
+  assert.deepEqual(rest,(({ranking,...r})=>r)(before.data));
+  assert.deepEqual(ranking.sections.map(s=>s.toolName),['get_bgp','get_whois']);
+  assert.equal(ranking.topResults[0].server,'Open OSINT');
+});
+test('sections reorder as later answers arrive',()=>{
+  const first=parse(buildSearchReport({...base,subject:'8.8.8.8',outcomes:[done(0,'data',{data:{records:[{name:'8.8 x'}]}})]}));
+  assert.deepEqual(first.data.ranking.sections.map(s=>s.toolName),['get_whois']);
+  const later=parse(buildSearchReport({...base,subject:'8.8.8.8',outcomes:[done(0,'data',{data:{records:[{name:'8.8 x'}]}}),done(1,'data',{data:{records:[{name:'8.8.8.8'}]}})]}));
+  assert.deepEqual(later.data.ranking.sections.map(s=>s.toolName),['get_bgp','get_whois']);
+});
+test('passes target to the ranking',()=>{
+  const outcomes=[done(0,'data',{data:{records:[{name:'unrelated'}]}}),done(1,'data',{data:{peers:[{name:'8.8.4.4 resolver'}]}}),done(2,'empty')];
+  const ranked=target=>parse(buildSearchReport({...base,outcomes,subject:'8.8.8.8',preferredNames:['get_whois'],target})).data.ranking;
+  const on=ranked(true);
+  assert.deepEqual(on.sections.find(s=>s.toolName==='get_whois').matching,[{name:'unrelated'}]);
+  assert.deepEqual(on.sections.find(s=>s.toolName==='get_bgp').matching,[]);
+  assert.deepEqual(ranked(undefined).sections.find(s=>s.toolName==='get_bgp').matching,[{name:'8.8.4.4 resolver'}]);
+});

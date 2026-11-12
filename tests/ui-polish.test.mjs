@@ -27,3 +27,24 @@ test('the main search box has an accessible name',()=>{
 test('the ⌘K button is named for what it does: it focuses the search box',()=>{
   assert.match(html,/<button class="ghost" id="cmdButton"><kbd>⌘<\/kbd><kbd>K<\/kbd> Search<\/button>/);
 });
+
+test('the main search passes its subject and preferred tools to the report',()=>{
+  assert.match(app,/subject:searchSubjectFor\(query\)/);
+  assert.match(app,/preferredNames:intent\.tools/);
+  assert.match(app,/target:!!extractTarget\(query\)/);
+});
+test('ranked reports use the results-only view; older saved reports keep the old layout',()=>{
+  assert.match(app,/payload\?\.ranking&&payload\?\.report\)return renderRankedReport\(/);
+});
+test('the ranked view gets the same record body renderCategory shows',()=>{
+  assert.match(app,/function renderBody\(data\)/);
+  assert.match(app,/renderRankedReport\(payload,\{[^}]*renderBody[^}]*\}\)/);
+  assert.match(app,/\$\{renderBody\(data\)\}<\/section>/);
+});
+test('a live redraw keeps open details open',()=>{
+  assert.match(app,/details\[data-details-key\]\[open\]:not\(\[data-default-open\]\)/);
+});
+test('changed and new modules are imported with a version',()=>{
+  assert.match(app,/search-report\.js\?v=4/);
+  assert.match(app,/search-results-view\.js\?v=2/);
+});

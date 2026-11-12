@@ -3,6 +3,7 @@
 // otherwise a Promise.allSettled-style entry whose value is {tool, outcome: classifyToolResult(...)}.
 
 import {toolRisk} from './tool-tiers.js';
+import {rankResults} from './search-ranking.js';
 import {consolidateIndicatorLists, extractIndicatorLists} from './search-dedup.js';
 
 const NOT_FINDINGS = new Set(['Sources', 'Related Links', 'Still Running', 'Planner Diagnostics']);
@@ -12,8 +13,8 @@ export function reportHasFindings(report) {
   return Object.keys(report || {}).some(key => !NOT_FINDINGS.has(key));
 }
 
-export function buildSearchReport({query, intent, plan, outcomes, diagnostics = null, links = [], categoryForTool, sourceLabel, elapsedMs = 0}) {
-  const report = {}; const errors = []; const servers = new Set(); const pending = []; const dataResults = [];
+export function buildSearchReport({query, intent, plan, outcomes, diagnostics = null, links = [], categoryForTool, sourceLabel, elapsedMs = 0, subject = '', preferredNames = intent?.tools || [], target = false}) {
+  const report = {}; const rankEntries = []; const errors = []; const servers = new Set(); const pending = []; const dataResults = [];
   if (!plan.length) errors.push({source: 'Relevant MCP server', error: 'No connected server currently provides the tools needed for this search category. Connect the matching server and try again.'});
 
   plan.forEach(({tool}, index) => {
@@ -45,6 +46,7 @@ export function buildSearchReport({query, intent, plan, outcomes, diagnostics = 
     const category = categoryForTool(tool); let key = category;
     if (report[key]) key = `${category} — ${sourceLabel(tool.name)}`;
     report[key] = {eyebrow: `${tool.serverName} · ${sourceLabel(tool.name)}`, description: tool.description || `Results from ${tool.serverName}`, data};
+    rankEntries.push({tool, toolLabel: sourceLabel(tool.name), data});
   }
 
   const sourceLog = plan.map(({tool, reason, args = {}, startedAt = null}, index) => {
@@ -89,6 +91,6 @@ export function buildSearchReport({query, intent, plan, outcomes, diagnostics = 
   const findingCount = dataResults.length;
   const answered = plan.length - pending.length;
   const description = finished ? `${intent.label} for “${query}”` : `${intent.label} for “${query}” — ${answered} of ${plan.length} sources answered`;
-  const payload = {description, data: {query, modulesQueried: plan.length, modulesWithResults: findingCount, durationMs: finished ? elapsedMs : 0, report, errors}};
+  const payload = {description, data: {query, modulesQueried: plan.length, modulesWithResults: findingCount, durationMs: finished ? elapsedMs : 0, report, errors, ranking: rankResults({subject, preferredNames, entries: rankEntries, target})}};
   return {result: {content: [{type: 'text', text: JSON.stringify(payload)}]}, finished, servers, findingCount, sourceLog};
 }
