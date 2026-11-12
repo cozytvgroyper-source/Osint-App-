@@ -121,6 +121,8 @@ From top to bottom:
 | `public/app.js` | New results layout, Search details, keeping `<details>` open across redraws, falling back to the old layout when `ranking` is missing |
 | `public/results.css` | Top results card tag, "Show more" summary, Search details styles |
 
+`app.js` imports modules with a version query (`search-report.js?v=2`), so browsers don't keep running cached copies. Bump the version on every changed import and add one to the new module's import.
+
 ## Testing
 
 - **`tests/search-ranking.test.mjs` (new):**
