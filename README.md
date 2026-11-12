@@ -84,3 +84,15 @@ nothing exists. `omega_monitor` is not implemented in omega-cli and always fails
 - The Consensus sign-in is remembered across restarts: after you sign in, its refresh token and app
   registration are saved to `work/consensus-auth.json` (git-ignored, readable only by your user). Access tokens
   stay in memory. Delete that file to sign out; it is also removed automatically if Consensus rejects it.
+
+## License
+
+Copyright (C) 2026 cozytvgroyper-source.
+
+Public Desk is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General
+Public License, version 3 only (`AGPL-3.0-only`), as published by the Free Software Foundation. It is distributed
+without any warranty. See [LICENSE](LICENSE) for the full text.
+
+The files in `patches/` modify Open OSINT (World Monitor), which is also licensed under `AGPL-3.0-only`. Omega, the
+OSINT Toolbox and the other tools Public Desk connects to are downloaded at launch, not included here, and keep their
+own licenses.
