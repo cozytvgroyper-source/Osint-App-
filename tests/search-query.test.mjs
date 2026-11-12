@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {argsForSearch,extractTarget,searchIntent} from '../public/search-query.js';
+import {argsForSearch,extractTarget,searchIntent,searchSubjectFor} from '../public/search-query.js';
 import {isPassiveSearchTool,planSearchTools} from '../public/search-planner.js';
 
 // Real tool definitions captured from the bundled Open OSINT, OSINT Toolbox and Omega servers.
@@ -152,4 +152,12 @@ test('sends the coordinates, not the search words, as the map area',()=>{
 test('other tools in the same search do not filter on the coordinates',()=>{
   assert.equal(argsForSearch(byName('get_chokepoints'),'vessels 24,54,26,56').search,'vessels');
   assert.equal(argsForSearch(byName('get_maritime_news'),'Hormuz vessels 24,54,26,56').search,'Hormuz');
+});
+
+test('the ranking subject is the target, or the phrase without its topic and framing words',()=>{
+  assert.equal(searchSubjectFor('OFAC sanctions on Rosneft'),'Rosneft');
+  assert.equal(searchSubjectFor('recent earthquakes in Chile'),'Chile');
+  assert.equal(searchSubjectFor('example.com whois'),'example.com');
+  assert.equal(searchSubjectFor('8.8.8.8 abuse reports'),'8.8.8.8');
+  assert.equal(searchSubjectFor('sanctions'),'sanctions');
 });

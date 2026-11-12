@@ -150,14 +150,25 @@ function supportedFormat(schema,preferred='json'){
   return allowed[0];
 }
 
+function cleanQuery(query){
+  const clean=query.replace(/^(?:https?:\/\/)/i,'').replace(/^@/,'').replace(/\/$/,'').trim()
+    .replace(/^(?:location|city|country|organization|company|business|domain|website|username|handle|news|current events?|academic|research)\s*(?::|-)?\s+/i,'');
+  return clean.replace(/^(?:recent|latest|current|today'?s?)\s+/i,'').replace(/\s+(?:news|developments|updates)$/i,'').trim();
+}
+
+// The subject a search is ranked on: the target when there is one, else the cleaned phrase without its
+// topic and framing words. Coordinates are for map-area tools only; as another tool's text filter they
+// would match nothing.
+export function searchSubjectFor(query){
+  const target=extractTarget(query);
+  if(target)return target.value;
+  return searchSubject(cleanQuery(query).replace(MAP_AREA,' ').replace(/\s+/g,' ').trim(),searchIntent(query).id);
+}
+
 export function argsForSearch(tool,query){
   const props=tool.inputSchema?.properties||{}; const required=tool.inputSchema?.required||[]; const args={};
-  let clean=query.replace(/^(?:https?:\/\/)/i,'').replace(/^@/,'').replace(/\/$/,'').trim();
-  clean=clean.replace(/^(?:location|city|country|organization|company|business|domain|website|username|handle|news|current events?|academic|research)\s*(?::|-)?\s+/i,'');
-  clean=clean.replace(/^(?:recent|latest|current|today'?s?)\s+/i,'').replace(/\s+(?:news|developments|updates)$/i,'').trim();
   const target=extractTarget(query);
-  // Coordinates are for map-area tools only; as another tool's text filter they would match nothing.
-  if(!target)clean=searchSubject(clean.replace(MAP_AREA,' ').replace(/\s+/g,' ').trim(),searchIntent(query).id);
+  const clean=target?cleanQuery(query):searchSubjectFor(query);
   const countryQuery=target?target.value:['get_country_facts','get_travel_advisories'].includes(tool.name)&&clean.includes(',')?clean.split(',').at(-1).trim():clean;
   const queryKey=['query','target','keyword','username','email','number','identifier','domain','search','q'].find(key=>props[key]);
   const mapArea=required.includes('bbox')?extractMapArea(query):null;
