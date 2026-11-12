@@ -10,33 +10,47 @@ const field = (env, label = 'API key') => ({ env, label });
 
 export const DATA_SOURCES = Object.freeze([
   { id: 'otx', name: 'AlienVault OTX', fields: [field('OTX_API_KEY')], feeds: ['get_cyber_threats'],
-    signup: 'https://otx.alienvault.com', note: 'Threat indicators. Rated medium, so short cyber result lists show C2Intel first.' },
+    signup: 'https://otx.alienvault.com', note: 'Threat indicators. Rated medium, so short cyber result lists show C2Intel first.',
+    improves: 'Cyber threat searches: adds AlienVault OTX indicators to the threat feed.', example: 'Find recent cyber threats affecting healthcare', recommended: true },
   { id: 'abuseipdb', name: 'AbuseIPDB', fields: [field('ABUSEIPDB_API_KEY')], feeds: ['get_cyber_threats'],
-    signup: 'https://www.abuseipdb.com/account/api', note: 'The free plan allows 5 blacklist requests a day, and each cyber search uses one.' },
+    signup: 'https://www.abuseipdb.com/account/api', note: 'The free plan allows 5 blacklist requests a day, and each cyber search uses one.',
+    improves: "Cyber threat searches: adds AbuseIPDB's most-reported IPs to the threat feed.", example: 'Find recent cyber threats affecting healthcare', recommended: true },
   { id: 'intelx', name: 'Intelligence X', fields: [field('INTELX_API_KEY')], feeds: ['get_intelx'],
-    signup: 'https://intelx.io/account?tab=developer', note: 'Free keys work: Public Desk sends them to free.intelx.io.' },
+    signup: 'https://intelx.io/account?tab=developer', note: 'Free keys work: Public Desk sends them to free.intelx.io.',
+    improves: 'Leak and breach lookups run from Tool Library or Deep Search (get_intelx); the automatic search rarely picks it.', example: '', recommended: false },
   { id: 'aisstream', name: 'AISStream', fields: [field('AISSTREAM_API_KEY')], feeds: ['get_ais_vessels'],
-    signup: 'https://aisstream.io/apikeys', note: 'Live ship positions. Needs map coordinates in the search; coverage is thin in some regions, such as the Persian Gulf.' },
+    signup: 'https://aisstream.io/apikeys', note: 'Live ship positions. Needs map coordinates in the search; coverage is thin in some regions, such as the Persian Gulf.',
+    improves: 'Ship positions (get_ais_vessels) when a search includes map coordinates; run it from Tool Library otherwise.', example: '', recommended: false },
   { id: 'urlhaus', name: 'abuse.ch', fields: [field('URLHAUS_AUTH_KEY', 'Auth-Key')], feeds: ['get_malwarebazaar', 'get_threatfox', 'get_cyber_threats'],
-    signup: 'https://auth.abuse.ch', note: 'One free key covers MalwareBazaar (file hashes), ThreatFox (indicators) and URLhaus (malicious URLs).' },
+    signup: 'https://auth.abuse.ch', note: 'One free key covers MalwareBazaar (file hashes), ThreatFox (indicators) and URLhaus (malicious URLs).',
+    improves: 'File-hash and malware searches: MalwareBazaar and ThreatFox answer only with this key.', example: '44d88612fea8a8f36de82e1278abb02f', recommended: true },
   { id: 'greynoise', name: 'GreyNoise', fields: [field('GREYNOISE_API_KEY')], feeds: ['get_greynoise'],
-    signup: 'https://www.greynoise.io', note: 'Community tier: IP noise and scanner data.' },
+    signup: 'https://www.greynoise.io', note: 'Community tier: IP noise and scanner data.',
+    improves: 'IP searches: GreyNoise noise and scanner status, beyond the keyless community lookup.', example: '8.8.8.8', recommended: true },
   { id: 'acled', name: 'ACLED', fields: [field('ACLED_ACCESS_TOKEN', 'Access token'), field('ACLED_EMAIL', 'Account email')],
-    feeds: ['get_acled_conflicts'], signup: 'https://acleddata.com', note: 'Conflict events. Free for non-commercial use.' },
+    feeds: ['get_acled_conflicts'], signup: 'https://acleddata.com', note: 'Conflict events. Free for non-commercial use.',
+    improves: 'Conflict searches: recorded armed-conflict and protest events.', example: 'armed conflict in Sudan', recommended: false },
   { id: 'faa', name: 'FAA NOTAM', fields: [field('FAA_NOTAM_API_KEY')], feeds: ['get_notams'],
-    signup: 'https://api.faa.gov', note: 'Free after the FAA approves your account.' },
+    signup: 'https://api.faa.gov', note: 'Free after the FAA approves your account.',
+    improves: 'Aviation searches: FAA NOTAMs (airspace notices).', example: 'NOTAMs for JFK airport', recommended: false },
   { id: 'fmp', name: 'Financial Modeling Prep', fields: [field('FMP_API_KEY')], feeds: ['get_fmp_quote', 'get_fmp_profile', 'get_fmp_ratios', 'get_fmp_estimates'],
-    signup: 'https://financialmodelingprep.com', note: 'Stock quotes and profiles. Small free daily quota.' },
+    signup: 'https://financialmodelingprep.com', note: 'Stock quotes and profiles. Small free daily quota.',
+    improves: 'Stock and company searches: quotes, profiles, ratios and estimates.', example: 'AAPL stock quote', recommended: false },
   { id: 'fred', name: 'FRED', fields: [field('FRED_API_KEY')], feeds: ['get_fred_series'],
-    signup: 'https://fred.stlouisfed.org/docs/api/api_key.html', note: 'US economic series.' },
+    signup: 'https://fred.stlouisfed.org/docs/api/api_key.html', note: 'US economic series.',
+    improves: 'Economic searches: US economic series from the St. Louis Fed.', example: 'US unemployment rate economic series', recommended: false },
   { id: 'eia', name: 'US EIA', fields: [field('EIA_API_KEY')], feeds: [],
-    signup: 'https://www.eia.gov/opendata/', note: 'Energy prices for Open OSINT\'s internal feeds; no search tool uses it directly.' },
+    signup: 'https://www.eia.gov/opendata/', note: 'Energy prices for Open OSINT\'s internal feeds; no search tool uses it directly.',
+    improves: "Open OSINT's internal energy feeds only; no search shows it directly.", example: '', recommended: false },
   { id: 'finnhub', name: 'Finnhub', fields: [field('FINNHUB_API_KEY')], feeds: [],
-    signup: 'https://finnhub.io', note: 'Market quotes for Open OSINT\'s internal feeds; no search tool uses it directly.' },
+    signup: 'https://finnhub.io', note: 'Market quotes for Open OSINT\'s internal feeds; no search tool uses it directly.',
+    improves: "Open OSINT's internal market feeds only; no search shows it directly.", example: '', recommended: false },
   { id: 'firms', name: 'NASA FIRMS', fields: [field('NASA_FIRMS_API_KEY', 'Map key')], feeds: [],
-    signup: 'https://firms.modaps.eosdis.nasa.gov/api/', note: 'Fire detections. Open OSINT does not offer its wildfire tool yet.' },
+    signup: 'https://firms.modaps.eosdis.nasa.gov/api/', note: 'Fire detections. Open OSINT does not offer its wildfire tool yet.',
+    improves: 'Nothing yet: Open OSINT does not offer its wildfire tool.', example: '', recommended: false },
   { id: 'opencorporates', name: 'OpenCorporates', fields: [field('OPENCORPORATES_API_KEY')], feeds: ['get_opencorporates'],
-    signup: 'https://opencorporates.com', note: 'Company registers. Generally paid.' },
+    signup: 'https://opencorporates.com', note: 'Company registers. Generally paid.',
+    improves: 'Company and filing searches: official company register records.', example: 'Acme Corp company filing', recommended: false },
 ]);
 
 // Settings that are not keys but are read from the same file (a paid Intelligence X key sets its server).
@@ -78,7 +92,7 @@ export function sourceStatuses({ values, disabled }) {
     const configured = saved.length === source.fields.length;
     const status = !configured ? 'not_configured' : disabled.has(source.id) ? 'disconnected' : 'connected';
     return { id: source.id, name: source.name, feeds: source.feeds, signup: source.signup, note: source.note,
-      fields: source.fields, saved, status };
+      improves: source.improves, example: source.example, recommended: source.recommended, fields: source.fields, saved, status };
   });
 }
 

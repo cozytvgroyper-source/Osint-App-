@@ -181,7 +181,7 @@ function renderDataSources(){
     const actions=s.status==='not_configured'
       ?`<a class="ghost" href="${escapeHtml(s.signup)}" target="_blank" rel="noopener noreferrer">Get a key ↗</a><button class="primary" data-source-edit="${id}">Connect</button>`
       :`<button class="ghost" data-source-remove="${id}">Remove</button><button class="ghost" data-source-edit="${id}">Change key</button>${s.status==='connected'?`<button class="primary" data-source-disconnect="${id}">Disconnect</button>`:`<button class="primary" data-source-connect="${id}">Connect</button>`}`;
-    return `<article class="server-card source-card"><div class="server-card-top"><span class="badge">API KEY</span><span class="server-dot ${dot}"></span></div><h3>${escapeHtml(s.name)}</h3><p class="endpoint">${escapeHtml(feeds)}</p><p class="subtle">${SOURCE_STATUS[s.status]||''}</p><p class="form-note">${escapeHtml(s.note)}</p><div class="server-actions">${actions}</div></article>`;
+    return `<article class="server-card source-card"><div class="server-card-top"><span class="badge">API KEY</span><span class="server-dot ${dot}"></span></div><h3>${escapeHtml(s.name)}${s.recommended?' <span class="badge recommended-badge">Recommended</span>':''}</h3><p class="endpoint">${escapeHtml(feeds)}</p><p class="subtle">${SOURCE_STATUS[s.status]||''}</p><p class="source-improves"><b>Improves:</b> ${escapeHtml(s.improves||'')}</p><p class="form-note">${escapeHtml(s.note)}</p>${s.example?`<button class="text-button source-try" data-prompt="${escapeHtml(s.example)}">Try a search: ${escapeHtml(s.example)} →</button>`:''}<div class="server-actions">${actions}</div></article>`;
   }).join('');
 }
 function openKeyDialog(source){
@@ -537,7 +537,7 @@ document.addEventListener('click',async event=>{
   const pivot=event.target.closest('[data-pivot]');if(pivot){event.preventDefault();const target=pivot.dataset.pivot;$('#resultDialog').close();switchView('workspace');$('#query').value=target;$('#query').focus();try{await smartInvestigate(target);}catch(error){toast(error.message);}return;}
   const nav=event.target.closest('[data-view]'); if(nav)switchView(nav.dataset.view);
   const link=event.target.closest('[data-view-link]'); if(link)switchView(link.dataset.viewLink);
-  const prompt=event.target.closest('[data-prompt]'); if(prompt){$('#query').value=prompt.dataset.prompt;$('#query').focus();}
+  const prompt=event.target.closest('[data-prompt]'); if(prompt){switchView('workspace');$('#query').value=prompt.dataset.prompt;$('#query').focus();}
   const connectButton=event.target.closest('[data-connect]'); if(connectButton){const server=state.servers.find(s=>s.id===connectButton.dataset.connect);if(server)connect(server);}
   const disconnectButton=event.target.closest('[data-disconnect]'); if(disconnectButton){const server=state.servers.find(s=>s.id===disconnectButton.dataset.disconnect);if(server)disconnect(server);}
   const remove=event.target.closest('[data-remove]'); if(remove){const server=state.servers.find(s=>s.id===remove.dataset.remove);if(server&&bundledServers.some(item=>item.endpoint===server.endpoint))removedBundledEndpoints.add(server.endpoint);state.servers=state.servers.filter(s=>s.id!==remove.dataset.remove);renderAll();}
