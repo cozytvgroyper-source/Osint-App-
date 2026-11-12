@@ -4,7 +4,15 @@ A local-first, user-friendly client for MCP servers and Open OSINT workflows.
 
 ## Run
 
-On this Mac, double-click **Start Public Desk.command**. When finished, double-click
+For a fresh checkout, install the pinned local dependencies once:
+
+```bash
+npm run setup
+```
+
+The setup script checks out the exact Open OSINT revision named in `config/open-osint.env`, installs its locked Node and Python dependencies under `work/dependencies/`, and applies Public Desk's reviewed patches. It requires Node 22 or newer, Git, npm, and `uv`.
+
+Then double-click **Start Public Desk.command**. When finished, double-click
 **Stop Public Desk.command**. The launcher starts five services, all bound to `127.0.0.1` so they are
 available only on this computer:
 
@@ -24,7 +32,7 @@ For a terminal launch of the interface only:
 npm start
 ```
 
-Open <http://127.0.0.1:4173>. No package installation is required.
+Use the private access address printed by `npm start`. The Mac launcher opens this address automatically. The access token remains in the URL fragment only long enough for the page to move it into tab-scoped session storage; it is never sent in a URL request or saved in localStorage.
 
 To see why the main search chose each tool, open <http://127.0.0.1:4173/?diagnostics>. Each search then adds a
 **Planner Diagnostics** section: the detected target, the words matched, the selected tools with scores, the
@@ -32,7 +40,7 @@ closest misses, and how many tools were skipped for each reason (active, too slo
 
 ## Connect Open OSINT
 
-The local launcher starts the adjacent `osint-mcp` data and MCP services automatically.
+The local launcher starts the pinned `osint-mcp` data and MCP services automatically.
 Public Desk connects to:
 
 ```text
@@ -92,6 +100,8 @@ re-check a fingerprint. To make a PDF, open the HTML report and choose File > Pr
 ## Security notes
 
 - The UI is served only on `127.0.0.1` by default.
+- The launcher creates an owner-only access token and requires it on every app API and bundled local-service request.
+- Temporary uploads are limited to eight active files, 200 MB in aggregate, and two simultaneous requests. Deep Search audit history rotates at 1 MB.
 - Embedded URL credentials and common cloud metadata endpoints are blocked.
 - Remote endpoints receive only requests explicitly initiated through the app.
 - Review source terms and legal constraints before collecting or retaining OSINT data.
