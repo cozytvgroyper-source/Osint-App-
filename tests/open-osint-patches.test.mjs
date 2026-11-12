@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -8,8 +9,8 @@ import {upstreamFromPatch} from './helpers/patch-fixtures.mjs';
 
 // The launcher applies patches/*.patch to the Open OSINT checkout before starting its data service. These tests
 // run scripts/apply-open-osint-patches.zsh against a scratch folder holding the lines the patch changes.
-const script=new URL('../scripts/apply-open-osint-patches.zsh',import.meta.url).pathname;
-const patches=new URL('../patches',import.meta.url).pathname;
+const script=fileURLToPath(new URL('../scripts/apply-open-osint-patches.zsh', import.meta.url));
+const patches=fileURLToPath(new URL('../patches', import.meta.url));
 const target='server/server/worldmonitor/cyber/v1/list-cyber-threats.ts';
 
 // The upstream lines around Open OSINT's coordinate filter (list-cyber-threats.ts, commit 0750ba2).
@@ -80,7 +81,7 @@ function scratch(contents,headless=headlessUpstream){
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'public-desk-osint-'));
   const ais=upstreamFromPatch(new URL('../patches/open-osint-ais-websocket.patch',import.meta.url));
   const greynoise=upstreamFromPatch(new URL('../patches/open-osint-greynoise-not-observed.patch',import.meta.url));
-  const mcpPatch=new URL('../patches/open-osint-mcp-event-loop.patch',import.meta.url).pathname;
+  const mcpPatch=fileURLToPath(new URL('../patches/open-osint-mcp-event-loop.patch', import.meta.url));
   const mcpClient={target:'mcp/src/osint_mcp/client.py',text:fs.readFileSync(new URL('./fixtures/open-osint-client.py',import.meta.url),'utf8')};
   for(const [file,text] of [[target,contents],[headlessTarget,headless],[sharedTarget,sharedUpstream],[ais.target,ais.text],[greynoise.target,greynoise.text],[mcpClient.target,mcpClient.text]]){
     fs.mkdirSync(path.dirname(path.join(root,file)),{recursive:true});

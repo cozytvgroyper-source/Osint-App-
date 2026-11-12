@@ -1,11 +1,12 @@
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
 import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 
-const script = new URL('../scripts/service-ownership.zsh', import.meta.url).pathname;
+const script = fileURLToPath(new URL('../scripts/service-ownership.zsh', import.meta.url));
 
 function zsh(source, env = {}) {
   return spawnSync('/bin/zsh', ['-c', `source ${JSON.stringify(script)}; ${source}`], { encoding: 'utf8', env: { ...process.env, ...env } });
