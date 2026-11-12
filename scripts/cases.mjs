@@ -11,6 +11,9 @@ export const MAX_CASE_BYTES=50_000_000;
 const MAX_SEARCHES=200;
 const CASE_ID=/^[0-9a-f]{16}$/;
 const ITEM_ID=/^[0-9a-f]{12}$/;
+// How far a finding has been checked. OSINT results are leads, so every finding starts unverified.
+export const EVIDENCE_STATUSES=['unverified','confirmed','ruled out'];
+const MAX_NOTE_CHARS=4000;
 
 const fail=(code,message)=>Object.assign(new Error(message),{code});
 const text=(value,max)=>String(value??'').trim().slice(0,max);
@@ -107,7 +110,8 @@ export class CaseStore{
     if(!title||!('result' in Object(value)))throw fail('CASE_INPUT','Evidence needs a title and a result.');
     const item={
       id:randomBytes(6).toString('hex'),title,result:value.result,time:text(value.time,40)||now.toISOString(),
-      server:text(value.server,200),savedAt:now.toISOString(),sha256:createHash('sha256').update(JSON.stringify(value.result)).digest('hex')
+      server:text(value.server,200),savedAt:now.toISOString(),sha256:createHash('sha256').update(JSON.stringify(value.result)).digest('hex'),
+      status:'unverified',note:''
     };
     if(bytes(item)>MAX_EVIDENCE_BYTES)throw fail('CASE_TOO_LARGE',`One finding may be at most ${MAX_EVIDENCE_BYTES/1_000_000} MB.`);
     return this.change(id,record=>{record.evidence=[...(record.evidence||[]),item];return item;});
@@ -122,6 +126,26 @@ export class CaseStore{
     });
   }
 
+  async updateEvidence(id,itemId,value){
+    if(!ITEM_ID.test(String(itemId)))throw fail('CASE_INPUT','Unknown evidence id.');
+    const changes={};
+    if(value&&'status' in value){
+      if(!EVIDENCE_STATUSES.includes(value.status))throw fail('CASE_INPUT',`Status must be one of: ${EVIDENCE_STATUSES.join(', ')}.`);
+      changes.status=value.status;
+    }
+    if(value&&'note' in value){
+      const note=String(value.note??'').trim();
+      if(note.length>MAX_NOTE_CHARS)throw fail('CASE_INPUT',`A note may be at most ${MAX_NOTE_CHARS} characters.`);
+      changes.note=note;
+    }
+    return this.change(id,record=>{
+      const item=(record.evidence||[]).find(entry=>entry.id===itemId);
+      if(!item)throw fail('CASE_NOT_FOUND','That finding is no longer in this case.');
+      Object.assign(item,changes);
+      return {...item};
+    });
+  }
+
   async addSearch(id,value){
     const search={title:text(value?.title,300),time:text(value?.time,40)||new Date().toISOString(),server:text(value?.server,200)};
     if(!search.title)throw fail('CASE_INPUT','A search needs a title.');
@@ -131,7 +155,7 @@ export class CaseStore{
 
 // The /api/cases routes. Returns {status, body}, or null for a path or method that is not a case route. All routes are
 // same-origin only (server.mjs's request guard); every write is a POST, like the rest of Public Desk's API.
-const CASE_ROUTE=/^\/api\/cases(?:\/([0-9a-f]{16})(?:\/(rename|delete|evidence|searches|report\.md|report\.html)(?:\/([0-9a-f]{12})\/(delete))?)?)?$/;
+const CASE_ROUTE=/^\/api\/cases(?:\/([0-9a-f]{16})(?:\/(rename|delete|evidence|searches|report\.md|report\.html)(?:\/([0-9a-f]{12})\/(delete|update))?)?)?$/;
 export async function handleCaseRequest(store,method,pathname,readBody){
   const match=pathname.match(CASE_ROUTE);
   if(!match)return null;
@@ -153,6 +177,7 @@ export async function handleCaseRequest(store,method,pathname,readBody){
   if(action==='delete'){await store.remove(id);return ok({deleted:true});}
   if(action==='searches')return ok(await store.addSearch(id,await readBody()));
   if(action==='evidence'&&itemAction==='delete'){await store.removeEvidence(id,itemId);return ok({removed:true});}
+  if(action==='evidence'&&itemAction==='update')return ok(await store.updateEvidence(id,itemId,await readBody()));
   if(action==='evidence'&&!itemId)return ok(await store.addEvidence(id,await readBody()));
   return null;
 }

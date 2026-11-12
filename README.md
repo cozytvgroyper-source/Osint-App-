@@ -82,6 +82,9 @@ Saved findings live in **cases** (investigations) on this Mac, not in the browse
 and each search is logged to it. Every saved finding keeps its source, time and a SHA-256 fingerprint of the raw result.
 Findings saved in the browser before cases existed can be moved into a case with **Import into a new case**.
 
+Each finding has a **status** (Unverified, Confirmed or Ruled out; new findings start Unverified, because OSINT results
+are leads until checked) and a **note** for why you trust or doubt it. Both are saved in the case and shown in reports.
+
 **Report (Markdown)** and **Report (HTML / PDF)** download a readable report of the open case: a summary table, each
 finding with its source, collection and save times, full SHA-256 fingerprint and result, the search log, and how to
 re-check a fingerprint. To make a PDF, open the HTML report and choose File > Print > Save as PDF.
