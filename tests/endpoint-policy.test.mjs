@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { fetchValidated, isPrivateAddress, validatedEndpoint } from '../scripts/endpoint-policy.mjs';
+import { fetchValidated, isPrivateAddress, pinnedFetch, validatedEndpoint } from '../scripts/endpoint-policy.mjs';
 
 const publicResolver = async () => [{ address: '93.184.216.34', family: 4 }];
 
@@ -41,4 +41,36 @@ test('marks refused addresses as endpoint-policy errors', async () => {
     await assert.rejects(() => validatedEndpoint(endpoint, { resolver: publicResolver }), error => error.code === 'ENDPOINT_POLICY', endpoint);
   }
   await assert.rejects(() => validatedEndpoint('https://example.com/mcp', { resolver: async () => [{ address: '10.0.0.4', family: 4 }] }), error => error.code === 'ENDPOINT_POLICY');
+});
+
+// DNS can answer differently between the address check and the connection (DNS rebinding). The request must go to
+// the address that passed the check, never to a second lookup.
+test('connects to the address that passed the check',async()=>{
+  let lookups=0;
+  const rebinding=async()=>{lookups+=1;return lookups===1?[{address:'93.184.216.34',family:4}]:[{address:'127.0.0.1',family:4}];};
+  const pins=[];
+  const fetchImpl=async(url,options,pin)=>{pins.push(pin);return new Response('ok',{status:200});};
+  const response=await fetchValidated('https://example.com/mcp',{},{resolver:rebinding,fetchImpl});
+  assert.equal(await response.text(),'ok');
+  assert.equal(lookups,1,'one lookup per hop');
+  assert.deepEqual(pins,[{address:'93.184.216.34',family:4}]);
+});
+
+test('bundled local servers need no pinning',async()=>{
+  const pins=[];
+  await fetchValidated('http://127.0.0.1:8892/mcp',{},{resolver:async()=>{throw new Error('no lookup expected');},fetchImpl:async(url,options,pin)=>{pins.push(pin);return new Response('',{status:200});}});
+  assert.deepEqual(pins,[null]);
+});
+
+test('a pinned request reaches the pinned address and keeps the URL host',async()=>{
+  const http=await import('node:http');
+  const server=http.createServer((req,res)=>{res.setHeader('x-seen-host',req.headers.host);res.end(JSON.stringify({ok:true}));});
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  try{
+    const {port}=server.address();
+    const response=await pinnedFetch(new URL(`http://rebind.example:${port}/mcp`),{method:'POST',headers:{'content-type':'application/json'},body:'{}'},{address:'127.0.0.1',family:4});
+    assert.equal(response.status,200);
+    assert.equal(response.headers.get('x-seen-host'),`rebind.example:${port}`);
+    assert.deepEqual(await response.json(),{ok:true});
+  }finally{server.close();}
 });
