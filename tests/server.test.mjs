@@ -69,5 +69,9 @@ test('maps errors to HTTP statuses: refused address 400, missing file 404, anyth
   assert.equal(errorStatus(Object.assign(new Error('missing'), { code: 'ENOENT' })), 404);
   assert.equal(errorStatus(Object.assign(new Error('run grant required'), { code: 'RUN_GRANT', status: 403 })), 403);
   assert.equal(errorStatus(Object.assign(new Error('bad audit'), { code: 'AUDIT_INPUT' })), 400);
+  assert.equal(errorStatus(Object.assign(new Error('bad name'), { code: 'CASE_INPUT' })), 400);
+  assert.equal(errorStatus(Object.assign(new Error('gone'), { code: 'CASE_NOT_FOUND' })), 404);
+  assert.equal(errorStatus(Object.assign(new Error('too big'), { code: 'CASE_TOO_LARGE' })), 413);
+  assert.equal(errorStatus(Object.assign(new Error('damaged'), { code: 'CASE_DAMAGED' })), 422);
   assert.equal(errorStatus(new Error('MCP server returned 500')), 502);
 });

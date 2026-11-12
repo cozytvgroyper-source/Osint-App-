@@ -75,6 +75,13 @@ reverse IP, dorks, threat feeds, breach lookup, email validation, public Git rep
 Omega reports some network failures as an empty successful result, so "no results" is not proof that
 nothing exists. `omega_monitor` is not implemented in omega-cli and always fails.
 
+## Cases
+
+Saved findings live in **cases** (investigations) on this Mac, not in the browser: one owner-only JSON file per case in
+`work/cases/`. Choose or create a case on the Evidence page; while it is open, **Save to evidence** stores results there
+and each search is logged to it. Every saved finding keeps its source, time and a SHA-256 fingerprint of the raw result.
+Findings saved in the browser before cases existed can be moved into a case with **Import into a new case**.
+
 ## Security notes
 
 - The UI is served only on `127.0.0.1` by default.

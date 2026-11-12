@@ -9,10 +9,12 @@ import { DATA_SOURCES, parseKeyFile, sourceStatuses, updateKeyFile, validateKeyV
 import { fetchValidated, validatedEndpoint } from './scripts/endpoint-policy.mjs';
 import {authorizeMcpToolCall, createRunGrant} from './scripts/run-grants.mjs';
 import {appendDeepSearchAudit} from './scripts/deep-search-audit.mjs';
+import {CaseStore,MAX_EVIDENCE_BYTES,handleCaseRequest} from './scripts/cases.mjs';
 
 const ROOT = fileURLToPath(new URL('./public/', import.meta.url));
 const UPLOAD_ROOT = fileURLToPath(new URL('./work/uploads/', import.meta.url));
 const DEEP_SEARCH_AUDIT_FILE = fileURLToPath(new URL('./work/deep-search-audit.jsonl', import.meta.url));
+const cases = new CaseStore(fileURLToPath(new URL('./work/cases/', import.meta.url)));
 const PORT = Number(process.env.PORT || 4173);
 const MAX_MCP_RESPONSE_BYTES = 5_000_000;
 const MAX_MCP_SSE_EVENTS = 1_000;
@@ -444,6 +446,11 @@ const server = http.createServer(async (req, res) => {
       for (const tool of Array.isArray(payload.tools) ? payload.tools : []) await validatedEndpoint(tool.endpoint);
       return json(res, 200, createRunGrant(payload, runGrants,payload.purpose==='deep-search'?{ttl:15*60_000}:{}));
     }
+    if (url.pathname === '/api/cases' || url.pathname.startsWith('/api/cases/')) {
+      const handled = await handleCaseRequest(cases, req.method, url.pathname, () => body(req, MAX_EVIDENCE_BYTES + 100_000));
+      if (handled) return json(res, handled.status, handled.body);
+      return json(res, 404, { error: 'Unknown case route' });
+    }
     if (req.method === 'POST' && url.pathname === '/api/deep-search/audit') {
       return json(res, 200, await appendDeepSearchAudit(DEEP_SEARCH_AUDIT_FILE,await body(req,100_000)));
     }
@@ -501,7 +508,7 @@ const server = http.createServer(async (req, res) => {
     res.end(data);
   } catch (error) {
     const status = errorStatus(error);
-    json(res, status, { error: status === 404 ? 'Not found' : error.message || 'Request failed' });
+    json(res, status, { error: error?.code === 'ENOENT' ? 'Not found' : error.message || 'Request failed' });
   }
 });
 
@@ -511,6 +518,10 @@ function errorStatus(error) {
   if (error?.code === 'ENDPOINT_POLICY') return 400;
   if (error?.code === 'RUN_GRANT') return error.status || 403;
   if (error?.code === 'AUDIT_INPUT') return 400;
+  if (error?.code === 'CASE_INPUT') return 400;
+  if (error?.code === 'CASE_NOT_FOUND') return 404;
+  if (error?.code === 'CASE_TOO_LARGE') return 413;
+  if (error?.code === 'CASE_DAMAGED') return 422;
   return 502;
 }
 

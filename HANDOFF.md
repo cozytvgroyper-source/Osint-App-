@@ -65,6 +65,7 @@ a browser and report what you observed.
 | `scripts/live-api-keys.mjs` | Data service preload: keeps its environment in step with `work/api-keys.env`, so panel changes apply without a restart |
 | `config/api-keys.env.example` | Template the launcher copies to `work/api-keys.env` on first start |
 | `scripts/apply-open-osint-patches.zsh` | Applies `patches/*.patch` to the Open OSINT checkout before its data service starts; skips applied ones, warns on ones that no longer fit |
+| `scripts/cases.mjs` | Cases on disk (`work/cases/<id>.json`, 0600 in a 0700 folder): atomic writes, one change at a time per case, 5 MB per finding and 50 MB per case, SHA-256 per finding; `/api/cases` routes |
 | `patches/` | Public Desk's fixes to Open OSINT's own code (see Known limitations: cyber threats) |
 | `scripts/abuse-ch-auth.mjs` | `node --import` preload: adds the saved abuse.ch key to MalwareBazaar and ThreatFox requests |
 | `scripts/intelx-host.mjs` | `node --import` preload: sends `get_intelx` from `2.intelx.io` (paid) to `INTELX_API_ORIGIN`, default `free.intelx.io` |
