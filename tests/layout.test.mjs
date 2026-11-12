@@ -12,3 +12,8 @@ test('short pages start at the top instead of floating in the middle of the wind
   assert.doesNotMatch(mainRule,/margin:auto/);
 });
 
+test('the collapsed sidebar shows icons only, including for the active section and external links',()=>{
+  const collapsed=mediaRules(1050);
+  assert.match(collapsed,/\.brand span:last-child,\.nav\{font-size:0\}/,'every nav label is hidden, the active one too');
+  assert.match(collapsed,/\.nav-external i\{display:none\}/,'the ↗ arrows are hidden');
+});
