@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validatedEndpoint, parseMcpResponse, readLimitedResponse } from '../server.mjs';
+import { validatedEndpoint, parseMcpResponse, readLimitedResponse, oneAtATime } from '../server.mjs';
 
 test('accepts only explicitly bundled HTTP MCP endpoints',async()=>{
   assert.equal((await validatedEndpoint('http://127.0.0.1:8892/mcp')).pathname,'/mcp');
@@ -75,4 +75,18 @@ test('maps errors to HTTP statuses: refused address 400, missing file 404, anyth
   assert.equal(errorStatus(Object.assign(new Error('request too big'), { code: 'REQUEST_TOO_LARGE' })), 413);
   assert.equal(errorStatus(Object.assign(new Error('damaged'), { code: 'CASE_DAMAGED' })), 422);
   assert.equal(errorStatus(new Error('MCP server returned 500')), 502);
+});
+
+// Two searches that need a new Consensus access token at the same moment must share one refresh: a provider that
+// rotates refresh tokens would reject the second request and the app would forget the sign-in.
+test('concurrent callers share one in-flight refresh',async()=>{
+  let calls=0;let release;
+  const refresh=oneAtATime(()=>{calls+=1;return new Promise(resolve=>{release=resolve;});});
+  const both=Promise.all([refresh(),refresh()]);
+  await new Promise(setImmediate);release('token-1');
+  assert.deepEqual(await both,['token-1','token-1']);
+  assert.equal(calls,1);
+  const again=refresh();await new Promise(setImmediate);release('token-2');
+  assert.equal(await again,'token-2','a later refresh starts a new request');
+  assert.equal(calls,2);
 });

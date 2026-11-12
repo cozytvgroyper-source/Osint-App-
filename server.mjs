@@ -398,9 +398,21 @@ async function consensusToken(form) {
   return data.access_token;
 }
 
+// Callers that arrive while a run is in flight share its result instead of starting their own.
+function oneAtATime(run) {
+  let inFlight = null;
+  return () => inFlight ??= Promise.resolve().then(run).finally(() => { inFlight = null; });
+}
+
 async function consensusAccessToken() {
   if (consensusOAuth.accessToken && Date.now() < consensusOAuth.expiresAt) return consensusOAuth.accessToken;
   if (!consensusOAuth.refreshToken || !consensusOAuth.client?.client_id) return '';
+  return refreshConsensusAccessToken();
+}
+
+// Searches run tools in parallel, so several may need a new token at once. They share one refresh: a provider that
+// rotates refresh tokens would reject a second refresh with the old token, and the app would then forget the sign-in.
+const refreshConsensusAccessToken = oneAtATime(async () => {
   try {
     return await consensusToken({
       grant_type: 'refresh_token',
@@ -416,7 +428,7 @@ async function consensusAccessToken() {
     }
     throw error;
   }
-}
+});
 
 async function initialize(payload) {
   const result = await mcpRequest({
@@ -603,4 +615,4 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   });
 }
 
-export { validatedEndpoint, fetchValidated, parseMcpResponse, readLimitedResponse, cleanupStaleUploads, restoreFreshUploads, trackUpload, trackedUploadBytes, deleteTrackedUpload, loadConsensusAuth, saveConsensusAuth, clearConsensusAuth, SECURITY_HEADERS, requestGuard, validAccessToken, prunePendingSignIns, dataSourcesAction, errorStatus };
+export { validatedEndpoint, fetchValidated, parseMcpResponse, readLimitedResponse, cleanupStaleUploads, restoreFreshUploads, trackUpload, trackedUploadBytes, deleteTrackedUpload, loadConsensusAuth, saveConsensusAuth, clearConsensusAuth, SECURITY_HEADERS, requestGuard, validAccessToken, prunePendingSignIns, dataSourcesAction, errorStatus, oneAtATime };
