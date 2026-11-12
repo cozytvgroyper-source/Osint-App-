@@ -50,3 +50,10 @@ test('Passive Deep Search plans use the reviewed sources without duplicate pairs
   assert.ok(planNames('@octocat',0).includes('omega_gitrecon'));
   assert.ok(planNames('CVE-2021-44228',0).includes('get_epss'));
 });
+
+test('Deep Search starts at Passive, so a plan never contacts the target unless the user raises the level',()=>{
+  const html=fs.readFileSync(new URL('../public/index.html',import.meta.url),'utf8');
+  const select=html.match(/<select id="deepLevel">([\s\S]*?)<\/select>/)[1];
+  const selected=[...select.matchAll(/<option value="(\d)"( selected)?>([^<]+)<\/option>/g)].filter(match=>match[2]).map(match=>match[3]);
+  assert.deepEqual(selected,['Passive']);
+});
