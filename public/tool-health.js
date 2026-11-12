@@ -4,6 +4,10 @@
 const STATUS_FOR_KIND={data:'working',empty:'working',error:'failing'};
 
 const healthKey=(serverId,toolName)=>`${serverId}::${toolName}`;
+// A failure says little about a tool a day later (services recover, one run may have timed out), so an older failure
+// counts as not yet run. A failure whose time cannot be read stays failing rather than being hidden.
+export const FAILING_EXPIRES_MS=24*60*60*1000;
+const stale=(record,now)=>record?.status==='failing'&&now-Date.parse(record.at)>FAILING_EXPIRES_MS;
 
 export function recordToolHealth(health,serverId,toolName,kind,at){
   const status=STATUS_FOR_KIND[kind];
@@ -11,10 +15,11 @@ export function recordToolHealth(health,serverId,toolName,kind,at){
   return{...health,[healthKey(serverId,toolName)]:{status,at}};
 }
 
-export function summarizeToolHealth(server,health){
+export function summarizeToolHealth(server,health,now=Date.now()){
   const counts={total:server.tools.length,working:0,failing:0,untested:0};
   for(const tool of server.tools){
-    const status=health[healthKey(server.id,tool.name)]?.status;
+    const record=health[healthKey(server.id,tool.name)];
+    const status=stale(record,now)?undefined:record?.status;
     if(status==='working')counts.working++;
     else if(status==='failing')counts.failing++;
     else counts.untested++;
@@ -22,8 +27,8 @@ export function summarizeToolHealth(server,health){
   return counts;
 }
 
-export function toolCountLabel(server,health){
-  const {total,working,failing,untested}=summarizeToolHealth(server,health);
+export function toolCountLabel(server,health,now=Date.now()){
+  const {total,working,failing,untested}=summarizeToolHealth(server,health,now);
   const parts=[`${total} tool${total===1?'':'s'}`,`${working} working`];
   if(failing)parts.push(`${failing} failing`);
   if(untested)parts.push(`${untested} not yet run`);
