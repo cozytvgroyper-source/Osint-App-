@@ -59,3 +59,13 @@ button,a,input,select,textarea{min-height:24px}
 main:focus-visible{outline:3px solid var(--focus);outline-offset:-3px}
 /* A view's action buttons sit on their own row now that the page header carries its name. */
 .view-actions{justify-content:flex-end}
+
+/* Navigation: groups with small labels; labels at body size; the current page is marked by a bar and bold text,
+   not by color alone. In the collapsed sidebar and the phone tab bar the group labels stay for screen readers only. */
+.nav-group{display:grid;gap:5px}
+.nav-group+.nav-group{margin-top:var(--space-4)}
+.nav-group-label{margin:0 0 var(--space-1) 13px;font:700 var(--text-xs) var(--sans);letter-spacing:.04em;color:#a9c9f5}
+.rail .nav{font-size:var(--text-sm)}
+.rail .nav.active{font-weight:750}
+@media(max-width:1050px){.nav-group-label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}.nav-group+.nav-group{margin-top:var(--space-2)}}
+@media(max-width:720px){.nav-group{display:contents}}

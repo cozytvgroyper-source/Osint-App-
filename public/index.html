@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#07110f" />
   <title>Public Desk — OSINT workspace</title>
-  <link rel="stylesheet" href="/ui.css?v=2" />
+  <link rel="stylesheet" href="/ui.css?v=3" />
   <link rel="stylesheet" href="/styles.css?v=19" />
   <link rel="stylesheet" href="/results.css?v=14" />
   <link rel="stylesheet" href="/theme.css?v=18" />
@@ -16,14 +16,23 @@
     <aside class="rail">
       <a class="brand" href="#" aria-label="Public Desk home"><span class="brand-mark">P</span><span>Public Desk</span></a>
       <nav aria-label="Primary">
-        <button class="nav active" data-view="workspace"><span>⌁</span>Workspace</button>
-        <button class="nav" data-view="servers"><span>⌘</span>MCP servers</button>
-        <button class="nav" data-view="library"><span>◫</span>Tool library</button>
-        <button class="nav nav-deep" data-view="deep"><span>⚠</span>Deep Search</button>
-        <button class="nav" data-view="news"><img class="nav-logo" src="/assets/intelmap-logo.svg" alt="" />News</button>
-        <a class="nav nav-external" href="https://intelmap.watch/" target="_blank" rel="noopener noreferrer" aria-label="Open IntelMap in a new tab"><img class="nav-logo" src="/assets/intelmap-logo.svg" alt="" />IntelMap <i>↗</i></a>
-        <a class="nav nav-external" href="https://situationroom.io/" target="_blank" rel="noopener noreferrer" aria-label="Open Situation Room in a new tab"><img class="nav-logo" src="/assets/situation-room-logo.svg" alt="" />Situation Room <i>↗</i></a>
-        <button class="nav" data-view="evidence"><span>◇</span>Evidence</button>
+        <div class="nav-group" role="group" aria-labelledby="nav-g-1">
+          <p id="nav-g-1" class="nav-group-label visually-hidden">Main</p>
+          <button class="nav active" data-view="workspace" aria-current="page"><span aria-hidden="true">⌕</span>Search</button>
+          <button class="nav" data-view="evidence"><span aria-hidden="true">◇</span>Evidence</button>
+          <button class="nav" data-view="news"><img class="nav-logo" src="/assets/intelmap-logo.svg" alt="" aria-hidden="true" />News</button>
+        </div>
+        <div class="nav-group" role="group" aria-labelledby="nav-g-2">
+          <p id="nav-g-2" class="nav-group-label">Tools and services</p>
+          <button class="nav" data-view="servers"><span aria-hidden="true">⌘</span>MCP servers</button>
+          <button class="nav" data-view="library"><span aria-hidden="true">◫</span>Tool library</button>
+          <button class="nav nav-deep" data-view="deep"><span aria-hidden="true">⚠</span>Deep Search</button>
+        </div>
+        <div class="nav-group" role="group" aria-labelledby="nav-g-3">
+          <p id="nav-g-3" class="nav-group-label">Outside sites</p>
+          <a class="nav nav-external" href="https://intelmap.watch/" target="_blank" rel="noopener noreferrer" aria-label="Open IntelMap (opens in a new tab)"><img class="nav-logo" src="/assets/intelmap-logo.svg" alt="" aria-hidden="true" />IntelMap <i aria-hidden="true">↗</i></a>
+          <a class="nav nav-external" href="https://situationroom.io/" target="_blank" rel="noopener noreferrer" aria-label="Open Situation Room (opens in a new tab)"><img class="nav-logo" src="/assets/situation-room-logo.svg" alt="" aria-hidden="true" />Situation Room <i aria-hidden="true">↗</i></a>
+        </div>
       </nav>
       <div class="rail-foot">
         <div class="privacy"><span class="pulse"></span><div><b>Local-first</b><small>MCP tokens stay in this tab</small></div></div>

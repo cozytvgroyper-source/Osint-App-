@@ -80,7 +80,11 @@ const PAGES={
 
 function switchView(id) {
   $$('.view').forEach(v => v.classList.toggle('active-view', v.id === id));
-  $$('.nav').forEach(v => v.classList.toggle('active', v.dataset.view === id));
+  $$('.nav[data-view]').forEach(v => {
+    const current=v.dataset.view===id;
+    v.classList.toggle('active', current);
+    if(current)v.setAttribute('aria-current','page');else v.removeAttribute('aria-current');
+  });
   const page=PAGES[id]||PAGES.workspace;
   $('#pageTitle').textContent=page.title;$('#pageIntro').textContent=page.intro;document.title=`${page.title} · Public Desk`;
   window.scrollTo({top:0,behavior:'smooth'});
