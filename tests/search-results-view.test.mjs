@@ -53,3 +53,20 @@ test('escapes HTML in tool labels and server names',()=>{
   assert.doesNotMatch(html,/<img/);
   assert.match(html,/&lt;img/);
 });
+// Final review #1: Search details only opens by default once a finished search has no results.
+const carriedKeys=html=>new Set([...html.matchAll(/<details\b([^>]*)>/g)].map(([,attrs])=>attrs)
+  .filter(attrs=>/\sopen\b/.test(attrs)&&!/\sdata-default-open\b/.test(attrs)&&/data-details-key="/.test(attrs))
+  .map(attrs=>attrs.match(/data-details-key="([^"]*)"/)[1]));
+test('a running search with no answers yet neither says "No results" nor opens Search details',()=>{
+  const running=renderRankedReport(build({tools:['get_opensanctions','get_news_rss'],outcomes:[undefined,undefined]}),helpers);
+  assert.doesNotMatch(running,/No results for this search/);
+  assert.match(running,/<details class="search-details" data-details-key="search-details">/);
+  const finished=renderRankedReport(main(),{...helpers,openKeys:carriedKeys(running)});
+  assert.match(finished,/<details class="search-details" data-details-key="search-details">/);
+});
+test('a finished search with no results opens Search details by default and marks it so',()=>{
+  const html=renderRankedReport(build({tools:['get_opensanctions'],outcomes:[{kind:'empty'}]}),helpers);
+  assert.match(html,/No results for this search/);
+  assert.match(html,/<details class="search-details" data-default-open data-details-key="search-details" open>/);
+  assert.equal(carriedKeys(html).size,0);
+});

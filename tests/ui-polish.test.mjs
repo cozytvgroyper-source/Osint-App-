@@ -36,7 +36,7 @@ test('ranked reports use the results-only view; older saved reports keep the old
   assert.match(app,/payload\?\.ranking\)return renderRankedReport\(/);
 });
 test('a live redraw keeps open details open',()=>{
-  assert.match(app,/details\[data-details-key\]\[open\]/);
+  assert.match(app,/details\[data-details-key\]\[open\]:not\(\[data-default-open\]\)/);
 });
 test('changed and new modules are imported with a version',()=>{
   assert.match(app,/search-report\.js\?v=3/);

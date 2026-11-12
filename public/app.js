@@ -436,7 +436,7 @@ function renderReadableResult(result,openKeys=null){
 function showResult(title,result){
   const dialog=$('#resultDialog'); const refresh=dialog.open&&$('#resultTitle').textContent===title;
   const scroll=refresh?[dialog.scrollTop,$('#resultBody').scrollTop]:[0,0];
-  const openKeys=refresh?new Set([...$('#resultBody').querySelectorAll('details[data-details-key][open]')].map(el=>el.dataset.detailsKey)):null;
+  const openKeys=refresh?new Set([...$('#resultBody').querySelectorAll('details[data-details-key][open]:not([data-default-open])')].map(el=>el.dataset.detailsKey)):null;
   $('#resultTitle').textContent=title; $('#resultBody').innerHTML=renderReadableResult(result,openKeys);
   if(refresh){dialog.scrollTop=scroll[0];$('#resultBody').scrollTop=scroll[1];}
   if(!dialog.open)dialog.showModal();

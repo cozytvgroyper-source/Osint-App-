@@ -8,8 +8,11 @@ export function renderRankedReport(data = {}, helpers) {
   const sections = ranking.sections || [];
   const topResults = ranking.topResults || [];
 
-  const isOpen = (key, byDefault) => (openKeys instanceof Set ? openKeys.has(key) : byDefault);
+  // A details element is open when the user left it open (openKeys) or when it opens by default. Default-open ones are
+  // marked data-default-open so a live redraw does not carry them forward as if the user had opened them.
+  const isOpen = (key, byDefault) => byDefault || (openKeys instanceof Set && openKeys.has(key));
   const openAttr = (key, byDefault) => (isOpen(key, byDefault) ? ' open' : '');
+  const finished = !report['Still Running'];
   const label = item => `${esc(item.tool)} · ${esc(item.server)}`;
 
   const parts = [];
@@ -49,7 +52,8 @@ export function renderRankedReport(data = {}, helpers) {
   if (report['Consolidated Findings']) parts.push(renderCategory('Consolidated Findings', report['Consolidated Findings']));
 
   // 6. Empty copy precedes details
-  if (!sections.length) parts.push('<p class="empty-copy">No results for this search</p>');
+  const noResults = finished && !sections.length;
+  if (noResults) parts.push('<p class="empty-copy">No results for this search</p>');
 
   // 5. Search details
   const detail = [`<h3>Search details</h3>`];
@@ -62,7 +66,7 @@ export function renderRankedReport(data = {}, helpers) {
     detail.push(`<ul class="tool-descriptions">${sections.map(s =>
       `<li><strong>${label(s)}</strong>${s.description ? ` — ${esc(s.description)}` : ''}</li>`).join('')}</ul>`);
   }
-  parts.push(`<details class="search-details" data-details-key="search-details"${openAttr('search-details', !sections.length)}>${detail.join('')}</details>`);
+  parts.push(`<details class="search-details"${noResults ? ' data-default-open' : ''} data-details-key="search-details"${openAttr('search-details', noResults)}>${detail.join('')}</details>`);
 
   return parts.join('');
 }
