@@ -45,3 +45,6 @@
 .server-workflow-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 17px; padding-top: 12px; border-top: 1px solid var(--line); }
 .server-workflow-foot > span { color: var(--muted); font-size: 10px; }
 .server-workflow-foot button { white-space: nowrap; }
+.search-status { font-size: 11px; color: var(--muted); margin: 0 0 10px; }
+.result-source { display: block; font-size: 10px; color: var(--muted); margin: 0 0 6px; }
+.more-results > summary, .search-details > summary { cursor: pointer; font-size: 11px; font-weight: 700; color: var(--muted); }

@@ -27,3 +27,18 @@ test('the main search box has an accessible name',()=>{
 test('the ⌘K button is named for what it does: it focuses the search box',()=>{
   assert.match(html,/<button class="ghost" id="cmdButton"><kbd>⌘<\/kbd><kbd>K<\/kbd> Search<\/button>/);
 });
+
+test('the main search passes its subject and preferred tools to the report',()=>{
+  assert.match(app,/subject:searchSubjectFor\(query\)/);
+  assert.match(app,/preferredNames:intent\.tools/);
+});
+test('ranked reports use the results-only view; older saved reports keep the old layout',()=>{
+  assert.match(app,/payload\?\.ranking\)return renderRankedReport\(/);
+});
+test('a live redraw keeps open details open',()=>{
+  assert.match(app,/details\[data-details-key\]\[open\]/);
+});
+test('changed and new modules are imported with a version',()=>{
+  assert.match(app,/search-report\.js\?v=3/);
+  assert.match(app,/search-results-view\.js\?v=1/);
+});

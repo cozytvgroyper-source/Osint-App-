@@ -1,10 +1,11 @@
 import {explainSearchPlan,summarizePlanDiagnostics} from './search-planner.js';
 import {classifyToolResult,hasUsefulData,parseToolResult} from './result-classifier.js';
-import {buildSearchReport,reportHasFindings} from './search-report.js?v=2';
+import {buildSearchReport,reportHasFindings} from './search-report.js?v=3';
 import {recordToolHealth,serverConnectionLabel,toolCountLabel} from './tool-health.js';
 import {activeCaseId,defaultCaseName,newestFirst,shortFingerprint} from './cases-client.js';
 import {selfCheckPlan,summarizeSelfCheck} from './self-check.js';
-import {argsForSearch,extractTarget,searchIntent} from './search-query.js';
+import {argsForSearch,extractTarget,searchIntent,searchSubjectFor} from './search-query.js?v=1';
+import {renderRankedReport} from './search-results-view.js?v=1';
 import {loadStoredState,mergeStoredServers,persistStoredState} from './browser-storage.js';
 import {TIERS,groupToolsByTier,runRequirements,toolRisk,toolUsage} from './tool-tiers.js';
 import {resultPivot} from './result-pivots.js?v=1';
@@ -419,8 +420,9 @@ function renderSources(entry){
   }).join('');
   return `<section class="result-category sources-category"><div class="category-head"><div><p class="eyebrow">${escapeHtml(entry?.eyebrow||'SEARCH PROVENANCE')}</p><h3>Sources</h3></div>${entry?.description?`<p>${escapeHtml(entry.description)}</p>`:''}</div><div class="source-list">${cards}</div></section>`;
 }
-function renderReadableResult(result){
+function renderReadableResult(result,openKeys=null){
   const parsed=parseToolResult(result); const payload=parsed?.data??parsed; const report=payload?.report;
+  if(payload?.ranking)return renderRankedReport(payload,{escapeHtml,renderArray,renderRecord,renderCategory,renderSources,openKeys});
   if(report&&typeof report==='object'){
     const entries=Object.entries(report); const hasFindings=reportHasFindings(report);
     const content=entries.map(([name,entry])=>name==='Sources'?renderSources(entry):renderCategory(name,entry)).join('');
@@ -434,7 +436,8 @@ function renderReadableResult(result){
 function showResult(title,result){
   const dialog=$('#resultDialog'); const refresh=dialog.open&&$('#resultTitle').textContent===title;
   const scroll=refresh?[dialog.scrollTop,$('#resultBody').scrollTop]:[0,0];
-  $('#resultTitle').textContent=title; $('#resultBody').innerHTML=renderReadableResult(result);
+  const openKeys=refresh?new Set([...$('#resultBody').querySelectorAll('details[data-details-key][open]')].map(el=>el.dataset.detailsKey)):null;
+  $('#resultTitle').textContent=title; $('#resultBody').innerHTML=renderReadableResult(result,openKeys);
   if(refresh){dialog.scrollTop=scroll[0];$('#resultBody').scrollTop=scroll[1];}
   if(!dialog.open)dialog.showModal();
 }
@@ -506,7 +509,7 @@ async function smartInvestigate(query){
   toast(selected.length?`Searching ${selected.length} relevant tools across ${plannedServers.size} server${plannedServers.size===1?'':'s'}…`:'Relevant server is not connected');
   // Each source's results are shown as soon as it answers; a newer search makes this one's late answers stale.
   const searchId=++latestSearchId; const startedAt=performance.now(); const outcomes=new Array(selected.length);
-  const reportOptions={query,intent,plan,outcomes,diagnostics:diagnosticsEnabled?summarizePlanDiagnostics(explained):null,links:relatedLinks(intent,query),categoryForTool,sourceLabel};
+  const reportOptions={query,intent,plan,outcomes,diagnostics:diagnosticsEnabled?summarizePlanDiagnostics(explained):null,links:relatedLinks(intent,query),categoryForTool,sourceLabel,subject:searchSubjectFor(query),preferredNames:intent.tools};
   const show=()=>{
     if(searchId!==latestSearchId)return null;
     const built=buildSearchReport({...reportOptions,elapsedMs:Math.round(performance.now()-startedAt)});
