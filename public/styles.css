@@ -32,3 +32,6 @@ dialog form .run-confirm{display:grid;gap:6px;font-weight:600;margin:0}
 /* Phone tab bar: six app sections plus two external links do not fit at 375 px, so it scrolls sideways, lists the app's
    own sections (Evidence included) first, and uses tighter padding so all six usually fit without scrolling. */
 @media(max-width:720px){.rail nav{overflow-x:auto;justify-content:flex-start;gap:2px;scrollbar-width:none;-webkit-overflow-scrolling:touch}.rail nav::-webkit-scrollbar{display:none}.rail nav .nav{flex:0 0 auto}.rail nav .nav,.rail nav .nav:not(.active){padding:9px 12px}.rail nav .nav-external{order:1}}
+/* Tool Library: a few tools have descriptions of 1,000+ characters; show four lines (full text on hover, and to screen
+   readers, which still read the whole paragraph) so cards keep a similar height. */
+.tool-card .tool-desc{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;line-clamp:4;overflow:hidden}
