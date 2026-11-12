@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#07110f" />
   <title>Public Desk — OSINT workspace</title>
-  <link rel="stylesheet" href="/ui.css?v=3" />
+  <link rel="stylesheet" href="/ui.css?v=4" />
   <link rel="stylesheet" href="/styles.css?v=19" />
   <link rel="stylesheet" href="/results.css?v=14" />
   <link rel="stylesheet" href="/theme.css?v=18" />
@@ -52,7 +52,7 @@
           <form id="investigateForm" class="search-box">
             <div class="search-row"><span class="search-icon">⌕</span><input id="query" autocomplete="off" aria-label="Search for a person, organization, domain, place or event" placeholder="e.g. Map recent infrastructure outages in the Baltic region" /><button type="submit">Investigate <span>→</span></button></div>
             <div class="file-actions"><label class="upload-button">＋ Add file, picture, or video<input id="fileInput" type="file" accept="image/*,video/*,.pdf,.doc,.docx,.txt,.csv,.json,.rtf" /></label><div id="fileSelection" class="file-selection" hidden><span id="fileIcon">◇</span><div><b id="fileName"></b><small id="fileDetails"></small></div><button type="button" id="removeFile" aria-label="Remove selected file">×</button></div><small class="file-privacy">Analyzed locally · 50 MB maximum</small></div>
-            <div class="chips" aria-label="Suggested investigations">
+            <div class="chips" role="group" aria-label="Suggested investigations">
               <button type="button" data-prompt="Find recent cyber threats affecting healthcare">Cyber threats</button>
               <button type="button" data-prompt="Review sanctions exposure for an organization">Sanctions check</button>
               <button type="button" data-prompt="Map recent earthquakes and natural hazards">Natural events</button>
@@ -84,7 +84,7 @@
 
       <section id="library" class="view">
         <div class="section-heading"><div><p class="subtle" id="toolCount">Connect a server to discover tools.</p></div><label class="filter"><span>⌕</span><input id="toolFilter" placeholder="Filter tools" /></label></div>
-        <div id="tierFilters" class="tier-filters" aria-label="Filter tools by risk tier"></div>
+        <div id="tierFilters" class="tier-filters" role="group" aria-label="Filter tools by risk tier"></div>
         <div id="toolLibrary" class="tier-groups"></div>
       </section>
 

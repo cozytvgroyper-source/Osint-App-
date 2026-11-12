@@ -29,3 +29,10 @@ test('the current page is announced',()=>{
   assert.match(app,/removeAttribute\('aria-current'\)/);
   assert.match(nav,/data-view="workspace"[^>]*aria-current="page"/,'Search is current on load');
 });
+
+// The collapsed sidebar (≤1050 px) shows icons only; the larger label size must not bring the labels back there.
+test('the collapsed sidebar keeps hiding nav labels',()=>{
+  const ui=read('ui.css');
+  const collapsed=[...ui.matchAll(/@media\(max-width:1050px\)\{([\s\S]*?\})\}/g)].map(m=>m[1]).join('');
+  assert.match(collapsed,/\.rail \.nav\{font-size:0\}/);
+});

@@ -65,3 +65,9 @@ test('ui.css loads before the other stylesheets',()=>{
   assert.ok(html.includes('/ui.css?v='),'index.html loads ui.css');
   assert.ok(html.indexOf('/ui.css?v=')<html.indexOf('/styles.css?v='));
 });
+
+// Behind the gradient, the page needs a solid color too: tools (and the overscroll area) read it, and an unset one is
+// treated as white, which made every dark-theme heading fail contrast.
+test('the page has a solid background color under its gradient',()=>{
+  assert.match(css,/html\{background-color:var\(--bg\)\}/);
+});

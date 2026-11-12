@@ -41,3 +41,7 @@ test('the theme switch says which theme is on',()=>{
   assert.match(app,/setAttribute\('aria-pressed'/);
   assert.match(html,/id="themeToggle"[^>]*>\s*<span aria-hidden="true">/);
 });
+
+test('labelled containers have a role that allows a label',()=>{
+  for(const m of html.matchAll(/<div\b([^>]*\baria-label="[^"]*"[^>]*)>/g))assert.match(m[1],/\brole="[^"]+"/,`div with aria-label but no role: ${m[0].slice(0,80)}`);
+});
