@@ -228,6 +228,9 @@ another folder, naming the folder to stop. Every service port is checked by fold
   `create_thread` and `add_to_thread` write to the account and run its AI agent; before this was fixed, a research
   search could select them automatically. The planner now refuses any tool annotated as writing, and a test checks
   that every automatic tool is read-only and unflagged.
+- **Omega's files stay in `work/`:** the wrapper sets `HOME` to `work/omega-home` (mode 0700) for the Omega Python
+  process only, so its reports, agent memory and config never land in the real home folder. Reports written before
+  2026-11-11 remain in `~/.omega/reports`.
 - **MCP sessions recover after a bridge restart:** a bridge that restarts forgets its sessions and answers 404. The app
   server then drops the cached session ID, initializes a new session and retries the call once (`withSessionRecovery`
   in `server.mjs`); `initialize` never sends a cached session ID.

@@ -57,6 +57,8 @@ The `omega-cli` package on PyPI is an unrelated project; do not install it. The 
 these packages and can take a minute or two, so Omega may show as offline until it finishes.
 Most omega-cli modules print their findings instead of returning them; the wrapper captures that output and
 returns it as the tool's result (plain text, with terminal decoration and local report paths removed).
+omega-cli's saved reports, agent memory and settings go to `work/omega-home/` (owner-only, git-ignored), not your home
+folder.
 
 All Omega tools appear in Tool Library. The main search only runs Omega tools whose source was reviewed
 and whose live output was useful: WHOIS, DNS, IP info, crt.sh, Wayback, CVE, ASN, malware hash, SPF/DMARC,
