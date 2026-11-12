@@ -123,7 +123,7 @@ test('skips Maigret, which exceeds the automatic search request limit',()=>{
 });
 
 test('uses an output format the selected tool actually supports',()=>{
-  assert.equal(argsForSearch(byName('sherlock_username_search'),'@octocat').output_format,'csv');
+  assert.equal(argsForSearch(byName('sherlock_username_search'),'@octocat').output_format,'txt');
 });
 
 test('lets theHarvester run automatically, limited to fast keyless sources',()=>{
