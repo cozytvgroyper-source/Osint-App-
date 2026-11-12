@@ -38,11 +38,17 @@ function exclusionReason(tool){
   return null;
 }
 function passiveCandidate(tool){return exclusionReason(tool)===null;}
+function supportsHashTarget(tool){
+  // Match a real hash capability as a complete word. This deliberately excludes unrelated names such as
+  // "hashrate", while still accepting names like hash_lookup after separators are normalised.
+  return /\b(?:hash(?:es)?|md5|sha-?1|sha-?256)\b/i.test(toolText(tool).replace(/[_-]+/g,' '));
+}
 // Why a tool cannot take this search's target, or null when it can.
 function targetMismatch(tool,query,target){
   const constrained=new Set(tool.inputSchema?.required||[]);
   const value=String(query).trim();
   if(constrained.has('file_path')&&!/\.(?:jpe?g|png|gif|webp|heic|mp4|mov|pdf|docx?|txt|csv|json)$/i.test(value))return 'Needs a file';
+  if(target?.type==='hash'&&!supportsHashTarget(tool))return 'Does not look up file hashes';
   if(constrained.has('domain')&&target?.type!=='domain')return 'Needs a domain';
   if(constrained.has('email')&&target?.type!=='email')return 'Needs an email address';
   if(constrained.has('username')&&!(target?.type==='username'||/\b(?:username|handle|account)\b/i.test(value)))return 'Needs a username';

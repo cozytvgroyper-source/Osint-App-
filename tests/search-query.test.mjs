@@ -74,6 +74,12 @@ test('domain and email fragments no longer pull in unrelated tools',()=>{
   }
 });
 
+test('file hashes select hash lookup sources, not hashrate or generic malware-reference tools',()=>{
+  const names=plan('44d88612fea8a8f36de82e1278abb02f').map(item=>item.tool.name);
+  for(const expected of ['get_malwarebazaar','omega_malware'])assert.ok(names.includes(expected),`${expected}: ${names.join(', ')}`);
+  for(const unrelated of ['get_bitcoin_hashrate','get_mitre_attack'])assert.ok(!names.includes(unrelated),`${unrelated}: ${names.join(', ')}`);
+});
+
 test('real searches still reach the right sources',()=>{
   const names=query=>plan(query).map(item=>item.tool.name);
   assert.ok(names('example.com whois').includes('get_whois'));
