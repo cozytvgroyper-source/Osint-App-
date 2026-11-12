@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -14,7 +15,7 @@ const root=fs.mkdtempSync(path.join(os.tmpdir(),'public-desk-ais-'));
 const {target,text}=upstreamFromPatch(patch);
 fs.mkdirSync(path.dirname(path.join(root,target)),{recursive:true});
 fs.writeFileSync(path.join(root,target),text);
-const applied=spawnSync('git',['apply',patch.pathname],{cwd:root,encoding:'utf8',env:{...process.env,GIT_CEILING_DIRECTORIES:path.dirname(root)}});
+const applied=spawnSync('git',['apply',fileURLToPath(patch)],{cwd:root,encoding:'utf8',env:{...process.env,GIT_CEILING_DIRECTORIES:path.dirname(root)}});
 const modulePath=path.join(root,target);
 let loads=0;
 const load=()=>import(`${modulePath}?load=${++loads}`);
