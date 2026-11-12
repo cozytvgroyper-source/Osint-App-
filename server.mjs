@@ -80,7 +80,8 @@ async function body(req, limit = 1_000_000) {
     if (size > limit) throw Object.assign(new Error('Request too large'), { code: 'REQUEST_TOO_LARGE' });
     chunks.push(chunk);
   }
-  return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+  try { return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}'); }
+  catch (error) { throw Object.assign(error, { code: 'REQUEST_JSON', message: 'The request body is not valid JSON' }); }
 }
 
 async function cleanupStaleUploads(root = UPLOAD_ROOT, { now = Date.now(), maxAge = UPLOAD_TTL_MS } = {}) {
@@ -200,7 +201,9 @@ async function readLimitedResponse(response, limit = MAX_MCP_RESPONSE_BYTES) {
   return Buffer.concat(chunks, size).toString('utf8');
 }
 
-function parseMcpResponse(text, contentType, { maxSseEvents = MAX_MCP_SSE_EVENTS, maxSseEventBytes = MAX_MCP_SSE_EVENT_BYTES } = {}) {
+// A streamed answer may carry notifications around the reply, so the reply is the message with the request's id
+// (the last message when no id is known).
+function parseMcpResponse(text, contentType, { id, maxSseEvents = MAX_MCP_SSE_EVENTS, maxSseEventBytes = MAX_MCP_SSE_EVENT_BYTES } = {}) {
   if (contentType.includes('text/event-stream')) {
     const payloads = [];
     for (const line of text.split('\n')) {
@@ -210,8 +213,9 @@ function parseMcpResponse(text, contentType, { maxSseEvents = MAX_MCP_SSE_EVENTS
       if (Buffer.byteLength(payload, 'utf8') > maxSseEventBytes) throw new Error('MCP event stream contained an oversized event');
       payloads.push(payload);
     }
-    const last = payloads.filter(Boolean).at(-1);
-    return last ? JSON.parse(last) : { error: { message: 'Empty MCP event stream' } };
+    const messages = payloads.filter(Boolean).map(payload => JSON.parse(payload));
+    const reply = id === undefined ? messages.at(-1) : messages.find(message => message?.id === id) ?? messages.at(-1);
+    return reply ?? { error: { message: 'Empty MCP event stream' } };
   }
   return JSON.parse(text || '{}');
 }
@@ -262,7 +266,7 @@ async function mcpRequest({ endpoint, token, method, params = {}, sessionKey }, 
   const text = await readLimitedResponse(response);
   if (!response.ok) throw mcpHttpError(response.status, text, 'mcp-session-id' in headers);
   if (isNotification && !text) return { accepted: true };
-  return parseMcpResponse(text, response.headers.get('content-type') || '');
+  return parseMcpResponse(text, response.headers.get('content-type') || '', { id });
 }
 
 function base64url(value) {
@@ -583,14 +587,15 @@ const server = http.createServer(async (req, res) => {
     res.end(data);
   } catch (error) {
     const status = errorStatus(error);
-    json(res, status, { error: error?.code === 'ENOENT' ? 'Not found' : error.message || 'Request failed' });
+    json(res, status, { error: ['ENOENT', 'EISDIR'].includes(error?.code) ? 'Not found' : error.message || 'Request failed' });
   }
 });
 
 // A refused MCP address is a bad request (400); a missing file is 404; anything else is an upstream failure (502).
 function errorStatus(error) {
   if (error?.code === 'REQUEST_TOO_LARGE') return 413;
-  if (error?.code === 'ENOENT') return 404;
+  if (error?.code === 'REQUEST_JSON') return 400;
+  if (error?.code === 'ENOENT' || error?.code === 'EISDIR') return 404;
   if (error?.code === 'ENDPOINT_POLICY') return 400;
   if (error?.code === 'RUN_GRANT') return error.status || 403;
   if (error?.code === 'AUDIT_INPUT') return 400;

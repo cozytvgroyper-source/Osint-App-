@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validatedEndpoint, parseMcpResponse, readLimitedResponse, oneAtATime } from '../server.mjs';
+import { validatedEndpoint, parseMcpResponse, readLimitedResponse, oneAtATime, errorStatus } from '../server.mjs';
 
 test('accepts only explicitly bundled HTTP MCP endpoints',async()=>{
   assert.equal((await validatedEndpoint('http://127.0.0.1:8892/mcp')).pathname,'/mcp');
@@ -89,4 +89,17 @@ test('concurrent callers share one in-flight refresh',async()=>{
   const again=refresh();await new Promise(setImmediate);release('token-2');
   assert.equal(await again,'token-2','a later refresh starts a new request');
   assert.equal(calls,2);
+});
+
+// A streamed answer may carry notices around the reply; the reply is the message with the request's id.
+test('picks the streamed message that answers the request',()=>{
+  const sse=['data: {"jsonrpc":"2.0","method":"notifications/progress","params":{}}','data: {"jsonrpc":"2.0","id":"req-1","result":{"ok":true}}','data: {"jsonrpc":"2.0","method":"notifications/message","params":{}}'].join('\n\n');
+  assert.deepEqual(parseMcpResponse(sse,'text/event-stream',{id:'req-1'}),{jsonrpc:'2.0',id:'req-1',result:{ok:true}});
+  assert.deepEqual(parseMcpResponse(sse,'text/event-stream').method,'notifications/message','without an id the last message is kept');
+});
+
+test('a malformed request is the caller\'s mistake; a missing file or folder is not found',()=>{
+  assert.equal(errorStatus(Object.assign(new SyntaxError('Unexpected token'),{code:'REQUEST_JSON'})),400);
+  assert.equal(errorStatus(new SyntaxError('bad upstream JSON')),502,'a tool answering with broken JSON is still an upstream failure');
+  assert.equal(errorStatus(Object.assign(new Error('is a directory'),{code:'EISDIR'})),404);
 });
