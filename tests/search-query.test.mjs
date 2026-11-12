@@ -77,7 +77,8 @@ test('domain and email fragments no longer pull in unrelated tools',()=>{
 test('file hashes select hash lookup sources, not hashrate or generic malware-reference tools',()=>{
   const names=plan('44d88612fea8a8f36de82e1278abb02f').map(item=>item.tool.name);
   for(const expected of ['get_malwarebazaar','omega_malware'])assert.ok(names.includes(expected),`${expected}: ${names.join(', ')}`);
-  for(const unrelated of ['get_bitcoin_hashrate','get_mitre_attack'])assert.ok(!names.includes(unrelated),`${unrelated}: ${names.join(', ')}`);
+  for(const unrelated of ['get_bitcoin_hashrate','get_mitre_attack','get_sslbl'])assert.ok(!names.includes(unrelated),`${unrelated}: ${names.join(', ')}`);
+  assert.ok(plan('cf4b79e0bc79d2e14cdd7f49b475e62213c36c88').some(item=>item.tool.name==='get_sslbl'),'SSLBL remains available for SHA-1 certificate fingerprints');
 });
 
 test('real searches still reach the right sources',()=>{
@@ -114,6 +115,15 @@ test('request words like "reports" do not pull in unrelated tools',()=>{
 test('skips subfinder, which no argument keeps under the 45 s request limit',()=>{
   assert.equal(isPassiveSearchTool(byName('subfinder_subdomain_search')),false);
   assert.ok(!plan('example.com whois').some(item=>item.tool.name==='subfinder_subdomain_search'));
+});
+
+test('skips Maigret, which exceeds the automatic search request limit',()=>{
+  assert.equal(isPassiveSearchTool(byName('maigret_username_search')),false);
+  assert.ok(!plan('@octocat').some(item=>item.tool.name==='maigret_username_search'));
+});
+
+test('uses an output format the selected tool actually supports',()=>{
+  assert.equal(argsForSearch(byName('sherlock_username_search'),'@octocat').output_format,'csv');
 });
 
 test('lets theHarvester run automatically, limited to fast keyless sources',()=>{

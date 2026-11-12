@@ -138,6 +138,13 @@ function searchSubject(text,intentId){
 // example.com); these keyless certificate and DNS sources took 11-20 s.
 const AUTO_SEARCH_ARGS={theharvester_domain_search:{sources:'crtsh,hackertarget,rapiddns,otx'}};
 
+function supportedFormat(schema,preferred='json'){
+  const allowed=Array.isArray(schema?.enum)?schema.enum:[];
+  if(!allowed.length||allowed.includes(preferred))return preferred;
+  if(schema.default!==undefined&&allowed.includes(schema.default))return schema.default;
+  return allowed[0];
+}
+
 export function argsForSearch(tool,query){
   const props=tool.inputSchema?.properties||{}; const required=tool.inputSchema?.required||[]; const args={};
   let clean=query.replace(/^(?:https?:\/\/)/i,'').replace(/^@/,'').replace(/\/$/,'').trim();
@@ -155,8 +162,8 @@ export function argsForSearch(tool,query){
   if(props.timeout)args.timeout=25;
   if(props.only_used)args.only_used=true;
   if(props.registered_only)args.registered_only=true;
-  if(props.output_format)args.output_format='json';
-  if(props.format)args.format='json';
+  if(props.output_format)args.output_format=supportedFormat(props.output_format);
+  if(props.format)args.format=supportedFormat(props.format);
   for(const key of required){if(args[key]!==undefined)continue;const schema=props[key]||{};args[key]=schema.type==='number'?10:schema.type==='boolean'?false:countryQuery;}
   Object.assign(args,AUTO_SEARCH_ARGS[tool.name]);
   return args;
