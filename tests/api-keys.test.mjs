@@ -73,3 +73,27 @@ test('rejects key values that could break the file',()=>{
   assert.equal(validateKeyValue('  otx-1234_ABCD.efg=  '),'otx-1234_ABCD.efg=');
   assert.equal(validateKeyValue('name@example.org'),'name@example.org');
 });
+
+test('every data source says what its key improves, and recommended ones have a working example search',async()=>{
+  const fs=await import('node:fs');
+  const {explainSearchPlan}=await import('../public/search-planner.js');
+  const {searchIntent}=await import('../public/search-query.js');
+  const tools=JSON.parse(fs.readFileSync(new URL('./fixtures/mcp-tools.json',import.meta.url),'utf8'));
+  for(const source of DATA_SOURCES){
+    assert.ok(source.improves&&source.improves.length>=20,`${source.id} explains what it improves`);
+    if(source.recommended)assert.ok(source.example,`${source.id} is recommended, so it shows an example search`);
+    if(!source.example)continue;
+    const intent=searchIntent(source.example);
+    const selected=explainSearchPlan({query:source.example,intentId:intent.id,preferredNames:intent.tools,tools,maxTools:6}).selected.map(entry=>entry.tool.name);
+    assert.ok(source.feeds.some(feed=>selected.includes(feed)),`${source.id}: "${source.example}" makes the main search use ${source.feeds.join(' or ')}`);
+  }
+  assert.deepEqual(DATA_SOURCES.filter(s=>s.recommended).map(s=>s.id).sort(),['abuseipdb','greynoise','otx','urlhaus']);
+});
+
+test('source statuses pass the guidance to the app without key values',()=>{
+  const status=sourceStatuses(parseKeyFile('GREYNOISE_API_KEY=secret-value-123\n')).find(s=>s.id==='greynoise');
+  assert.equal(status.recommended,true);
+  assert.match(status.improves,/IP searches/);
+  assert.equal(status.example,'8.8.8.8');
+  assert.ok(!JSON.stringify(status).includes('secret-value-123'));
+});

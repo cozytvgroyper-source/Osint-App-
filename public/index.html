@@ -67,6 +67,7 @@
         <div id="serverList" class="server-grid"></div>
         <div class="section-heading"><div><p class="eyebrow">CONNECTIONS</p><h2>Data sources</h2><p class="subtle">API keys for the services behind Open OSINT's tools. Keys are saved on this Mac only, in work/api-keys.env, and are never shown again. Connect and Disconnect apply right away.</p></div><span class="subtle" id="dataSourceCount"></span></div>
         <div id="dataSourceList" class="server-grid"><div class="empty-state">Loading data sources…</div></div>
+        <div class="source-gaps"><h3>Not supported yet</h3><p class="subtle">These keys would improve results, but Public Desk cannot use them yet, so there is nothing to connect:</p><ul><li><b>Have I Been Pwned:</b> reliable email breach checks. Without it, <code>omega_leaked</code> reports "no breaches" even though it never checked (see the Omega tool review).</li><li><b>Shodan:</b> full host, port and banner data for IP searches, beyond the free InternetDB summary in the IP dossier.</li></ul><p class="subtle">Both are read by Omega from its own settings rather than this page, so adding them needs a small change first.</p></div>
       </section>
 
       <section id="library" class="view">
