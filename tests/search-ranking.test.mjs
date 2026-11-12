@@ -54,3 +54,11 @@ test('a bare string result is one item scored on its text',()=>{
   assert.equal(r.sections[0].single,true);
   assert.equal(r.sections[0].matching[0],'Report\nRosneft owns this');
 });
+test('an empty result list is never a single-record match',()=>{
+  const r=rank([['x',{query:'Rosneft',results:[]}]]);
+  assert.equal(r.sections[0].single,false);
+  assert.deepEqual(r.sections[0].matching,[]);
+  assert.deepEqual(r.sections[0].nonMatching,[]);
+  assert.deepEqual(r.sections[0].facts,{query:'Rosneft'});
+  assert.equal(r.topResults.length,0);
+});

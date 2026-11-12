@@ -5,7 +5,7 @@ const TEXT_FIELDS = ['title', 'name', 'headline', 'place', 'description', 'summa
 const TOP_LIMIT = 10;
 
 const isPlain = value => value !== null && typeof value === 'object' && !Array.isArray(value);
-const isItemList = value => Array.isArray(value) && value.length > 0 && value.every(isPlain);
+const isItemList = value => Array.isArray(value) && value.every(isPlain);
 const strings = values => values.filter(value => typeof value === 'string');
 const splitWords = text => text.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
 
@@ -32,11 +32,12 @@ function itemText(item, single) {
   return (named.length || !single ? named : strings(Object.values(item))).join(' ');
 }
 
-// Returns the data's item lists (combined in order) and the data with those lists removed.
+// Returns the data's item lists (combined in order; an empty array counts as a list) and the data with those lists removed.
 function split(data) {
   const items = [];
+  let listed = false;
   const strip = value => {
-    if (isItemList(value)) { items.push(...value); return undefined; }
+    if (isItemList(value)) { listed = true; items.push(...value); return undefined; }
     if (!isPlain(value) && !Array.isArray(value)) return value;
     const entries = Array.isArray(value) ? value.map(strip) : Object.entries(value).map(([key, child]) => [key, strip(child)]);
     if (Array.isArray(value)) return entries.every(child => child === undefined) && entries.length ? undefined : entries.filter(child => child !== undefined);
@@ -44,7 +45,7 @@ function split(data) {
     return kept.length || !Object.keys(value).length ? Object.fromEntries(kept) : undefined;
   };
   const rest = strip(data);
-  return {items, rest};
+  return {items, rest, listed};
 }
 
 export function rankResults({subject = '', preferredNames = [], entries = []} = {}) {
@@ -53,9 +54,9 @@ export function rankResults({subject = '', preferredNames = [], entries = []} = 
   let order = 0;
   for (const {tool, toolLabel, data} of entries) {
     const direct = preferred.has(tool.name);
-    let {items, rest} = split(data);
+    let {items, rest, listed} = split(data);
     let single = false;
-    if (!items.length && ((isPlain(data) && Object.keys(data).length) || (typeof data === 'string' && data.trim()))) {
+    if (!listed && ((isPlain(data) && Object.keys(data).length) || (typeof data === 'string' && data.trim()))) {
       items = [data];
       single = true;
     }
