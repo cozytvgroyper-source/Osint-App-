@@ -71,3 +71,32 @@ test('non-metadata strings still count for a single record',()=>{
   const r=rank([['x',{registrar:'Rosneft Registrar',query:'other'}]]);
   assert.equal(r.topResults[0].score,3);
 });
+// Final review #3: items without named text fields fall back to their strings; target searches match the phrase only.
+const rankT=(entries,subject,preferredNames=[])=>rankResults({subject,preferredNames,target:true,entries:entries.map(([name,data])=>({tool:t(name),toolLabel:name,data}))});
+test('a list item with none of the named fields is scored on its other strings',()=>{
+  const r=rank([['presence',{found:[{site:'GitHub',url:'https://github.com/jdoe'},{site:'GitLab',url:'https://gitlab.com/other'}]}]],'jdoe');
+  assert.deepEqual(r.sections[0].matching,[{site:'GitHub',url:'https://github.com/jdoe'}]);
+  assert.ok(r.topResults[0].score>0);
+  const r2=rank([['photos',{photos:[{caption:'Rosneft rig',query:'x'}]}]]);
+  assert.equal(r2.topResults[0].score,3);
+  const r3=rank([['photos',{photos:[{caption:'other',query:'Rosneft'}]}]]);
+  assert.equal(r3.topResults.length,0); // echoed metadata still never matches
+});
+test('a target search matches the whole target only',()=>{
+  const r=rankT([['get_bgp',{peers:[{name:'AS15169 has 8 peers'},{name:'8.8.4.4 resolver'},{name:'8.8.8.8 resolver'}]}]],'8.8.8.8');
+  assert.deepEqual(r.sections[0].matching,[{name:'8.8.8.8 resolver'}]);
+  assert.equal(r.sections[0].nonMatching.length,2);
+  assert.equal(r.topResults[0].score,3);
+});
+test('a target search never folds a direct tool\'s items but still folds context tools',()=>{
+  const r=rankT([['get_whois',{records:[{name:'unrelated'}]}],['get_news_rss',{articles:[{title:'unrelated'}]}]],'8.8.8.8',['get_whois']);
+  const whois=r.sections.find(s=>s.toolName==='get_whois'); const news=r.sections.find(s=>s.toolName==='get_news_rss');
+  assert.deepEqual(whois.matching,[{name:'unrelated'}]);
+  assert.equal(r.topResults.find(i=>i.toolName==='get_whois').score,1);
+  assert.deepEqual(news.matching,[]);
+  assert.equal(news.nonMatching.length,1);
+});
+test('the target option defaults to off',()=>{
+  const r=rank([['get_bgp',{peers:[{name:'8.8.4.4 resolver'}]}]],'8.8.8.8');
+  assert.ok(r.topResults[0].score>0);
+});

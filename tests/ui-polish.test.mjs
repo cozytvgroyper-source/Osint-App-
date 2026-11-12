@@ -31,6 +31,7 @@ test('the ⌘K button is named for what it does: it focuses the search box',()=>
 test('the main search passes its subject and preferred tools to the report',()=>{
   assert.match(app,/subject:searchSubjectFor\(query\)/);
   assert.match(app,/preferredNames:intent\.tools/);
+  assert.match(app,/target:!!extractTarget\(query\)/);
 });
 test('ranked reports use the results-only view; older saved reports keep the old layout',()=>{
   assert.match(app,/payload\?\.ranking\)return renderRankedReport\(/);

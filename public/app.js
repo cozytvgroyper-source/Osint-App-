@@ -513,7 +513,7 @@ async function smartInvestigate(query){
   toast(selected.length?`Searching ${selected.length} relevant tools across ${plannedServers.size} server${plannedServers.size===1?'':'s'}…`:'Relevant server is not connected');
   // Each source's results are shown as soon as it answers; a newer search makes this one's late answers stale.
   const searchId=++latestSearchId; const startedAt=performance.now(); const outcomes=new Array(selected.length);
-  const reportOptions={query,intent,plan,outcomes,diagnostics:diagnosticsEnabled?summarizePlanDiagnostics(explained):null,links:relatedLinks(intent,query),categoryForTool,sourceLabel,subject:searchSubjectFor(query),preferredNames:intent.tools};
+  const reportOptions={query,intent,plan,outcomes,diagnostics:diagnosticsEnabled?summarizePlanDiagnostics(explained):null,links:relatedLinks(intent,query),categoryForTool,sourceLabel,subject:searchSubjectFor(query),preferredNames:intent.tools,target:!!extractTarget(query)};
   const show=()=>{
     if(searchId!==latestSearchId)return null;
     const built=buildSearchReport({...reportOptions,elapsedMs:Math.round(performance.now()-startedAt)});

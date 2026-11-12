@@ -16,21 +16,24 @@ function subjectWords(subject) {
   return long.length ? long : words;
 }
 
-export function matchScore(text, subject) {
+// phrase: only the whole subject counts (target searches, where "8.8.8.8" must not match a lone "8").
+export function matchScore(text, subject, {phrase = false} = {}) {
   const needle = String(subject ?? '').trim().toLowerCase();
   if (!needle) return 1;
   const haystack = String(text ?? '').toLowerCase();
   if (haystack.includes(needle)) return 3;
+  if (phrase) return 0;
   const present = new Set(splitWords(haystack));
   const hits = subjectWords(needle).filter(word => present.has(word)).length;
   const total = subjectWords(needle).length;
   return hits === 0 ? 0 : hits === total ? 2 : 1;
 }
 
-function itemText(item, single) {
+// The named text fields, or, when an item has none, its other top-level strings (echoed metadata excluded).
+function itemText(item) {
   if (typeof item === 'string') return item;
   const named = strings(TEXT_FIELDS.map(field => item[field]));
-  return (named.length || !single ? named : strings(Object.entries(item).filter(([key]) => !METADATA_KEYS.test(key)).map(([, value]) => value))).join(' ');
+  return (named.length ? named : strings(Object.entries(item).filter(([key]) => !METADATA_KEYS.test(key)).map(([, value]) => value))).join(' ');
 }
 
 // Returns the data's item lists (combined in order) and the data with those lists removed.
@@ -48,7 +51,9 @@ function split(data) {
   return {items, rest};
 }
 
-export function rankResults({subject = '', preferredNames = [], entries = []} = {}) {
+// target: the subject is an exact target (IP, domain, email…), so only the whole phrase matches and direct tools'
+// items are never folded.
+export function rankResults({subject = '', preferredNames = [], entries = [], target = false} = {}) {
   const preferred = new Set(preferredNames);
   const sections = [];
   let order = 0;
@@ -62,7 +67,7 @@ export function rankResults({subject = '', preferredNames = [], entries = []} = 
     }
     const scored = items.map(item => ({
       toolName: tool.name, tool: toolLabel, server: tool.serverName, direct, item, index: order++,
-      score: matchScore(itemText(item, single), subject)
+      score: Math.max(target && direct ? 1 : 0, matchScore(itemText(item), subject, {phrase: target}))
     }));
     const facts = single || rest === undefined || rest === null || (isPlain(rest) && !Object.keys(rest).length) ? null : rest;
     sections.push({tool, toolLabel, direct, single, scored, facts});
