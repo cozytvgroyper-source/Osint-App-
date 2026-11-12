@@ -8,7 +8,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { DATA_SOURCES, parseKeyFile, sourceStatuses, updateKeyFile, validateKeyValue } from './scripts/api-keys.mjs';
 import { fetchValidated, validatedEndpoint } from './scripts/endpoint-policy.mjs';
 import {authorizeMcpToolCall, createRunGrant} from './scripts/run-grants.mjs';
-import {appendDeepSearchAudit} from './scripts/deep-search-audit.mjs';
+import {appendDeepSearchAudit,readDeepSearchAudit} from './scripts/deep-search-audit.mjs';
 import {CaseStore,MAX_EVIDENCE_BYTES,handleCaseRequest} from './scripts/cases.mjs';
 
 const ROOT = fileURLToPath(new URL('./public/', import.meta.url));
@@ -455,6 +455,9 @@ const server = http.createServer(async (req, res) => {
       }
       if (handled) return json(res, handled.status, handled.body);
       return json(res, 404, { error: 'Unknown case route' });
+    }
+    if (req.method === 'GET' && url.pathname === '/api/deep-search/audit') {
+      return json(res, 200, await readDeepSearchAudit(DEEP_SEARCH_AUDIT_FILE));
     }
     if (req.method === 'POST' && url.pathname === '/api/deep-search/audit') {
       return json(res, 200, await appendDeepSearchAudit(DEEP_SEARCH_AUDIT_FILE,await body(req,100_000)));

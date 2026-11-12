@@ -5,7 +5,7 @@ import {recordToolHealth,serverConnectionLabel,toolCountLabel} from './tool-heal
 import {activeCaseId,defaultCaseName,newestFirst,shortFingerprint} from './cases-client.js';
 import {argsForSearch,extractTarget,searchIntent} from './search-query.js';
 import {loadStoredState,mergeStoredServers,persistStoredState} from './browser-storage.js';
-import {groupToolsByTier,runRequirements,toolRisk,toolUsage} from './tool-tiers.js';
+import {TIERS,groupToolsByTier,runRequirements,toolRisk,toolUsage} from './tool-tiers.js';
 import {resultPivot} from './result-pivots.js?v=1';
 import {buildRunGrantRequest} from './run-grant-client.js?v=1';
 import {deepRunBlocked,deepSearchPlan} from './deep-search.js?v=1';
@@ -67,6 +67,7 @@ function switchView(id) {
   const labels={workspace:'Hello Groyper',servers:'Connection center',library:'Explore capabilities',deep:'Plan a controlled test',news:'IntelMap news',evidence:'Your case file'};
   $('#pageTitle').textContent=labels[id]||'Public Desk'; window.scrollTo({top:0,behavior:'smooth'});
   if(id==='news'&&!intelNews.loaded&&!intelNews.loading)loadIntelNews();
+  if(id==='deep')loadDeepHistory();
 }
 
 function safeExternalUrl(value=''){
@@ -227,6 +228,14 @@ function renderEvidence(){
   const byStatus=status=>current.evidence.filter(item=>(item.status||'unverified')===status).length;
   $('#caseSummary').textContent=current?`${current.evidence.length} finding${current.evidence.length===1?'':'s'} (${byStatus('confirmed')} confirmed, ${byStatus('unverified')} unverified, ${byStatus('ruled out')} ruled out) · ${current.searches.length} search${current.searches.length===1?'':'es'} logged · created ${new Date(current.createdAt).toLocaleDateString()}`:'';
   $('#evidenceList').innerHTML=!current?'<div class="empty-state">Create or choose a case to save findings. Results you save while a case is open go into it.</div>':current.evidence.length?newestFirst(current.evidence).map(item=>`<article class="evidence-card"><div><p class="eyebrow">${new Date(item.time).toLocaleString()}${item.server?` · ${escapeHtml(item.server)}`:''}</p><h3>${escapeHtml(item.title)}</h3><p class="subtle" title="SHA-256 of the saved result">Fingerprint ${escapeHtml(shortFingerprint(item.sha256))}</p><div class="evidence-review"><label>Status<select data-evidence-status="${escapeHtml(item.id)}" class="status-${escapeHtml((item.status||'unverified').replace(' ','-'))}">${['unverified','confirmed','ruled out'].map(status=>`<option value="${status}"${(item.status||'unverified')===status?' selected':''}>${status[0].toUpperCase()+status.slice(1)}</option>`).join('')}</select></label><label class="evidence-note">Note<textarea data-evidence-note="${escapeHtml(item.id)}" maxlength="4000" rows="2" placeholder="Why you trust or doubt this finding">${escapeHtml(item.note||'')}</textarea></label><button class="ghost" data-save-note="${escapeHtml(item.id)}">Save note</button></div><pre>${escapeHtml(JSON.stringify(item.result,null,2))}</pre></div><button class="icon-button" data-delete-evidence="${escapeHtml(item.id)}" title="Remove">×</button></article>`).join(''):'<div class="empty-state">This case has no findings yet. Open a result and choose Save to evidence.</div>';
+}
+async function loadDeepHistory(){
+  const box=$('#deepHistory');
+  try{
+    const {entries,total,skipped}=await apiGet('/api/deep-search/audit');
+    const levelName=level=>TIERS[level]?.label||`Level ${level}`;
+    box.innerHTML=entries.length?`<table class="deep-history-table"><thead><tr><th>When</th><th>Target</th><th>Max level</th><th>Tools</th><th>Outcome</th></tr></thead><tbody>${entries.map(entry=>`<tr><td>${escapeHtml(new Date(entry.time).toLocaleString())}</td><td><code>${escapeHtml(entry.target)}</code></td><td>${escapeHtml(levelName(entry.level))}</td><td title="${escapeHtml((entry.tools||[]).join(', '))}">${(entry.tools||[]).length} tool${(entry.tools||[]).length===1?'':'s'}</td><td>${escapeHtml(entry.outcome)}</td></tr>`).join('')}</tbody></table>${total>entries.length?`<p class="subtle">Showing the latest ${entries.length} of ${total} runs.</p>`:''}${skipped?`<p class="subtle">${skipped} damaged line${skipped===1?' was':'s were'} skipped in the audit log.</p>`:''}`:'<div class="empty-state">No Deep Search runs yet.</div>';
+  }catch(error){box.innerHTML=`<div class="empty-state">Could not read the audit log: ${escapeHtml(error.message)}</div>`;}
 }
 async function loadCases(){
   try{
@@ -518,6 +527,7 @@ async function runDeepSearch(){
   }catch(error){outcome=error.name==='AbortError'?'cancelled':'failed';addDeepLog(outcome==='cancelled'?'Run cancelled.':`Run stopped: ${error.message}`);}
   finally{
     await api('/api/deep-search/audit',{target,level,tools:selected.map(item=>item.tool.name),outcome}).catch(error=>addDeepLog(`Audit log failed: ${error.message}`));
+    loadDeepHistory();
     if(outcome.startsWith('completed'))addDeepLog(`Run ${outcome}. Audit saved on this Mac.`);
     state.deepController=null;$('#runDeepSearch').disabled=false;$('#cancelDeepRun').disabled=true;
   }
@@ -562,6 +572,7 @@ $('#caseSelect').onchange=event=>selectCase(event.target.value);
 const updateFinding=(itemId,changes,message)=>api(`/api/cases/${state.activeCaseId}/evidence/${itemId}/update`,changes).then(()=>{toast(message);return loadCases();}).catch(error=>toast(`Could not update: ${error.message}`));
 $('#evidenceList').addEventListener('change',event=>{const select=event.target.closest('[data-evidence-status]');if(select&&state.activeCaseId)updateFinding(select.dataset.evidenceStatus,{status:select.value},`Marked ${select.value}`);});
 $('#evidenceList').addEventListener('click',event=>{const button=event.target.closest('[data-save-note]');if(!button||!state.activeCaseId)return;const note=$(`[data-evidence-note="${button.dataset.saveNote}"]`).value;updateFinding(button.dataset.saveNote,{note},'Note saved');});
+$('#refreshDeepHistory').onclick=()=>loadDeepHistory();
 const downloadReport=extension=>{if(!state.activeCaseId)return;const a=document.createElement('a');a.href=`/api/cases/${state.activeCaseId}/report.${extension}`;a.download='';a.click();};
 $('#reportMarkdown').onclick=()=>downloadReport('md');
 $('#reportHtml').onclick=()=>downloadReport('html');
