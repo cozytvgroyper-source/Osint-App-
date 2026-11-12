@@ -20,8 +20,8 @@ and honest about what sources did and did not return.
 - Workflow: one feature branch and one pull request per change; don't commit straight to `main`. GitHub CLI (`gh`) is installed
   and signed in as `cozytvgroyper-source`, so `git push` and `gh pr create` work from this Mac. Merge only when the
   user says "send it".
-- GitHub protection (set 2026-11-11): `main` requires the four CI checks `test (20)`, `test (22)`, `test (24)` and
-  `test (26)`, applies to admins, and refuses force-pushes and deletion, so every change lands through a PR whose CI
+- GitHub protection (set 2026-11-11): `main` requires the three CI checks `test (22)`, `test (24)` and `test (26)`
+  (Node 20 dropped 2026-11-11, end-of-life), applies to admins, and refuses force-pushes and deletion, so every change lands through a PR whose CI
   passed; no review approval is required. If the CI Node matrix changes, update the required checks in the branch
   protection settings too, or merges wait on a job that no longer runs. Dependabot alerts, secret scanning and push
   protection are on. Auto-merge is allowed in the repository settings but is not used.
@@ -39,7 +39,7 @@ git diff --check
 ```
 
 GitHub Actions (`.github/workflows/ci.yml`) runs the syntax checks, `py_compile`, `zsh -n` on the launchers and
-`npm test` on Node 20, 22, 24 and 26, on macOS runners (free for this public repo), for every pull request and push to
+`npm test` on Node 22, 24 and 26, on macOS runners (free for this public repo), for every pull request and push to
 `main`. macOS has zsh and lsof built in, so CI downloads no packages; Ubuntu runners needed zsh from apt, which a
 runner DNS outage blocked for over an hour on 2026-11-11. For UI changes, also exercise the feature in
 a browser and report what you observed.

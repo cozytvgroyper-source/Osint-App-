@@ -2,7 +2,7 @@ name: CI
 
 # Runs the same checks used before every pull request: syntax checks for every script and the full test
 # suite, on every Node release line from the oldest supported version (package.json "engines") to the newest.
-# Node 26 is the version this Mac runs; 20 stays while "engines" still allows it.
+# Node 26 is the version this Mac runs. Node 20 reached end-of-life in April 2026 and was dropped.
 #
 # Runs on macOS because Public Desk is a Mac app: zsh and lsof (used by the launchers and the process-ownership
 # tests) are built in, so the job downloads no packages, and the launchers are checked on the system they run on.
@@ -21,7 +21,7 @@ jobs:
     timeout-minutes: 15
     strategy:
       matrix:
-        node: [20, 22, 24, 26]
+        node: [22, 24, 26]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
