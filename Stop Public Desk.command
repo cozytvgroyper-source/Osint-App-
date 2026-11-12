@@ -3,7 +3,10 @@ set -u
 
 APP_DIR="${0:A:h}"
 RUNTIME_DIR="$APP_DIR/work/runtime"
-OSINT_ROOT="${APP_DIR:h}/omprehensive-osint-toolboxes-osint-mcp-by/downloads/osint-mcp"
+MANAGED_OSINT_ROOT="$APP_DIR/work/dependencies/osint-mcp"
+LEGACY_OSINT_ROOT="${APP_DIR:h}/omprehensive-osint-toolboxes-osint-mcp-by/downloads/osint-mcp"
+OSINT_ROOT="${PUBLIC_DESK_OSINT_ROOT:-$MANAGED_OSINT_ROOT}"
+[[ -d "$OSINT_ROOT/.git" ]] || OSINT_ROOT="$LEGACY_OSINT_ROOT"
 
 source "$APP_DIR/scripts/service-ownership.zsh"
 
@@ -33,6 +36,8 @@ for service in signaldesk omega osint-toolbox mcp headless; do
     rm -f "$pid_file"
   fi
 done
+
+rm -f "$RUNTIME_DIR/public-desk-token"
 
 echo "Public Desk services are stopped."
 sleep 1

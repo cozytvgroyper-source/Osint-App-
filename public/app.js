@@ -13,6 +13,11 @@ import {deepRunBlocked,deepSearchPlan} from './deep-search.js?v=1';
 
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
+const bootstrapFragment=new URLSearchParams(location.hash.slice(1));
+const fragmentAccess=bootstrapFragment.get('access');
+if(fragmentAccess){sessionStorage.setItem('publicDesk.access',fragmentAccess);history.replaceState({},'',`${location.pathname}${location.search}`);}
+const publicDeskAccess=sessionStorage.getItem('publicDesk.access')||'';
+const accessHeaders=()=>publicDeskAccess?{'x-public-desk-token':publicDeskAccess}:{};
 const bundledServers=[
   { id: 'osint-local', name: 'Open OSINT', endpoint: 'http://127.0.0.1:8892/mcp', status: 'offline', tools: [] },
   { id: 'osint-toolbox-local', name: 'OSINT Toolbox', endpoint: 'http://127.0.0.1:8893/mcp', status: 'offline', tools: [] },
@@ -100,13 +105,13 @@ async function loadIntelNews(force=false){
 }
 
 async function apiGet(path) {
-  const response = await fetch(path);
+  const response = await fetch(path,{headers:accessHeaders()});
   const data = await response.json();
   if(!response.ok) throw new Error(data.error || 'Request failed');
   return data;
 }
 async function api(path, payload, options={}) {
-  const response = await fetch(path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload),signal:options.signal});
+  const response = await fetch(path,{method:'POST',headers:{'content-type':'application/json',...accessHeaders()},body:JSON.stringify(payload),signal:options.signal});
   const data = await response.json();
   if(!response.ok) throw new Error(data.error || 'Request failed');
   return data;
@@ -156,7 +161,7 @@ function renderConnections(){
   $('#connectionSummary').innerHTML=state.servers.map(s=>`<div class="connection"><div class="connection-name"><span class="server-dot ${s.status==='connected'?'connected':''}"></span><div><b>${escapeHtml(s.name)}</b><small>${s.status==='connected'?toolCountHtml(s):s.status==='connecting'?'Connecting…':s.disconnected?'Disconnected':'Ready to connect'}</small></div></div><button class="text-button" ${s.status==='connected'?`data-disconnect="${s.id}"`:`data-connect="${s.id}"`}>${s.status==='connected'?'Disconnect':'Connect'}</button></div>`).join('');
 }
 function renderServers(){
-  $('#serverList').innerHTML=state.servers.length?state.servers.map(s=>`<article class="server-card"><div class="server-card-top"><span class="badge">STREAMABLE HTTP</span><span class="server-dot ${s.status==='connected'?'connected':''}"></span></div><h3>${escapeHtml(s.name)}</h3><p class="endpoint">${escapeHtml(s.endpoint)}</p><p class="subtle">${s.status==='connected'?toolCountHtml(s):s.needsAuth?'Sign in is required to search academic research.':s.disconnected?'Disconnected':s.error?escapeHtml(s.error):'Not connected'}</p>${s.caution?`<p class="form-note">${escapeHtml(s.caution)}</p>`:''}<div class="server-actions"><button class="ghost" data-remove="${s.id}">${bundledServers.some(item=>item.endpoint===s.endpoint)?'Disable':'Remove'}</button>${s.needsAuth?`<a class="primary" href="/api/oauth/consensus/start">Sign in to Consensus</a>`:s.status==='connected'?`<button class="ghost" data-disconnect="${s.id}">Disconnect</button><button class="primary" data-connect="${s.id}">Refresh</button>`:`<button class="primary" data-connect="${s.id}">${s.status==='connecting'?'Connecting…':'Connect'}</button>`}</div></article>`).join(''):'<div class="empty-state">Add your first MCP server to begin.</div>';
+  $('#serverList').innerHTML=state.servers.length?state.servers.map(s=>`<article class="server-card"><div class="server-card-top"><span class="badge">STREAMABLE HTTP</span><span class="server-dot ${s.status==='connected'?'connected':''}"></span></div><h3>${escapeHtml(s.name)}</h3><p class="endpoint">${escapeHtml(s.endpoint)}</p><p class="subtle">${s.status==='connected'?toolCountHtml(s):s.needsAuth?'Sign in is required to search academic research.':s.disconnected?'Disconnected':s.error?escapeHtml(s.error):'Not connected'}</p>${s.caution?`<p class="form-note">${escapeHtml(s.caution)}</p>`:''}<div class="server-actions"><button class="ghost" data-remove="${s.id}">${bundledServers.some(item=>item.endpoint===s.endpoint)?'Disable':'Remove'}</button>${s.needsAuth?`<button class="primary" data-consensus-sign-in>Sign in to Consensus</button>`:s.status==='connected'?`<button class="ghost" data-disconnect="${s.id}">Disconnect</button><button class="primary" data-connect="${s.id}">Refresh</button>`:`<button class="primary" data-connect="${s.id}">${s.status==='connecting'?'Connecting…':'Connect'}</button>`}</div></article>`).join(''):'<div class="empty-state">Add your first MCP server to begin.</div>';
 }
 // Data sources: API keys for the services behind Open OSINT's tools, saved by the server in work/api-keys.env.
 // The server reports statuses and which fields are saved, never key values, and key inputs are cleared on close.
@@ -567,6 +572,7 @@ async function runDeepSearch(){
 }
 
 document.addEventListener('click',async event=>{
+  const consensusSignIn=event.target.closest('[data-consensus-sign-in]');if(consensusSignIn){try{const {authorize}=await api('/api/oauth/consensus/start',{});location.assign(authorize);}catch(error){toast(`Could not start sign-in: ${error.message}`);}return;}
   const pivot=event.target.closest('[data-pivot]');if(pivot){event.preventDefault();const target=pivot.dataset.pivot;$('#resultDialog').close();switchView('workspace');$('#query').value=target;$('#query').focus();try{await smartInvestigate(target);}catch(error){toast(error.message);}return;}
   const nav=event.target.closest('[data-view]'); if(nav)switchView(nav.dataset.view);
   const link=event.target.closest('[data-view-link]'); if(link)switchView(link.dataset.viewLink);
@@ -608,7 +614,14 @@ $('#evidenceList').addEventListener('click',event=>{const button=event.target.cl
 $('#refreshDeepHistory').onclick=()=>loadDeepHistory();
 $('#runSelfCheck').onclick=()=>runSelfCheck();
 $('#stopSelfCheck').onclick=()=>{selfCheck.stop=true;$('#stopSelfCheck').hidden=true;};
-const downloadReport=extension=>{if(!state.activeCaseId)return;const a=document.createElement('a');a.href=`/api/cases/${state.activeCaseId}/report.${extension}`;a.download='';a.click();};
+const downloadReport=async extension=>{
+  if(!state.activeCaseId)return;
+  try{
+    const response=await fetch(`/api/cases/${state.activeCaseId}/report.${extension}`,{headers:accessHeaders()});
+    if(!response.ok){const data=await response.json().catch(()=>({}));throw new Error(data.error||'Report download failed');}
+    const blob=await response.blob();const a=document.createElement('a');a.href=URL.createObjectURL(blob);const disposition=response.headers.get('content-disposition')||'';a.download=disposition.match(/filename="([^"]+)"/i)?.[1]||`public-desk-report.${extension}`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  }catch(error){toast(error.message);}
+};
 $('#reportMarkdown').onclick=()=>downloadReport('md');
 $('#reportHtml').onclick=()=>downloadReport('html');
 $('#newCase').onclick=()=>createCase().catch(error=>toast(error.message));

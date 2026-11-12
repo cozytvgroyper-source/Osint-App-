@@ -1,0 +1,22 @@
+diff --git a/mcp/src/osint_mcp/client.py b/mcp/src/osint_mcp/client.py
+index db66d49..0e32f67 100644
+--- a/mcp/src/osint_mcp/client.py
++++ b/mcp/src/osint_mcp/client.py
+@@ -3,5 +3,6 @@
+ from __future__ import annotations
+ 
+ import json
++import os
+ 
+ import httpx
+@@ -27,7 +28,10 @@ class HeadlessClient:
+         closed discovery loop, so keep each short local request loop-scoped.
+         """
++        token = os.environ.get("PUBLIC_DESK_TOKEN", "")
++        headers = {"Authorization": f"Bearer {token}"} if token else {}
+         async with httpx.AsyncClient(
+             base_url=self._base_url,
+             timeout=self._timeout,
++            headers=headers,
+         ) as client:
+             return await client.get(path, params=params)

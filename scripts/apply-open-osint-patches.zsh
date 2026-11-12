@@ -10,6 +10,17 @@ apply_open_osint_patches() {
   [[ -d "$root" ]] || return 0
   for patch in "$patch_dir"/*.patch; do
     name="${patch:t:r}"
+    # These two patches intentionally touch the same client helper. Once the later auth patch is present,
+    # git cannot reverse-check the earlier event-loop patch because its context changed, so use the exact
+    # durable feature markers before falling back to the generic patch checks.
+    if [[ "$name" == open-osint-mcp-event-loop ]] \
+      && grep -Fq 'long-lived AsyncClient created during discovery' "$root/mcp/src/osint_mcp/client.py" 2>/dev/null; then
+      continue
+    fi
+    if [[ "$name" == open-osint-mcp-local-auth ]] \
+      && grep -Fq 'PUBLIC_DESK_TOKEN' "$root/mcp/src/osint_mcp/client.py" 2>/dev/null; then
+      continue
+    fi
     # Stop git from looking above the checkout for another repository.
     if GIT_CEILING_DIRECTORIES="${root:h}" git -C "$root" apply --reverse --check "$patch" >/dev/null 2>&1; then
       continue
