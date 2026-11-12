@@ -91,7 +91,7 @@
       </section>
 
       <section id="evidence" class="view">
-        <div class="section-heading"><div><p class="eyebrow">CASE FILE</p><h2>Evidence notebook</h2><p class="subtle">Saved findings, sources, and tool outputs, kept on this Mac in <code>work/cases/</code>.</p></div><button class="ghost" id="exportEvidence">Export JSON</button></div>
+        <div class="section-heading"><div><p class="eyebrow">CASE FILE</p><h2>Evidence notebook</h2><p class="subtle">Saved findings, sources, and tool outputs, kept on this Mac in <code>work/cases/</code>.</p></div><div class="case-exports"><button class="ghost" id="reportMarkdown" title="Readable report with fingerprints, as Markdown">Report (Markdown)</button><button class="ghost" id="reportHtml" title="Printable report: open it, then File &gt; Print &gt; Save as PDF">Report (HTML / PDF)</button><button class="ghost" id="exportEvidence">Export JSON</button></div></div>
         <div class="case-bar"><label>Case<select id="caseSelect" aria-label="Active case"></select></label><button class="ghost" id="newCase">＋ New case</button><button class="text-button" id="renameCase">Rename</button><button class="text-button" id="deleteCase">Delete case</button></div>
         <div id="caseImport" class="case-import" hidden></div>
         <p id="caseSummary" class="subtle"></p>

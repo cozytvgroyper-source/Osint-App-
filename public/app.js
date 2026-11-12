@@ -219,7 +219,7 @@ function renderEvidence(){
   const options=state.cases.map(item=>`<option value="${escapeHtml(item.id)}"${item.id===state.activeCaseId?' selected':''}${item.damaged?' disabled':''}>${escapeHtml(item.name)}${item.damaged?'':` (${item.evidenceCount})`}</option>`).join('');
   $('#caseSelect').innerHTML=state.cases.length?`<option value="">Choose a case…</option>${options}`:'<option value="">No cases yet</option>';
   $('#caseSelect').value=state.activeCaseId||'';
-  $('#renameCase').disabled=$('#deleteCase').disabled=$('#exportEvidence').disabled=!state.activeCase;
+  $('#renameCase').disabled=$('#deleteCase').disabled=$('#exportEvidence').disabled=$('#reportMarkdown').disabled=$('#reportHtml').disabled=!state.activeCase;
   const legacy=state.evidence.length;
   $('#caseImport').hidden=!legacy;
   $('#caseImport').innerHTML=legacy?`<p>${legacy} finding${legacy===1?' is':'s are'} saved only in this browser. Import ${legacy===1?'it':'them'} into a case on this Mac so ${legacy===1?'it survives':'they survive'} a browser change.</p><button class="primary" id="importBrowserEvidence">Import into a new case</button>`:'';
@@ -558,6 +558,9 @@ $$('[data-close-result]').forEach(b=>b.onclick=()=>$('#resultDialog').close());
 $$('[data-close-dialog]').forEach(button=>button.onclick=()=>button.closest('dialog')?.close());
 $('#saveEvidence').onclick=()=>saveLastResultToCase().catch(error=>toast(`Could not save: ${error.message}`));
 $('#caseSelect').onchange=event=>selectCase(event.target.value);
+const downloadReport=extension=>{if(!state.activeCaseId)return;const a=document.createElement('a');a.href=`/api/cases/${state.activeCaseId}/report.${extension}`;a.download='';a.click();};
+$('#reportMarkdown').onclick=()=>downloadReport('md');
+$('#reportHtml').onclick=()=>downloadReport('html');
 $('#newCase').onclick=()=>createCase().catch(error=>toast(error.message));
 $('#renameCase').onclick=async()=>{if(!state.activeCase)return;const name=prompt('New name for this case',state.activeCase.name);if(name&&name.trim())await api(`/api/cases/${state.activeCaseId}/rename`,{name}).then(loadCases).catch(error=>toast(error.message));};
 $('#deleteCase').onclick=async()=>{const c=state.activeCase;if(!c||!confirm(`Delete the case "${c.name}" and its ${c.evidence.length} finding${c.evidence.length===1?'':'s'} from this Mac? This cannot be undone.`))return;await api(`/api/cases/${c.id}/delete`,{}).catch(error=>toast(error.message));state.activeCaseId=null;await loadCases();};
