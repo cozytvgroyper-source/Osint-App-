@@ -71,3 +71,36 @@ test('ui.css loads before the other stylesheets',()=>{
 test('the page has a solid background color under its gradient',()=>{
   assert.match(css,/html\{background-color:var\(--bg\)\}/);
 });
+
+// The sidebar is navy in both themes, so the focus ring and the current-page bar there need their own colors, checked
+// against every shade of its gradient and the hover background (11% white over the gradient).
+test('focus ring and current-page bar stand out on the navy sidebar',()=>{
+  const rail=tokens(block(css,'.rail'));
+  const mix=(hex,alpha)=>'#'+[1,3,5].map(i=>Math.round(alpha*255+(1-alpha)*parseInt(hex.slice(i,i+2),16)).toString(16).padStart(2,'0')).join('');
+  const shades=['#082767','#041744','#020c2b'];
+  for(const bg of [...shades,...shades.map(s=>mix(s,0.11))])for(const name of ['focus','accent']){
+    const value=ratio(rail[name],bg);assert.ok(value>=3,`sidebar --${name} on ${bg} is ${value.toFixed(2)}:1`);
+  }
+});
+
+// Later stylesheets reset whole borders on selects and textareas to the faint --line color, so the field-border rule
+// must out-rank every one of them.
+function specificity(selector){
+  let ids=0,classes=0,types=0;
+  const s=selector.replace(/::?[\w-]+\(([^)]*)\)/g,(m,inner)=>{const [a,b,c]=specificity(inner);ids+=a;classes+=b+(m.startsWith(':not')?0:1);types+=c;return ' ';});
+  ids+=(s.match(/#[\w-]+/g)||[]).length;
+  classes+=(s.match(/\.[\w-]+|\[[^\]]+\]|:(?!:)[\w-]+/g)||[]).length;
+  types+=(s.replace(/#[\w-]+|\.[\w-]+|\[[^\]]+\]|::?[\w-]+/g,' ').match(/(?:^|[\s>+~])([a-z][\w-]*)/gi)||[]).length;
+  return [ids,classes,types];
+}
+const beats=(a,b)=>a[0]!==b[0]?a[0]>b[0]:a[1]!==b[1]?a[1]>b[1]:a[2]>b[2];
+test('field borders reach every select and textarea',()=>{
+  const rule=[...css.matchAll(/([^{}]+)\{border-color:var\(--field-border\)\}/g)].map(m=>m[1]).join(',');
+  for(const tag of ['select','textarea']){
+    const mine=rule.split(',').map(s=>s.trim()).filter(s=>new RegExp(`^${tag}\\b`).test(s));
+    assert.ok(mine.length,`ui.css styles ${tag} borders`);
+    for(const file of ['styles.css','results.css','theme.css'])for(const m of read(file).matchAll(/([^{}@]+)\{([^}]*\bborder(?:-color)?:[^}]*)\}/g))
+      for(const selector of m[1].split(',').map(s=>s.trim()).filter(s=>new RegExp(`\\b${tag}$`).test(s)))
+        assert.ok(mine.some(own=>beats(specificity(own),specificity(selector))),`${file}: "${selector}" overrides the ${tag} field border`);
+  }
+});

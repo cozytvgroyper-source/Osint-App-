@@ -71,7 +71,8 @@ function openDialog(dialog,trigger=document.activeElement){
   dialog.showModal();
   const first=dialog.querySelector('input:not([type="hidden"]):not([disabled]),select:not([disabled]),textarea:not([disabled])')||dialog.querySelector('[data-close-dialog],[data-close-result]');
   first?.focus();
-  dialog.addEventListener('close',()=>{if(trigger?.isConnected&&typeof trigger.focus==='function')trigger.focus();},{once:true});
+  // Only when nothing else took focus meanwhile (a Pivot closes the results and focuses the search box).
+  dialog.addEventListener('close',()=>{const stranded=document.activeElement===document.body||dialog.contains(document.activeElement);if(stranded&&trigger?.isConnected&&typeof trigger.focus==='function')trigger.focus();},{once:true});
 }
 function toast(message) { const el=$('#toast'); el.textContent=message; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2400); }
 function iconFor(name='') { if(/cyber|cve|threat|domain|ip/i.test(name))return'⌁'; if(/geo|satellite|place|flight|vessel/i.test(name))return'◈'; if(/sanction|entity|company/i.test(name))return'◎'; return'▤'; }

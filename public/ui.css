@@ -22,7 +22,10 @@ body{font-size:var(--text-sm);line-height:1.5}
 h1,h2,h3,h4{line-height:1.25}
 
 :focus-visible{outline:3px solid var(--focus);outline-offset:2px}
-input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),select,textarea{border-color:var(--field-border)}
+/* The sidebar is navy in both themes: its focus ring and current-page bar use colors checked against its gradient. */
+.rail{--focus:#22bdf4;--accent:#ff6378}
+/* Raised specificity: later stylesheets reset whole borders on ".x select" and "dialog textarea" to the faint --line. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),select:not([multiple]):not([size]):not([disabled]),textarea:not([hidden]):not([disabled]):not([readonly]){border-color:var(--field-border)}
 
 @media (prefers-reduced-motion: reduce){*,*::before,*::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
 
