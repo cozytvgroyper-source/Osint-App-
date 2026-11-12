@@ -34,7 +34,7 @@ test('the main search passes its subject and preferred tools to the report',()=>
   assert.match(app,/target:!!extractTarget\(query\)/);
 });
 test('ranked reports use the results-only view; older saved reports keep the old layout',()=>{
-  assert.match(app,/payload\?\.ranking\)return renderRankedReport\(/);
+  assert.match(app,/payload\?\.ranking&&payload\?\.report\)return renderRankedReport\(/);
 });
 test('the ranked view gets the same record body renderCategory shows',()=>{
   assert.match(app,/function renderBody\(data\)/);
@@ -45,6 +45,6 @@ test('a live redraw keeps open details open',()=>{
   assert.match(app,/details\[data-details-key\]\[open\]:not\(\[data-default-open\]\)/);
 });
 test('changed and new modules are imported with a version',()=>{
-  assert.match(app,/search-report\.js\?v=3/);
-  assert.match(app,/search-results-view\.js\?v=1/);
+  assert.match(app,/search-report\.js\?v=4/);
+  assert.match(app,/search-results-view\.js\?v=2/);
 });

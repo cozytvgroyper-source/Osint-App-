@@ -100,3 +100,9 @@ test('the target option defaults to off',()=>{
   const r=rank([['get_bgp',{peers:[{name:'8.8.4.4 resolver'}]}]],'8.8.8.8');
   assert.ok(r.topResults[0].score>0);
 });
+// Final review #6.
+test('very long item lists rank without overflowing the stack',()=>{
+  const items=Array.from({length:150000},(_,i)=>({title:i%2?'Rosneft':'x'}));
+  assert.doesNotThrow(()=>rank([['big',{items}]]));
+  assert.equal(rank([['big',{items}]]).sections[0].matching.length,75000);
+});

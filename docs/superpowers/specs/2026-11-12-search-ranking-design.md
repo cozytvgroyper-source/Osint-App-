@@ -147,3 +147,5 @@ From top to bottom:
 
 - Finding items uses general rules. A tool that nests its items inside something other than an array of objects falls back to being treated as a single record.
 - Matching is on words, so a subject spelled differently in a source (for example "Rosneft" and "Роснефть") does not match.
+- For target searches (an IP address, domain, email and the like), matching is phrase-only, and direct tools' items are never folded.
+- Ranking stores item copies, roughly doubling the saved payload, so searches whose report is about 2.5–5 MB may no longer fit in a case.

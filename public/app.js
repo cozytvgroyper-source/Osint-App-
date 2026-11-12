@@ -1,11 +1,11 @@
 import {explainSearchPlan,summarizePlanDiagnostics} from './search-planner.js';
 import {classifyToolResult,hasUsefulData,parseToolResult} from './result-classifier.js';
-import {buildSearchReport,reportHasFindings} from './search-report.js?v=3';
+import {buildSearchReport,reportHasFindings} from './search-report.js?v=4';
 import {recordToolHealth,serverConnectionLabel,toolCountLabel} from './tool-health.js';
 import {activeCaseId,defaultCaseName,newestFirst,shortFingerprint} from './cases-client.js';
 import {selfCheckPlan,summarizeSelfCheck} from './self-check.js';
 import {argsForSearch,extractTarget,searchIntent,searchSubjectFor} from './search-query.js?v=1';
-import {renderRankedReport} from './search-results-view.js?v=1';
+import {renderRankedReport} from './search-results-view.js?v=2';
 import {loadStoredState,mergeStoredServers,persistStoredState} from './browser-storage.js';
 import {TIERS,groupToolsByTier,runRequirements,toolRisk,toolUsage} from './tool-tiers.js';
 import {resultPivot} from './result-pivots.js?v=1';
@@ -426,7 +426,7 @@ function renderSources(entry){
 }
 function renderReadableResult(result,openKeys=null){
   const parsed=parseToolResult(result); const payload=parsed?.data??parsed; const report=payload?.report;
-  if(payload?.ranking)return renderRankedReport(payload,{escapeHtml,renderArray,renderRecord,renderBody,renderCategory,renderSources,openKeys});
+  if(payload?.ranking&&payload?.report)return renderRankedReport(payload,{escapeHtml,renderArray,renderRecord,renderBody,renderCategory,renderSources,openKeys});
   if(report&&typeof report==='object'){
     const entries=Object.entries(report); const hasFindings=reportHasFindings(report);
     const content=entries.map(([name,entry])=>name==='Sources'?renderSources(entry):renderCategory(name,entry)).join('');

@@ -40,7 +40,7 @@ function itemText(item) {
 function split(data) {
   const items = [];
   const strip = value => {
-    if (isItemList(value)) { items.push(...value); return undefined; }
+    if (isItemList(value)) { for (const item of value) items.push(item); return undefined; }
     if (!isPlain(value) && !Array.isArray(value)) return value;
     const entries = Array.isArray(value) ? value.map(strip) : Object.entries(value).map(([key, child]) => [key, strip(child)]);
     if (Array.isArray(value)) return entries.every(child => child === undefined) && entries.length ? undefined : entries.filter(child => child !== undefined);

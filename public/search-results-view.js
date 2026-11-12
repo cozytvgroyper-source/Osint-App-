@@ -22,14 +22,15 @@ export function renderRankedReport(data = {}, helpers) {
   const total = sections.reduce((sum, s) => sum + (s.matching?.length || 0) + (s.nonMatching?.length || 0), 0);
   const running = report['Still Running']?.data?.sources?.length || 0;
   const queried = data.modulesQueried ?? sections.length;
+  const count = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
   parts.push(running
-    ? `<p class="search-status">${queried - running} of ${queried} tools answered…</p>`
-    : `<p class="search-status">${total} results from ${sections.length} tools</p>`);
+    ? `<p class="search-status">${Math.max(0, queried - running)} of ${queried} tools answered…</p>`
+    : `<p class="search-status">${count(total, 'result')} from ${count(sections.length, 'tool')}</p>`);
 
   // 2. Top results
   if (topResults.length) {
     parts.push(`<section class="result-category"><div class="category-head"><p class="eyebrow">Top results</p></div>${
-      topResults.map(item => `<div class="top-result"><p class="result-source">${label(item)}</p>${renderArray([item.item])}</div>`).join('')
+      topResults.map(item => `<div class="top-result"><p class="result-source">${label(item)}</p>${typeof item.item === 'string' ? renderRecord(item.item) : renderArray([item.item])}</div>`).join('')
     }</section>`);
   }
 
@@ -57,7 +58,7 @@ export function renderRankedReport(data = {}, helpers) {
   if (noResults) parts.push('<p class="empty-copy">No results for this search</p>');
 
   // 5. Search details
-  const detail = [`<h3>Search details</h3>`];
+  const detail = ['<summary>Search details</summary>'];
   detail.push(renderSources(report.Sources));
   for (const name of ['Still Running', 'Planner Diagnostics', 'Related Links']) {
     if (report[name]) detail.push(renderCategory(name, report[name]));

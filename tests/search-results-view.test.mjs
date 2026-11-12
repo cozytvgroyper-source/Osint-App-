@@ -28,7 +28,7 @@ test('shows only results by default, with tool and server on each top result',()
   assert.match(html,/OpenSanctions · Open OSINT/);
   assert.match(html,/<details class="search-details" data-details-key="search-details">/);
   assert.ok(html.indexOf('Top results')<html.indexOf('search-details'));
-  assert.match(html,/2 results? from 2 tools|\d+ results from 2 tools/);
+  assert.match(html,/41 results from 2 tools/);
 });
 test('folds non-matching items under Show N more',()=>{
   const html=renderRankedReport(main(),helpers);
@@ -81,4 +81,22 @@ test('facts render through renderBody so nested data is kept',()=>{
   const data={found:['github'],owner:{name:'x'},results:[{name:'Rosneft'}]};
   const html=renderRankedReport(build({tools:['get_opensanctions'],outcomes:[{kind:'data',data}]}),helpers);
   assert.ok(html.includes(`[B:${JSON.stringify({found:['github'],owner:{name:'x'}})}]`));
+});
+// Final review #5, #9, #10.
+test('Search details has its own summary and no inner heading',()=>{
+  const html=renderRankedReport(main(),helpers);
+  assert.match(html,/data-details-key="search-details"><summary>Search details<\/summary>/);
+  assert.doesNotMatch(html,/<h3>Search details/);
+});
+test('the status line pluralises results and tools',()=>{
+  const html=renderRankedReport(build({tools:['get_opensanctions'],outcomes:[{kind:'data',data:{results:[{name:'Rosneft'}]}}]}),helpers);
+  assert.match(html,/1 result from 1 tool</);
+});
+test('the running count is never negative',()=>{
+  const data=build({tools:['a','b'],outcomes:[{kind:'data',data:{x:1}}]});
+  assert.match(renderRankedReport({...data,modulesQueried:0},helpers),/0 of 0 tools answered…/);
+});
+test('a string top result keeps its text layout (renderRecord)',()=>{
+  const html=renderRankedReport(build({tools:['omega_intel'],outcomes:[{kind:'data',data:'Report\nRosneft owns this'}]}),helpers);
+  assert.ok(html.includes('<div class="top-result"><p class="result-source">omega_intel · Open OSINT</p>[R:Report\nRosneft owns this]</div>'));
 });
