@@ -76,3 +76,16 @@ test('the report routes download Markdown and HTML files named after the case',a
   assert.equal(html.filename,'acme-review-report.html');
   assert.equal(await handleCaseRequest(store,'POST',`/api/cases/${id}/report.md`,async()=>({})),null);
 });
+
+test('reports show each finding status and note, escaped, and count findings by status',()=>{
+  const withNotes={...record,evidence:[{...record.evidence[0],status:'confirmed',note:'Registrar matches <b>Acme</b> | ok'},{...record.evidence[1],status:'ruled out',note:''}]};
+  const md=buildCaseReport(withNotes,{format:'markdown',now});
+  assert.match(md,/1 confirmed · 0 unverified · 1 ruled out/);
+  assert.match(md,/- Status: confirmed/);
+  assert.match(md,/- Note: Registrar matches <b>Acme<\/b> \\\| ok/);
+  const html=buildCaseReport(withNotes,{format:'html',now});
+  assert.ok(html.includes('Registrar matches &lt;b&gt;Acme&lt;/b&gt; | ok'));
+  assert.match(html,/<dt>Status<\/dt><dd>confirmed<\/dd>/);
+  const legacy=buildCaseReport(record,{format:'markdown',now});
+  assert.match(legacy,/- Status: unverified/,'findings saved before statuses existed count as unverified');
+});

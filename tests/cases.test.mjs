@@ -111,3 +111,21 @@ test('routes the case API: list, create, read, rename, add and remove evidence, 
   assert.equal(await call('PUT','/api/cases'),null);
 });
 
+
+test('new findings start unverified, and a note and status can be updated',async()=>{
+  const {store}=tempStore();
+  const {id}=await store.create({name:'Case'});
+  const item=await store.addEvidence(id,{title:'example.com',result:{}});
+  assert.equal(item.status,'unverified');
+  assert.equal(item.note,'');
+  const updated=await store.updateEvidence(id,item.id,{status:'confirmed',note:'  Matches the registrar record.  '});
+  assert.deepEqual([updated.status,updated.note],['confirmed','Matches the registrar record.']);
+  assert.equal((await store.get(id)).evidence[0].status,'confirmed');
+  const partial=await store.updateEvidence(id,item.id,{status:'ruled out'});
+  assert.deepEqual([partial.status,partial.note],['ruled out','Matches the registrar record.'],'a status change keeps the note');
+  await assert.rejects(store.updateEvidence(id,item.id,{status:'probably'}),{code:'CASE_INPUT'});
+  await assert.rejects(store.updateEvidence(id,item.id,{note:'x'.repeat(4001)}),{code:'CASE_INPUT'});
+  await assert.rejects(store.updateEvidence(id,'ffffffffffff',{status:'confirmed'}),{code:'CASE_NOT_FOUND'});
+  const route=await handleCaseRequest(store,'POST',`/api/cases/${id}/evidence/${item.id}/update`,async()=>({note:'via route'}));
+  assert.equal(route.body.note,'via route');
+});
