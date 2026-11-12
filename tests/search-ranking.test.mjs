@@ -54,11 +54,20 @@ test('a bare string result is one item scored on its text',()=>{
   assert.equal(r.sections[0].single,true);
   assert.equal(r.sections[0].matching[0],'Report\nRosneft owns this');
 });
-test('an empty result list is never a single-record match',()=>{
+test('echoed metadata strings never make a record match',()=>{
   const r=rank([['x',{query:'Rosneft',results:[]}]]);
-  assert.equal(r.sections[0].single,false);
+  assert.equal(r.sections[0].single,true);
   assert.deepEqual(r.sections[0].matching,[]);
-  assert.deepEqual(r.sections[0].nonMatching,[]);
-  assert.deepEqual(r.sections[0].facts,{query:'Rosneft'});
+  assert.equal(r.sections[0].nonMatching.length,1);
   assert.equal(r.topResults.length,0);
+});
+test('a single record with an empty array field still scores',()=>{
+  const r=rank([['x',{title:'Rosneft report',aliases:[]}]]);
+  assert.equal(r.sections[0].single,true);
+  assert.equal(r.sections[0].matching.length,1);
+  assert.equal(r.topResults[0].score,3);
+});
+test('non-metadata strings still count for a single record',()=>{
+  const r=rank([['x',{registrar:'Rosneft Registrar',query:'other'}]]);
+  assert.equal(r.topResults[0].score,3);
 });

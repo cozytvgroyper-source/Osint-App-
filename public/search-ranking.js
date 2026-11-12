@@ -1,3 +1,4 @@
+import {METADATA_KEYS} from './result-classifier.js';
 // Ranks search results for the report. Pure and DOM-free: finds the record lists in each tool's data,
 // scores every record by how well it matches the searched subject, and returns the best ones overall
 // (topResults) plus one section per tool with its matching records, folded non-matching records and facts.
@@ -5,7 +6,7 @@ const TEXT_FIELDS = ['title', 'name', 'headline', 'place', 'description', 'summa
 const TOP_LIMIT = 10;
 
 const isPlain = value => value !== null && typeof value === 'object' && !Array.isArray(value);
-const isItemList = value => Array.isArray(value) && value.every(isPlain);
+const isItemList = value => Array.isArray(value) && value.length > 0 && value.every(isPlain);
 const strings = values => values.filter(value => typeof value === 'string');
 const splitWords = text => text.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
 
@@ -29,15 +30,14 @@ export function matchScore(text, subject) {
 function itemText(item, single) {
   if (typeof item === 'string') return item;
   const named = strings(TEXT_FIELDS.map(field => item[field]));
-  return (named.length || !single ? named : strings(Object.values(item))).join(' ');
+  return (named.length || !single ? named : strings(Object.entries(item).filter(([key]) => !METADATA_KEYS.test(key)).map(([, value]) => value))).join(' ');
 }
 
-// Returns the data's item lists (combined in order; an empty array counts as a list) and the data with those lists removed.
+// Returns the data's item lists (combined in order) and the data with those lists removed.
 function split(data) {
   const items = [];
-  let listed = false;
   const strip = value => {
-    if (isItemList(value)) { listed = true; items.push(...value); return undefined; }
+    if (isItemList(value)) { items.push(...value); return undefined; }
     if (!isPlain(value) && !Array.isArray(value)) return value;
     const entries = Array.isArray(value) ? value.map(strip) : Object.entries(value).map(([key, child]) => [key, strip(child)]);
     if (Array.isArray(value)) return entries.every(child => child === undefined) && entries.length ? undefined : entries.filter(child => child !== undefined);
@@ -45,7 +45,7 @@ function split(data) {
     return kept.length || !Object.keys(value).length ? Object.fromEntries(kept) : undefined;
   };
   const rest = strip(data);
-  return {items, rest, listed};
+  return {items, rest};
 }
 
 export function rankResults({subject = '', preferredNames = [], entries = []} = {}) {
@@ -54,9 +54,9 @@ export function rankResults({subject = '', preferredNames = [], entries = []} = 
   let order = 0;
   for (const {tool, toolLabel, data} of entries) {
     const direct = preferred.has(tool.name);
-    let {items, rest, listed} = split(data);
+    let {items, rest} = split(data);
     let single = false;
-    if (!listed && ((isPlain(data) && Object.keys(data).length) || (typeof data === 'string' && data.trim()))) {
+    if (!items.length && ((isPlain(data) && Object.keys(data).length) || (typeof data === 'string' && data.trim()))) {
       items = [data];
       single = true;
     }
