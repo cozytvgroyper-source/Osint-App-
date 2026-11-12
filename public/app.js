@@ -68,11 +68,22 @@ function persist() {
 function toast(message) { const el=$('#toast'); el.textContent=message; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2400); }
 function iconFor(name='') { if(/cyber|cve|threat|domain|ip/i.test(name))return'⌁'; if(/geo|satellite|place|flight|vessel/i.test(name))return'◈'; if(/sanction|entity|company/i.test(name))return'◎'; return'▤'; }
 
+// Each view's name and one plain line on what it is for, shown in the page header and the browser tab.
+const PAGES={
+  workspace:{title:'Search',intro:'Look up a person, company, website, IP address, username or event. Public Desk asks connected sources and shows the best matches first.'},
+  evidence:{title:'Evidence',intro:'Save findings into cases, mark what you’ve checked, and export a report. Cases are stored on this Mac.'},
+  news:{title:'News',intro:'Live public events from IntelMap. Always open the original source before relying on a report.'},
+  servers:{title:'MCP servers',intro:'MCP servers are the services Public Desk asks when you search. The first four are included; you can add your own.'},
+  library:{title:'Tool library',intro:'Every tool your MCP servers offer, grouped by how visible it is to the target. The main search only uses Passive tools.'},
+  deep:{title:'Deep Search',intro:'Run stronger checks against one target you own or have written permission to test. Nothing runs until you confirm.'}
+};
+
 function switchView(id) {
   $$('.view').forEach(v => v.classList.toggle('active-view', v.id === id));
   $$('.nav').forEach(v => v.classList.toggle('active', v.dataset.view === id));
-  const labels={workspace:'Hello Groyper',servers:'Connection center',library:'Explore capabilities',deep:'Plan a controlled test',news:'IntelMap news',evidence:'Your case file'};
-  $('#pageTitle').textContent=labels[id]||'Public Desk'; window.scrollTo({top:0,behavior:'smooth'});
+  const page=PAGES[id]||PAGES.workspace;
+  $('#pageTitle').textContent=page.title;$('#pageIntro').textContent=page.intro;document.title=`${page.title} · Public Desk`;
+  window.scrollTo({top:0,behavior:'smooth'});
   if(id==='news'&&!intelNews.loaded&&!intelNews.loading)loadIntelNews();
   if(id==='deep')loadDeepHistory();
 }

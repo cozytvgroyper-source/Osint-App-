@@ -5,12 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#07110f" />
   <title>Public Desk — OSINT workspace</title>
-  <link rel="stylesheet" href="/ui.css?v=1" />
+  <link rel="stylesheet" href="/ui.css?v=2" />
   <link rel="stylesheet" href="/styles.css?v=19" />
   <link rel="stylesheet" href="/results.css?v=14" />
   <link rel="stylesheet" href="/theme.css?v=18" />
 </head>
 <body>
+  <a class="skip-link" href="#main">Skip to content</a>
   <div class="shell">
     <aside class="rail">
       <a class="brand" href="#" aria-label="Public Desk home"><span class="brand-mark">P</span><span>Public Desk</span></a>
@@ -30,9 +31,9 @@
       </div>
     </aside>
 
-    <main>
+    <main id="main" tabindex="-1">
       <header>
-        <div><p class="eyebrow">INVESTIGATION CONSOLE</p><h1 id="pageTitle">Hello Groyper</h1></div>
+        <div><h1 id="pageTitle">Search</h1><p id="pageIntro" class="page-intro">Look up a person, company, website, IP address, username or event. Public Desk asks connected sources and shows the best matches first.</p></div>
         <div class="header-actions"><button class="ghost" id="cmdButton"><kbd>⌘</kbd><kbd>K</kbd> Search</button><button class="primary" id="newInvestigation">＋ New investigation</button></div>
       </header>
 
@@ -64,7 +65,7 @@
       </section>
 
       <section id="servers" class="view">
-        <div class="section-heading"><div><p class="eyebrow">CONNECTIONS</p><h2>MCP servers</h2><p class="subtle">The bundled local servers, plus any MCP server you add over HTTPS. Bearer tokens are held only in this browser tab.</p></div><button class="primary" id="addServer">＋ Add server</button></div>
+        <div class="section-heading view-actions"><button class="primary" id="addServer">＋ Add server</button></div>
         <div id="serverList" class="server-grid"></div>
         <div class="self-check"><div class="section-heading"><div><p class="eyebrow">HEALTH</p><h3>Tool self-check</h3><p class="subtle" id="selfCheckIntro">Runs each tool the automatic search uses against harmless test targets (example.com, 8.8.8.8, user@example.com, @octocat, CVE-2021-44228 and the EICAR test hash) to spot tools that stopped working. Passive lookups only; the services behind them see these queries.</p></div><div class="self-check-actions"><button class="ghost" id="stopSelfCheck" hidden>Stop</button><button class="primary" id="runSelfCheck">Run self-check</button></div></div><p class="subtle" id="selfCheckSummary"></p><div id="selfCheckResults"></div></div>
         <div class="section-heading"><div><p class="eyebrow">CONNECTIONS</p><h2>Data sources</h2><p class="subtle">API keys for the services behind Open OSINT's tools. Keys are saved on this Mac only, in work/api-keys.env, and are never shown again. Connect and Disconnect apply right away.</p></div><span class="subtle" id="dataSourceCount"></span></div>
@@ -73,13 +74,12 @@
       </section>
 
       <section id="library" class="view">
-        <div class="section-heading"><div><p class="eyebrow">CAPABILITIES</p><h2>Tool library</h2><p class="subtle" id="toolCount">Connect a server to discover tools.</p></div><label class="filter"><span>⌕</span><input id="toolFilter" placeholder="Filter tools" /></label></div>
+        <div class="section-heading"><div><p class="subtle" id="toolCount">Connect a server to discover tools.</p></div><label class="filter"><span>⌕</span><input id="toolFilter" placeholder="Filter tools" /></label></div>
         <div id="tierFilters" class="tier-filters" aria-label="Filter tools by risk tier"></div>
         <div id="toolLibrary" class="tier-groups"></div>
       </section>
 
       <section id="deep" class="view deep-view">
-        <div class="deep-hero"><p class="eyebrow">CONTROLLED TESTING</p><h2>Deep Search</h2><p>Build a visible plan for one explicit target. Tools run one at a time and may be noticed by the target.</p></div>
         <div class="deep-setup"><label>Target<input id="deepTarget" autocomplete="off" placeholder="example.com" /></label><label>Maximum level<select id="deepLevel"><option value="0">Passive</option><option value="1" selected>Light touch</option><option value="2">Active</option><option value="3">Intrusive</option></select></label><button class="primary" id="buildDeepPlan">Build plan</button></div>
         <div id="deepPlan" class="deep-plan"><div class="empty-state">Type a target and build a plan. Nothing runs automatically.</div></div>
         <div id="deepConfirmations" class="deep-confirmations" hidden><label class="run-check"><input type="checkbox" id="deepAuthorize" /> I own this target or have written permission to test it.</label><label id="deepTypedWrap" hidden>Type the target exactly to confirm Intrusive testing<input id="deepTypedTarget" autocomplete="off" /></label><p id="deepError" class="form-error"></p><div class="deep-actions"><button class="ghost" id="cancelDeepRun" disabled>Cancel</button><button class="primary" id="runDeepSearch">Run selected tools</button></div></div>
@@ -88,14 +88,14 @@
       </section>
 
       <section id="news" class="view">
-        <div class="section-heading news-heading"><div><p class="eyebrow">INTELMAP JSON</p><h2>News</h2><p class="subtle">Live public signals from IntelMap's official JSON API. Open original sources to verify consequential reporting.</p></div><div class="header-actions"><button class="primary" id="refreshIntelNews">↻ Refresh</button></div></div>
+        <div class="section-heading news-heading view-actions"><div class="header-actions"><button class="primary" id="refreshIntelNews">↻ Refresh</button></div></div>
         <div class="news-toolbar"><label class="filter"><span>⌕</span><input id="intelNewsFilter" placeholder="Search title, source, country…" /></label><label class="news-category">Category<select id="intelNewsCategory"><option value="">All categories</option></select></label><span id="intelNewsFreshness" class="subtle">Not loaded</span></div>
         <div id="intelNewsMetrics" class="news-metrics"></div>
         <div id="intelNewsList" class="news-grid"><div class="empty-state">Open News to load IntelMap's public feed.</div></div>
       </section>
 
       <section id="evidence" class="view">
-        <div class="section-heading"><div><p class="eyebrow">CASE FILE</p><h2>Evidence notebook</h2><p class="subtle">Saved findings, sources, and tool outputs, kept on this Mac in <code>work/cases/</code>.</p></div><div class="case-exports"><button class="ghost" id="reportMarkdown" title="Readable report with fingerprints, as Markdown">Report (Markdown)</button><button class="ghost" id="reportHtml" title="Printable report: open it, then File &gt; Print &gt; Save as PDF">Report (HTML / PDF)</button><button class="ghost" id="exportEvidence">Export JSON</button></div></div>
+        <div class="section-heading view-actions"><div class="case-exports"><button class="ghost" id="reportMarkdown" title="Readable report with fingerprints, as Markdown">Report (Markdown)</button><button class="ghost" id="reportHtml" title="Printable report: open it, then File &gt; Print &gt; Save as PDF">Report (HTML / PDF)</button><button class="ghost" id="exportEvidence">Export JSON</button></div></div>
         <div class="case-bar"><label>Case<select id="caseSelect" aria-label="Active case"></select></label><button class="ghost" id="newCase">＋ New case</button><button class="text-button" id="renameCase">Rename</button><button class="text-button" id="deleteCase">Delete case</button></div>
         <div id="caseImport" class="case-import" hidden></div>
         <p id="caseSummary" class="subtle"></p>

@@ -52,3 +52,10 @@ button,a,input,select,textarea{min-height:24px}
 .empty-state-title{color:var(--ink);font-size:var(--text-md);font-weight:650;margin:0 0 var(--space-1)}
 
 .term{text-decoration:underline dotted;text-underline-offset:3px;cursor:help}
+
+/* Skip link: hidden until a keyboard user reaches it, then shown at the top left. */
+.skip-link{position:absolute;left:var(--space-3);top:-100px;z-index:100;background:var(--action);color:var(--on-action);padding:var(--space-2) var(--space-4);border-radius:var(--radius-control);font-weight:650;text-decoration:none}
+.skip-link:focus,.skip-link:focus-visible{top:var(--space-3)}
+main:focus-visible{outline:3px solid var(--focus);outline-offset:-3px}
+/* A view's action buttons sit on their own row now that the page header carries its name. */
+.view-actions{justify-content:flex-end}
