@@ -81,6 +81,7 @@
         <div id="deepPlan" class="deep-plan"><div class="empty-state">Type a target and build a plan. Nothing runs automatically.</div></div>
         <div id="deepConfirmations" class="deep-confirmations" hidden><label class="run-check"><input type="checkbox" id="deepAuthorize" /> I own this target or have written permission to test it.</label><label id="deepTypedWrap" hidden>Type the target exactly to confirm Intrusive testing<input id="deepTypedTarget" autocomplete="off" /></label><p id="deepError" class="form-error"></p><div class="deep-actions"><button class="ghost" id="cancelDeepRun" disabled>Cancel</button><button class="primary" id="runDeepSearch">Run selected tools</button></div></div>
         <div id="deepLog" class="deep-log" hidden aria-live="polite"></div>
+        <div class="deep-history"><div class="section-heading"><div><h3>Run history</h3><p class="subtle">Every Deep Search run, from the private audit log on this Mac (<code>work/deep-search-audit.jsonl</code>).</p></div><button class="text-button" id="refreshDeepHistory">Refresh</button></div><div id="deepHistory"></div></div>
       </section>
 
       <section id="news" class="view">

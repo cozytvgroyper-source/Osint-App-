@@ -1,4 +1,4 @@
-import {appendFile,chmod,mkdir} from 'node:fs/promises';
+import {appendFile,chmod,mkdir,readFile} from 'node:fs/promises';
 import {dirname} from 'node:path';
 
 export function auditEntry(value, now = new Date()) {
@@ -16,4 +16,19 @@ export async function appendDeepSearchAudit(file, value, options={}) {
   await appendFile(file,`${JSON.stringify(entry)}\n`,{encoding:'utf8',mode:0o600});
   await chmod(file,0o600);
   return entry;
+}
+
+// Reads the audit log for the Deep Search run history: newest first, at most `limit` entries. A damaged line is
+// skipped and counted rather than hiding the rest of the log; a missing log reads as empty.
+export async function readDeepSearchAudit(file, {limit = 200} = {}) {
+  let raw = '';
+  try { raw = await readFile(file, 'utf8'); } catch (error) { if (error.code === 'ENOENT') return {entries: [], total: 0, skipped: 0}; throw error; }
+  const entries = [];
+  let skipped = 0;
+  for (const line of raw.split('\n')) {
+    if (!line.trim()) continue;
+    try { entries.push(JSON.parse(line)); } catch { skipped++; }
+  }
+  entries.reverse();
+  return {entries: entries.slice(0, limit), total: entries.length, skipped};
 }
