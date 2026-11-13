@@ -70,3 +70,15 @@ test('evidence records exclude raw answers',async()=>{
   assert.equal(saved.raw,undefined);
   assert.ok(saved.findings.every(item=>item.sources?.length));
 });
+
+test('skipped calls show their reason in Search details, escaped',async()=>{
+  const {renderSiteResults}=await import('../public/deep-results-view.js');
+  const run={...await fixture('run-site'),calls:[
+    {tool:'get_greynoise',serverName:'Open OSINT',identifier:{type:'ip',value:'192.168.1.10'},outcome:'skipped',error:'Only covers public internet addresses.',ms:0},
+    {tool:'get_bgp',serverName:'Open OSINT',identifier:{type:'ip',value:'192.168.1.10'},outcome:'error',error:'<img src=x>',ms:5}
+  ]};
+  const html=renderSiteResults(run);
+  assert.match(html,/get_greynoise<\/strong> · Open OSINT — skipped: Only covers public internet addresses\./);
+  assert.match(html,/&lt;img src=x&gt;/);
+  assert.doesNotMatch(html,/<img src=x>/);
+});
