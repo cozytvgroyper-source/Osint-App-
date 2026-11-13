@@ -86,8 +86,12 @@ async function body(req, limit = 1_000_000) {
     if (size > limit) throw Object.assign(new Error('Request too large'), { code: 'REQUEST_TOO_LARGE' });
     chunks.push(chunk);
   }
-  try { return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}'); }
+  let value;
+  try { value = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}'); }
   catch (error) { throw Object.assign(error, { code: 'REQUEST_JSON', message: 'The request body is not valid JSON' }); }
+  // Every route expects a JSON object; null, a string, a number or a list is the caller's mistake (400), not a crash.
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw Object.assign(new Error('The request body must be a JSON object'), { code: 'REQUEST_JSON' });
+  return value;
 }
 
 async function cleanupStaleUploads(root = UPLOAD_ROOT, { now = Date.now(), maxAge = UPLOAD_TTL_MS } = {}) {
@@ -211,17 +215,28 @@ async function readLimitedResponse(response, limit = MAX_MCP_RESPONSE_BYTES) {
 // (the last message when no id is known).
 function parseMcpResponse(text, contentType, { id, maxSseEvents = MAX_MCP_SSE_EVENTS, maxSseEventBytes = MAX_MCP_SSE_EVENT_BYTES } = {}) {
   if (contentType.includes('text/event-stream')) {
+    // One event is every data line up to a blank line, joined with line breaks (the server-sent events format).
     const payloads = [];
-    for (const line of text.split('\n')) {
-      if (!line.startsWith('data:')) continue;
+    let lines = [];
+    const finish = () => {
+      if (!lines.length) return;
       if (payloads.length >= maxSseEvents) throw new Error('MCP event stream contained too many events');
-      const payload = line.slice(5).trim();
+      const payload = lines.join('\n').trim();
       if (Buffer.byteLength(payload, 'utf8') > maxSseEventBytes) throw new Error('MCP event stream contained an oversized event');
       payloads.push(payload);
+      lines = [];
+    };
+    for (const raw of text.split('\n')) {
+      const line = raw.replace(/\r$/, '');
+      if (line === '') { finish(); continue; }
+      if (line.startsWith('data:')) lines.push(line.slice(5).replace(/^ /, ''));
     }
+    finish();
     const messages = payloads.filter(Boolean).map(payload => JSON.parse(payload));
-    const reply = id === undefined ? messages.at(-1) : messages.find(message => message?.id === id) ?? messages.at(-1);
-    return reply ?? { error: { message: 'Empty MCP event stream' } };
+    if (!messages.length) return { error: { message: 'Empty MCP event stream' } };
+    if (id === undefined) return messages.at(-1);
+    // Notices (progress, logs) can come around the reply; without the reply itself the call has no answer.
+    return messages.find(message => message?.id === id) ?? { error: { message: 'MCP stream ended without a reply to this request' } };
   }
   return JSON.parse(text || '{}');
 }
@@ -494,7 +509,7 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === 'POST' && url.pathname === '/api/mcp') {
       const payload = await body(req);
-      if (!payload.endpoint || !payload.method) return json(res, 400, { error: 'endpoint and method are required' });
+      if (typeof payload.endpoint !== 'string' || !payload.endpoint || typeof payload.method !== 'string' || !payload.method) return json(res, 400, { error: 'endpoint and method are required' });
       const authorization=authorizeMcpToolCall(payload, runGrants);
       if (payload.initialize) await initialize(payload);
       const cancelled=new AbortController();res.once('close',()=>{if(!res.writableEnded)cancelled.abort();});
@@ -509,7 +524,8 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === 'POST' && url.pathname === '/api/run-grants') {
       const payload = await body(req, 100_000);
-      for (const tool of Array.isArray(payload.tools) ? payload.tools : []) await validatedEndpoint(tool.endpoint);
+      if (!Array.isArray(payload.tools) || payload.tools.some(tool => !tool || typeof tool !== 'object' || typeof tool.endpoint !== 'string')) return json(res, 400, { error: 'tools must be a list of tools, each with an endpoint' });
+      for (const tool of payload.tools) await validatedEndpoint(tool.endpoint);
       return json(res, 200, createRunGrant(payload, runGrants));
     }
     if (req.method === 'POST' && url.pathname === '/api/run-grants/release') {

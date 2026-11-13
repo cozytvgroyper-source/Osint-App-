@@ -32,7 +32,7 @@ test('rejects a streamed MCP response that grows beyond the limit',async()=>{
 });
 
 test('bounds SSE event count and individual event size',()=>{
-  assert.throws(()=>parseMcpResponse('data: {}\ndata: {}\n','text/event-stream',{maxSseEvents:1,maxSseEventBytes:100}),/too many events/);
+  assert.throws(()=>parseMcpResponse('data: {}\n\ndata: {}\n','text/event-stream',{maxSseEvents:1,maxSseEventBytes:100}),/too many events/);
   assert.throws(()=>parseMcpResponse(`data: {"value":"${'x'.repeat(40)}"}\n`,'text/event-stream',{maxSseEvents:10,maxSseEventBytes:20}),/oversized event/);
 });
 
@@ -106,4 +106,17 @@ test('a malformed request is the caller\'s mistake; a missing file or folder is 
   assert.equal(errorStatus(Object.assign(new SyntaxError('Unexpected token'),{code:'REQUEST_JSON'})),400);
   assert.equal(errorStatus(new SyntaxError('bad upstream JSON')),502,'a tool answering with broken JSON is still an upstream failure');
   assert.equal(errorStatus(Object.assign(new Error('is a directory'),{code:'EISDIR'})),404);
+});
+
+// Server-sent events: the data lines of one event (up to a blank line) are one message, joined with line breaks.
+test('reads a streamed message split over several data lines',()=>{
+  const sse='event: message\ndata: {"jsonrpc":"2.0",\ndata:  "id":"req-1",\ndata:  "result":{"ok":true}}\n\n';
+  assert.deepEqual(parseMcpResponse(sse,'text/event-stream',{id:'req-1'}),{jsonrpc:'2.0',id:'req-1',result:{ok:true}});
+});
+
+test('a stream with no reply to the request is an error, never some other message',()=>{
+  const sse='data: {"jsonrpc":"2.0","method":"notifications/progress","params":{"progress":1}}\n\n';
+  const reply=parseMcpResponse(sse,'text/event-stream',{id:'req-1'});
+  assert.equal(reply.result,undefined);
+  assert.match(reply.error.message,/without a reply/);
 });

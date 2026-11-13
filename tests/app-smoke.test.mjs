@@ -81,3 +81,28 @@ test('the server refuses a target-contacting tool sent without a run grant',asyn
     fs.rmSync(work,{recursive:true,force:true});
   }
 });
+
+// A request whose body isn't the expected JSON object is the caller's mistake: 400 with a plain message, never a 502
+// that echoes an internal error.
+test('malformed request bodies get a clear 400',async()=>{
+  const port=await availablePort();
+  const token='integration-access-token-that-is-at-least-thirty-two-bytes';
+  const work=fs.mkdtempSync(path.join(os.tmpdir(),'public-desk-smoke-'));
+  const child=spawn(process.execPath,['server.mjs'],{cwd:root,env:{...process.env,PORT:String(port),PUBLIC_DESK_TOKEN:token,PUBLIC_DESK_WORK_DIR:work},stdio:['ignore','pipe','pipe']});
+  try{
+    const base=`http://127.0.0.1:${port}`;
+    await waitFor(`${base}/`);
+    const headers={'content-type':'application/json','x-public-desk-token':token};
+    const cases=[['/api/mcp','null'],['/api/mcp','"x"'],['/api/mcp','[1]'],['/api/mcp','{"endpoint":"http://127.0.0.1:8894/mcp","method":5}'],
+      ['/api/run-grants','null'],['/api/run-grants','{"tools":[null]}'],['/api/upload/delete','null'],['/api/health','null'],['/api/data-sources/connect','null']];
+    for(const [route,body] of cases){
+      const response=await fetch(`${base}${route}`,{method:'POST',headers,body});
+      const text=await response.text();
+      assert.equal(response.status,400,`${route} ${body}: ${text}`);
+      assert.doesNotMatch(text,/Cannot read properties|is not a function|Cannot use 'in'/,`${route} ${body}`);
+    }
+  }finally{
+    if(child.exitCode===null){child.kill('SIGTERM');await new Promise(resolve=>child.once('exit',resolve));}
+    fs.rmSync(work,{recursive:true,force:true});
+  }
+});
