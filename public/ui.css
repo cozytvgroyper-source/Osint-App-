@@ -50,10 +50,15 @@ button,a,input,select,textarea{min-height:24px}
 .card-title{font-size:var(--text-md);margin:0 0 var(--space-2)}
 .card-actions{display:flex;flex-wrap:wrap;gap:var(--space-2);margin-top:var(--space-3)}
 
-.badge{display:inline-flex;align-items:center;gap:var(--space-1);font:650 var(--text-xs) var(--sans);border-radius:999px;padding:2px var(--space-2)}
+.ui-badge{display:inline-flex;align-items:center;gap:var(--space-1);font:650 var(--text-xs) var(--sans);border-radius:999px;padding:2px var(--space-2)}
 
-.empty-state{color:var(--muted);text-align:center;padding:var(--space-6) var(--space-4)}
-.empty-state-title{color:var(--ink);font-size:var(--text-md);font-weight:650;margin:0 0 var(--space-1)}
+.ui-badge-neutral{color:var(--ink);background:color-mix(in srgb,#58718f 16%,var(--surface))}
+.ui-badge-safe{color:var(--ink);background:color-mix(in srgb,#1f8b5b 18%,var(--surface))}
+.ui-badge-warn{color:var(--ink);background:color-mix(in srgb,#d98a12 22%,var(--surface))}
+.ui-badge-danger{color:var(--ink);background:color-mix(in srgb,#c8102e 16%,var(--surface))}
+
+.ui-empty{color:var(--muted);text-align:center;padding:var(--space-6) var(--space-4)}
+.ui-empty-title{color:var(--ink);font-size:var(--text-md);font-weight:650;margin:0 0 var(--space-1)}
 
 .term{text-decoration:underline dotted;text-underline-offset:3px;cursor:help}
 
@@ -73,3 +78,24 @@ main:focus-visible{outline:3px solid var(--focus);outline-offset:-3px}
 .rail .nav.active{font-weight:750}
 @media(max-width:1050px){.rail .nav{font-size:0}.nav-group-label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}.nav-group+.nav-group{margin-top:var(--space-2)}}
 @media(max-width:720px){.nav-group{display:contents}}
+
+/* Results panel: large on desktop, never taller than the window; Pivot explained once at the top. */
+dialog.result-dialog{width:min(1100px,calc(100vw - 32px));max-height:90vh}
+.pivot-note{color:var(--muted);font-size:var(--text-xs);margin:0 0 var(--space-3)}
+
+/* Search page: a visible label, a large box, a shortcut hint, one line about sources, and recent searches as buttons. */
+.search-label{display:block;font:650 var(--text-md) var(--sans);margin:0 0 var(--space-2)}
+#query{font-size:var(--text-md)}
+.search-hint{color:var(--muted);font-size:var(--text-xs);margin:var(--space-2) 0 0}
+.search-hint kbd{font:var(--text-xs) var(--mono);border:1px solid var(--field-border);border-radius:4px;padding:0 4px;margin-right:2px}
+.sources-status{position:relative;z-index:2;color:var(--muted);font-size:var(--text-sm);margin:var(--space-4) 0 0}
+button.history-item{width:100%;min-height:44px;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);color:inherit;font:inherit;cursor:pointer}
+button.history-item:hover{background:var(--surface-2)}
+.history-text{display:block;min-width:0}
+
+/* Below the search: one column. Results panel grows to 90vh with its body scrolling. On phones the decorative rings
+   would sit behind small text, so they are hidden there. */
+#workspace .lower-grid{grid-template-columns:1fr}
+dialog.result-dialog[open]{display:flex;flex-direction:column}
+dialog.result-dialog .result-body{flex:1;max-height:none;min-height:0}
+@media(max-width:720px){.hero-card::after{display:none}}

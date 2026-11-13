@@ -1,12 +1,12 @@
 import {explainSearchPlan,summarizePlanDiagnostics,toolUsage} from './search-planner.js?v=1';
-import {escapeHtml} from './ui.js?v=1';
+import {emptyState,escapeHtml,term} from './ui.js?v=4';
 import {classifyToolResult,hasUsefulData,parseToolResult} from './result-classifier.js';
 import {buildSearchReport,reportHasFindings} from './search-report.js?v=4';
-import {recordToolHealth,serverConnectionLabel,toolCountLabel} from './tool-health.js';
+import {recordToolHealth,toolCountLabel} from './tool-health.js';
 import {activeCaseId,defaultCaseName,newestFirst,shortFingerprint} from './cases-client.js';
 import {selfCheckPlan,summarizeSelfCheck} from './self-check.js';
 import {argsForSearch,extractTarget,searchIntent,searchSubjectFor} from './search-query.js?v=1';
-import {renderRankedReport} from './search-results-view.js?v=2';
+import {renderRankedReport} from './search-results-view.js?v=3';
 import {loadStoredState,mergeStoredServers,persistStoredState} from './browser-storage.js';
 import {TIERS,groupToolsByTier,runRequirements,toolRisk} from './tool-tiers.js?v=1';
 import {resultPivot} from './result-pivots.js?v=1';
@@ -96,7 +96,7 @@ function switchView(id) {
   });
   const page=PAGES[id]||PAGES.workspace;
   $('#pageTitle').textContent=page.title;$('#pageIntro').textContent=page.intro;document.title=`${page.title} · Public Desk`;
-  window.scrollTo({top:0,behavior:'smooth'});
+  window.scrollTo({top:0,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
   if(id==='news'&&!intelNews.loaded&&!intelNews.loading)loadIntelNews();
   if(id==='deep')loadDeepHistory();
 }
@@ -146,7 +146,7 @@ async function connect(server) {
   if(server.status==='connecting')return;
   server.disconnected=false;
   server.needsAuth=false;
-  server.status='connecting'; renderServers(); renderConnections();
+  server.status='connecting'; renderServers(); renderSourcesStatus();
   try {
     const payload={endpoint:server.endpoint,token:state.tokens.get(server.id)||'',sessionKey:sessionKeyFor(server.id),method:'tools/list',params:{},initialize:true};
     const response=await api('/api/mcp',payload);
@@ -174,16 +174,30 @@ async function disconnect(server) {
   toast(`${server.name} disconnected`);
 }
 
-function renderWorkflows(){
-  $('#workflowGrid').innerHTML=state.servers.length?state.servers.map(server=>`<article class="workflow server-workflow"><div class="server-workflow-head"><span class="workflow-icon">${server.name==='Open OSINT'?'◎':'⌘'}</span><span class="server-dot ${server.status==='connected'?'connected':''}"></span></div><b>${escapeHtml(server.name)}</b><small>${escapeHtml(server.endpoint)}</small><div class="server-workflow-foot"><span>${server.status==='connected'?toolCountHtml(server):server.status==='connecting'?'Connecting…':server.disconnected?'Disconnected':'Ready to connect'}</span><button class="text-button" ${server.status==='connected'?`data-disconnect="${server.id}"`:`data-connect="${server.id}"`}>${server.status==='connected'?'Disconnect':'Connect'} →</button></div></article>`).join(''):'<div class="empty-state">No MCP servers saved.</div>';
+// Recent searches: a main search (it has a source log) can be run again; file analyses and single tool runs cannot,
+// since rerunning their title as a text search would do something else.
+function renderRecentSearches(){
+  const items=state.history.slice(0,5).map(item=>{
+    const body=`<span class="mini-icon" aria-hidden="true">${iconFor(item.title)}</span><span class="history-text"><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.server||'Local workspace')}</small></span><time datetime="${escapeHtml(item.time||'')}">${new Date(item.time).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</time>`;
+    return Array.isArray(item.sourceLog)?`<button type="button" class="history-item" data-rerun="${escapeHtml(item.title)}"><span class="visually-hidden">Search again: </span>${body}</button>`:`<div class="history-item">${body}</div>`;
+  });
+  $('#history').innerHTML=items.length?items.join(''):emptyState({title:'No searches yet',text:'Your searches will appear here so you can run them again.'});
 }
-function renderHistory(){
-  $('#history').innerHTML=state.history.length?state.history.slice(0,5).map(item=>`<div class="history-item"><span class="mini-icon">${iconFor(item.title)}</span><div><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.server||'Local workspace')}</small></div><time>${new Date(item.time).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</time></div>`).join(''):'<div class="history-empty">Your investigations will appear here.</div>';
-}
-function renderConnections(){
-  $('#serverStatus').textContent=serverConnectionLabel(state.servers);
-  $('#connectionCount').textContent=serverConnectionLabel(state.servers);
-  $('#connectionSummary').innerHTML=state.servers.map(s=>`<div class="connection"><div class="connection-name"><span class="server-dot ${s.status==='connected'?'connected':''}"></span><div><b>${escapeHtml(s.name)}</b><small>${s.status==='connected'?toolCountHtml(s):s.status==='connecting'?'Connecting…':s.disconnected?'Disconnected':'Ready to connect'}</small></div></div><button class="text-button" ${s.status==='connected'?`data-disconnect="${s.id}"`:`data-connect="${s.id}"`}>${s.status==='connected'?'Disconnect':'Connect'}</button></div>`).join('');
+// One plain line about what searches can use, in place of the connection panels (details live on MCP servers).
+// It is a live region, so it is only rewritten when its words change.
+let lastSourcesStatus='';
+function renderSourcesStatus(){
+  const connected=state.servers.filter(server=>server.status==='connected').length;
+  const connecting=state.servers.some(server=>server.status==='connecting');
+  const keys=dataSources.list.filter(source=>source.status==='connected').length;
+  const plural=(n,word)=>`${n} ${word}${n===1?'':'s'}`;
+  const sources=dataSources.error?"data sources couldn't be loaded":dataSources.loaded?`${plural(keys,'data source')} set up`:'checking data sources…';
+  const html=connected
+    ?`${plural(connected,'MCP server')} connected · ${sources} · <button type="button" class="text-button" data-view-link="servers">Manage</button>`
+    :connecting?'Connecting to MCP servers…'
+    :`No MCP servers are connected, so searches can't run yet. <button type="button" class="text-button" data-view-link="servers">Open MCP servers</button>`;
+  if(html===lastSourcesStatus)return;
+  lastSourcesStatus=html;$('#sourcesStatus').innerHTML=html;
 }
 function renderServers(){
   $('#serverList').innerHTML=state.servers.length?state.servers.map(s=>`<article class="server-card"><div class="server-card-top"><span class="badge">STREAMABLE HTTP</span><span class="server-dot ${s.status==='connected'?'connected':''}"></span></div><h3>${escapeHtml(s.name)}</h3><p class="endpoint">${escapeHtml(s.endpoint)}</p><p class="subtle">${s.status==='connected'?toolCountHtml(s):s.needsAuth?'Sign in is required to search academic research.':s.disconnected?'Disconnected':s.error?escapeHtml(s.error):'Not connected'}</p>${s.caution?`<p class="form-note">${escapeHtml(s.caution)}</p>`:''}<div class="server-actions"><button class="ghost" data-remove="${s.id}">${bundledServers.some(item=>item.endpoint===s.endpoint)?'Disable':'Remove'}</button>${s.needsAuth?`<button class="primary" data-consensus-sign-in>Sign in to Consensus</button>`:s.status==='connected'?`<button class="ghost" data-disconnect="${s.id}">Disconnect</button><button class="primary" data-connect="${s.id}">Refresh</button>`:`<button class="primary" data-connect="${s.id}">${s.status==='connecting'?'Connecting…':'Connect'}</button>`}</div></article>`).join(''):'<div class="empty-state">Add your first MCP server to begin.</div>';
@@ -201,8 +215,7 @@ function replaceDataSource(source){dataSources.list=dataSources.list.map(item=>i
 function renderDataSources(){
   const list=dataSources.list;const connected=list.filter(s=>s.status==='connected');
   const count=dataSources.loaded&&!dataSources.error?`${connected.length} of ${list.length} connected`:'';
-  $('#dataSourceCount').textContent=count;$('#dataSourceSummary').textContent=count;
-  $('#dataSourceStrip').innerHTML=dataSources.error?`<div class="empty-state">${escapeHtml(dataSources.error)}</div>`:connected.length?connected.map(s=>`<span class="source-pill"><span class="server-dot connected"></span>${escapeHtml(s.name)}</span>`).join(''):dataSources.loaded?'<div class="empty-state">No data sources connected yet.</div>':'';
+  $('#dataSourceCount').textContent=count;renderSourcesStatus();
   if(dataSources.error){$('#dataSourceList').innerHTML=`<div class="empty-state">${escapeHtml(dataSources.error)}</div>`;return;}
   if(!dataSources.loaded)return;
   $('#dataSourceList').innerHTML=list.map(s=>{
@@ -340,7 +353,7 @@ async function importBrowserEvidence(){
 // Keep each part ("116 tools", "98 working") on one line so narrow cards wrap only between parts.
 function toolCountHtml(server){return escapeHtml(toolCountLabel(server,state.toolHealth).replace(/(?<!·) (?!·)/g,'\u00a0'));}
 function noteToolHealth(serverId,toolName,kind){state.toolHealth=recordToolHealth(state.toolHealth,serverId,toolName,kind,new Date().toISOString());}
-function renderAll(){renderWorkflows();renderHistory();renderConnections();renderServers();renderDataSources();renderTools();renderEvidence();persist();}
+function renderAll(){renderRecentSearches();renderSourcesStatus();renderServers();renderDataSources();renderTools();renderEvidence();persist();}
 
 function openTool(tool, serverId){
   state.activeTool={tool,serverId}; $('#runToolName').textContent=tool.name; $('#runToolDescription').textContent=tool.description||'';
@@ -461,11 +474,18 @@ function renderReadableResult(result,openKeys=null){
   if(payload&&typeof payload==='object')return `<section class="result-category"><div class="category-head"><div><p class="eyebrow">RESULT</p><h3>Findings</h3></div></div>${renderRecord(payload)}${Object.entries(payload).filter(([,value])=>Array.isArray(value)).map(([key,items])=>`<div class="result-subgroup"><h4>${escapeHtml(humanize(key))}</h4>${renderArray(items)}</div>`).join('')}</section><details class="raw-result"><summary>Technical details</summary><pre>${escapeHtml(JSON.stringify(parsed,null,2))}</pre></details>`;
   return `<div class="plain-result">${escapeHtml(String(payload??'No result returned.'))}</div>`;
 }
+// The save button says where a finding goes: the open case, or a new one created for it.
+function saveButtonLabel(activeCase){
+  return activeCase?.name?`Save to ${activeCase.name} case`:'Save to a new case';
+}
 function showResult(title,result){
   const dialog=$('#resultDialog'); const refresh=dialog.open&&$('#resultTitle').textContent===title;
   const scroll=refresh?[dialog.scrollTop,$('#resultBody').scrollTop]:[0,0];
   const openKeys=refresh?new Set([...$('#resultBody').querySelectorAll('details[data-details-key][open]:not([data-default-open])')].map(el=>el.dataset.detailsKey)):null;
   $('#resultTitle').textContent=title; $('#resultBody').innerHTML=renderReadableResult(result,openKeys);
+  // Explain Pivot once, above the first result that offers one.
+  if($('#resultBody').querySelector('.pivot-button'))$('#resultBody').insertAdjacentHTML('afterbegin',`<p class="pivot-note">${term('pivot',{visible:true})}</p>`);
+  $('#saveEvidence').textContent=saveButtonLabel(state.activeCase);
   if(refresh){dialog.scrollTop=scroll[0];$('#resultBody').scrollTop=scroll[1];}
   if(!dialog.open)openDialog(dialog);
 }
@@ -607,6 +627,7 @@ document.addEventListener('click',async event=>{
   const pivot=event.target.closest('[data-pivot]');if(pivot){event.preventDefault();const target=pivot.dataset.pivot;$('#resultDialog').close();switchView('workspace');$('#query').value=target;$('#query').focus();try{await smartInvestigate(target);}catch(error){toast(error.message);}return;}
   const nav=event.target.closest('[data-view]'); if(nav)switchView(nav.dataset.view);
   const link=event.target.closest('[data-view-link]'); if(link)switchView(link.dataset.viewLink);
+  const rerun=event.target.closest('[data-rerun]');if(rerun){const query=rerun.dataset.rerun;switchView('workspace');$('#query').value=query;$('#query').focus();try{await smartInvestigate(query);}catch(error){toast(error.message);}return;}
   const prompt=event.target.closest('[data-prompt]'); if(prompt){switchView('workspace');$('#query').value=prompt.dataset.prompt;$('#query').focus();}
   const connectButton=event.target.closest('[data-connect]'); if(connectButton){const server=state.servers.find(s=>s.id===connectButton.dataset.connect);if(server)connect(server);}
   const disconnectButton=event.target.closest('[data-disconnect]'); if(disconnectButton){const server=state.servers.find(s=>s.id===disconnectButton.dataset.disconnect);if(server)disconnect(server);}

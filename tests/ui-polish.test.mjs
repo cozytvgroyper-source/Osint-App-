@@ -30,8 +30,8 @@ test('long tool descriptions are clamped in Tool Library cards, with the full te
   assert.match(app,/<p class="tool-desc" title="\$\{escapeHtml\(t\.description/);
 });
 
-test('the main search box has an accessible name',()=>{
-  assert.match(html.match(/<input[^>]*id="query"[^>]*>/)[0],/aria-label="[^"]{10,}"/);
+test('the main search box has a visible label',()=>{
+  assert.match(html,/<label for="query"[^>]*>[^<]{10,}<\/label>/);
 });
 
 test('the ⌘K button is named for what it does: it focuses the search box',()=>{
@@ -55,6 +55,18 @@ test('a live redraw keeps open details open',()=>{
   assert.match(app,/details\[data-details-key\]\[open\]:not\(\[data-default-open\]\)/);
 });
 test('changed and new modules are imported with a version',()=>{
-  assert.match(app,/search-report\.js\?v=4/);
-  assert.match(app,/search-results-view\.js\?v=2/);
+  assert.match(app,/search-report\.js\?v=\d+/);
+  assert.match(app,/search-results-view\.js\?v=\d+/);
+});
+
+// Phase 2: the results panel is large, explains Pivot once, and its save button says which case it saves into.
+test('the results panel is large and names the case it saves into',()=>{
+  assert.match(read('ui.css'),/dialog\.result-dialog\{width:min\(1100px,calc\(100vw - 32px\)\);max-height:90vh\}/);
+  const fn=app.match(/function saveButtonLabel\(activeCase\)\{[\s\S]*?\n\}/)[0];
+  assert.match(fn,/`Save to \$\{activeCase\.name\} case`/);
+  assert.match(fn,/'Save to a new case'/);
+  assert.match(app,/\$\('#saveEvidence'\)\.textContent=saveButtonLabel\(state\.activeCase\)/);
+});
+test('Pivot is explained once, at the top of results that have pivots',()=>{
+  assert.match(app,/querySelector\('\.pivot-button'\)[\s\S]{0,200}pivot-note[\s\S]{0,80}term\('pivot',\{visible:true\}\)/);
 });

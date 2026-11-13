@@ -25,18 +25,18 @@ const main=opts=>build({tools:['get_opensanctions','get_news_rss'],serverName:op
 
 test('shows only results by default, with tool and server on each top result',()=>{
   const html=renderRankedReport(main(),helpers);
-  assert.match(html,/OpenSanctions · Open OSINT/);
+  assert.match(html,/OpenSanctions \(via Open OSINT\)/);
   assert.match(html,/<details class="search-details" data-details-key="search-details">/);
   assert.ok(html.indexOf('Top results')<html.indexOf('search-details'));
   assert.match(html,/41 results from 2 tools/);
 });
 test('folds non-matching items under Show N more',()=>{
   const html=renderRankedReport(main(),helpers);
-  assert.match(html,/<details class="more-results" data-details-key="more:get_news_rss"><summary>Show 38 more from News RSS<\/summary>/);
+  assert.match(html,/<details class="more-results" data-details-key="more:get_news_rss"><summary>Show 38 more from News RSS that don&#39;t mention your search<\/summary>/);
 });
 test('opens Search details and says so when there are no results',()=>{
   const html=renderRankedReport(build({tools:['get_opensanctions','get_news_rss'],outcomes:[{kind:'empty'},{kind:'empty'}]}),helpers);
-  assert.match(html,/No results for this search/);
+  assert.match(html,/Nothing found for &#39;Rosneft&#39;\./);
   assert.match(html,/data-details-key="search-details" open/);
 });
 test('reports progress while tools are still running',()=>{
@@ -60,14 +60,14 @@ const carriedKeys=html=>new Set([...html.matchAll(/<details\b([^>]*)>/g)].map(([
   .map(attrs=>attrs.match(/data-details-key="([^"]*)"/)[1]));
 test('a running search with no answers yet neither says "No results" nor opens Search details',()=>{
   const running=renderRankedReport(build({tools:['get_opensanctions','get_news_rss'],outcomes:[undefined,undefined]}),helpers);
-  assert.doesNotMatch(running,/No results for this search/);
+  assert.doesNotMatch(running,/Nothing found/);
   assert.match(running,/<details class="search-details" data-details-key="search-details">/);
   const finished=renderRankedReport(main(),{...helpers,openKeys:carriedKeys(running)});
   assert.match(finished,/<details class="search-details" data-details-key="search-details">/);
 });
 test('a finished search with no results opens Search details by default and marks it so',()=>{
   const html=renderRankedReport(build({tools:['get_opensanctions'],outcomes:[{kind:'empty'}]}),helpers);
-  assert.match(html,/No results for this search/);
+  assert.match(html,/Nothing found for &#39;Rosneft&#39;\./);
   assert.match(html,/<details class="search-details" data-default-open data-details-key="search-details" open>/);
   assert.equal(carriedKeys(html).size,0);
 });
@@ -98,5 +98,21 @@ test('the running count is never negative',()=>{
 });
 test('a string top result keeps its text layout (renderRecord)',()=>{
   const html=renderRankedReport(build({tools:['omega_intel'],outcomes:[{kind:'data',data:'Report\nRosneft owns this'}]}),helpers);
-  assert.ok(html.includes('<div class="top-result"><p class="result-source">omega_intel · Open OSINT</p>[R:Report\nRosneft owns this]</div>'));
+  assert.ok(html.includes('<div class="top-result"><p class="result-source">omega_intel (via Open OSINT)</p>[R:Report\nRosneft owns this]</div>'));
+});
+
+// Phase 2 wording: say where a result came from, why items are folded, and what to do when nothing was found.
+const emptyData=()=>build({tools:['get_opensanctions','get_news_rss'],outcomes:[{kind:'empty'},{kind:'empty'}]});
+test('sources read as "<tool> (via <server>)"',()=>{
+  const html=renderRankedReport(main(),helpers);
+  assert.match(html,/OpenSanctions \(via Open OSINT\)/);
+  assert.doesNotMatch(html,/OpenSanctions · Open OSINT/);
+});
+test('folded items say why they are folded',()=>{
+  assert.match(renderRankedReport(main(),helpers),/<summary>Show 38 more from News RSS that don&#39;t mention your search<\/summary>/);
+});
+test('no results names the search and points at Search details',()=>{
+  const out=renderRankedReport({...emptyData(),query:'<b>Rosneft</b>'},helpers);
+  assert.match(out,/Nothing found for &#39;&lt;b&gt;Rosneft&lt;\/b&gt;&#39;\. Try a shorter name, or open Search details to see which sources answered\./);
+  assert.match(renderRankedReport({...emptyData(),query:''},helpers),/Nothing found\. Try a shorter name, or open Search details to see which sources answered\./);
 });
