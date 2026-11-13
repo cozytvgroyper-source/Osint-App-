@@ -138,3 +138,25 @@ test('the danger button keeps its own text color over later .primary rules',()=>
     for(const selector of m[1].split(',').map(s=>s.trim()).filter(s=>/\.primary$/.test(s)))
       assert.ok(own.some(mine=>beats(specificity(mine),specificity(selector))),`${file}: "${selector}" overrides the danger button's text color`);
 });
+
+// Tier chips: the older stylesheet fades every span in a chip (opacity .7), which drops the explanation below 4.5:1,
+// and the old pressed style keyed on a class the chips no longer use.
+test('tier chip text is fully opaque and the pressed chip has a visible border',()=>{
+  assert.match(css,/#tierFilters \.tier-chip span\{opacity:1;margin-left:0\}/);
+  assert.match(css,/#tierFilters \.tier-chip\[aria-pressed="true"\]\{[^}]*border-color:var\(--accent-dark\)/);
+  for(const m of read('styles.css').matchAll(/([^{}@]+)\{([^}]*opacity[^}]*)\}/g))
+    for(const selector of m[1].split(',').map(s=>s.trim()).filter(s=>/tier-chip span$/.test(s)))
+      assert.ok(beats(specificity('#tierFilters .tier-chip span'),specificity(selector)),selector);
+});
+
+// Tier badges (Passive, Light touch, Active, Unreviewed) used their tier color as small text on a pale tint of the same
+// color (about 3:1). The color stays as tint and border; the label is ink, readable in both themes.
+test('tier badge labels are readable in both themes',()=>{
+  assert.match(css,/span\.tier-badge\{color:var\(--ink\)\}/);
+  const mix=(hex,alpha,base)=>'#'+[1,3,5].map(i=>Math.round(alpha*parseInt(hex.slice(i,i+2),16)+(1-alpha)*parseInt(base.slice(i,i+2),16)).toString(16).padStart(2,'0')).join('');
+  for(const m of read('styles.css').matchAll(/\.tier-(\w+)\{--tier:(#[0-9a-f]{6})\}/gi))
+    for(const theme of ['light','dark']){
+      const value=ratio(token(theme,'ink'),mix(m[2],0.14,token(theme,'surface')));
+      assert.ok(value>=4.5,`${theme} tier-${m[1]} label is ${value.toFixed(2)}:1`);
+    }
+});

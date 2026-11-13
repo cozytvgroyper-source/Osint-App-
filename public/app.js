@@ -1,6 +1,6 @@
 import {explainSearchPlan,summarizePlanDiagnostics,toolUsage} from './search-planner.js?v=1';
 import {tierChips,toolCard} from './tools-view.js?v=1';
-import {serverCard,validateServerForm} from './servers-view.js?v=2';
+import {normalizeEndpoint,serverCard,serverFocusTarget,validateServerForm} from './servers-view.js?v=3';
 import {browserOnlyNotice,caseSummary,evidenceEmpty,findingCard} from './evidence-view.js?v=2';
 import {newsCard,newsMetrics,relativeTime} from './news-view.js?v=1';
 import {emptyState,escapeHtml,term} from './ui.js?v=4';
@@ -246,7 +246,13 @@ function renderServers(){
   $('#serverList').innerHTML=state.servers.length?state.servers.map(s=>serverCard(s,{bundled:bundledServers.some(item=>item.endpoint===s.endpoint),toolCountText:s.status==='connected'?toolCountLabel(s,state.toolHealth):''})).join(''):emptyState({title:'No MCP servers yet.',text:'Add one to start searching.'});
 }
 // After a server card is re-drawn, put focus back on that card's main button so keyboard users keep their place.
-function focusServerCard(id){document.querySelector(`[data-server-card="${CSS.escape(id)}"] .server-actions .primary, [data-server-card="${CSS.escape(id)}"] .server-actions button`)?.focus();}
+function focusServerCard(id,{onlyIfStranded=false}={}){
+  const card=document.querySelector(`[data-server-card="${CSS.escape(id)}"]`);
+  if(!card)return;
+  // When a slow request finishes, take focus back only if it was left nowhere (or still on this card).
+  if(onlyIfStranded&&!(document.activeElement===document.body||!document.activeElement||card.contains(document.activeElement)))return;
+  serverFocusTarget(card)?.focus();
+}
 // Data sources: API keys for the services behind Open OSINT's tools, saved by the server in work/api-keys.env.
 // The server reports statuses and which fields are saved, never key values, and key inputs are cleared on close.
 const dataSources={list:[],loaded:false,error:'',editing:null};
@@ -303,7 +309,7 @@ function renderTools(){
   $('#tierFilters').innerHTML=matching.length?tierChips(chips,state.tierFilter):'';
   const shown=groups.filter(group=>state.tierFilter==='all'||group.tier.key===state.tierFilter);
   $('#toolCount').textContent=matching.length?`${matching.length} tools across ${new Set(matching.map(t=>t.serverId)).size} connected MCP server(s).`:'Connect an MCP server to see its tools.';
-  $('#toolLibrary').innerHTML=shown.length?shown.map(group=>`<section class="tier-group"><div class="tier-group-head">${tierBadge(toolRisk(group.tools[0]))}<p class="subtle">${escapeHtml(group.tier.targetSees)}</p></div><div class="tool-grid">${group.tools.map(t=>toolCard(t,{risk:toolRisk(t),usage:toolUsage(t)})).join('')}</div></section>`).join(''):emptyState({title:'No tools to show yet.',text:'Connect an MCP server to see its tools here.'});
+  $('#toolLibrary').innerHTML=shown.length?shown.map(group=>`<section class="tier-group"><div class="tier-group-head"><h2 class="tier-group-title">${escapeHtml(group.tier.label)}</h2>${tierBadge(toolRisk(group.tools[0]))}<p class="subtle">${escapeHtml(group.tier.targetSees)}</p></div><div class="tool-grid">${group.tools.map(t=>toolCard(t,{risk:toolRisk(t),usage:toolUsage(t)})).join('')}</div></section>`).join(''):emptyState({title:'No tools to show yet.',text:'Connect an MCP server to see its tools here.'});
 }
 function renderEvidence(){
   const options=state.cases.map(item=>`<option value="${escapeHtml(item.id)}"${item.id===state.activeCaseId?' selected':''}${item.damaged?' disabled':''}>${escapeHtml(item.name)}${item.damaged?'':` (${item.evidenceCount})`}</option>`).join('');
@@ -630,13 +636,14 @@ async function smartInvestigate(query){
 function renderDeepPlan(){
   const plan=state.deepPlan;
   $('#deepPlan').innerHTML=plan.length?plan.map((item,index)=>`<label class="deep-tool"><input type="checkbox" data-deep-tool="${index}" ${item.selected?'checked':''} /><div><b>${escapeHtml(item.tool.name)}</b><p>${escapeHtml(item.tool.description||'No description provided.')}</p><p>${escapeHtml(item.risk.targetSees)}</p></div><div class="deep-tool-meta">${tierBadge(item.risk)}<br>${item.risk.level<=1?'about 30 seconds':item.risk.level===2?'up to 2 minutes':'up to 2 minutes'}</div></label>`).join(''):'<div class="empty-state">No reviewed Deep Search tools match this target and level on the connected servers.</div>';
-  $('#deepConfirmations').hidden=!plan.length;$('#deepConfirmHint').hidden=Boolean(plan.length);
+  $('#deepConfirmations').hidden=!plan.length;$('#deepConfirmHint').hidden=Boolean(plan.length);$('#deepConfirmHint').textContent=state.deepPlanBuilt?'Nothing to run yet: no reviewed tools match this target and level.':'Build a plan in step 1 first. Then confirm here and run it.';
   $('#deepTypedWrap').hidden=Number($('#deepLevel').value)!==3;
 }
 
 function addDeepLog(message){const log=$('#deepLog');log.hidden=false;log.textContent+=`${new Date().toLocaleTimeString()}  ${message}\n`;log.scrollTop=log.scrollHeight;}
 
 function buildDeepPlan(){
+  state.deepPlanBuilt=true;
   const target=$('#deepTarget').value.trim();const level=Number($('#deepLevel').value);
   state.deepPlan=deepSearchPlan(allTools(),target,level);$('#deepError').textContent='';$('#deepLog').textContent='';$('#deepLog').hidden=true;renderDeepPlan();
 }
@@ -675,8 +682,8 @@ document.addEventListener('click',async event=>{
   const link=event.target.closest('[data-view-link]'); if(link)switchView(link.dataset.viewLink);
   const rerun=event.target.closest('[data-rerun]');if(rerun){const query=rerun.dataset.rerun;switchView('workspace');$('#query').value=query;$('#query').focus();try{await smartInvestigate(query);}catch(error){toast(error.message);}return;}
   const prompt=event.target.closest('[data-prompt]'); if(prompt){switchView('workspace');$('#query').value=prompt.dataset.prompt;$('#query').focus();}
-  const connectButton=event.target.closest('[data-connect]'); if(connectButton){const server=state.servers.find(s=>s.id===connectButton.dataset.connect);if(server)connect(server).then(()=>focusServerCard(server.id));}
-  const disconnectButton=event.target.closest('[data-disconnect]'); if(disconnectButton){const server=state.servers.find(s=>s.id===disconnectButton.dataset.disconnect);if(server)disconnect(server).then(()=>focusServerCard(server.id));}
+  const connectButton=event.target.closest('[data-connect]'); if(connectButton){const server=state.servers.find(s=>s.id===connectButton.dataset.connect);if(server){const done=connect(server);focusServerCard(server.id);done.then(()=>focusServerCard(server.id,{onlyIfStranded:true}));}}
+  const disconnectButton=event.target.closest('[data-disconnect]'); if(disconnectButton){const server=state.servers.find(s=>s.id===disconnectButton.dataset.disconnect);if(server)disconnect(server).then(()=>focusServerCard(server.id,{onlyIfStranded:true}));}
   const remove=event.target.closest('[data-remove]'); if(remove){const server=state.servers.find(s=>s.id===remove.dataset.remove);if(server&&bundledServers.some(item=>item.endpoint===server.endpoint))removedBundledEndpoints.add(server.endpoint);state.servers=state.servers.filter(s=>s.id!==remove.dataset.remove);renderAll();$('#addServer').focus();}
   const run=event.target.closest('[data-run]'); if(run){const [serverId,name]=run.dataset.run.split('::');const tool=allTools().find(t=>t.serverId===serverId&&t.name===name);if(tool)openTool(tool,serverId);}
   const del=event.target.closest('[data-delete-evidence]');if(del&&state.activeCaseId){const item=state.activeCase?.evidence.find(entry=>entry.id===del.dataset.deleteEvidence);if(await confirmAction({title:'Remove this finding?',message:`"${item?.title||'This finding'}" will be removed from this case. This can't be undone.`,confirmLabel:'Remove finding'}))api(`/api/cases/${state.activeCaseId}/evidence/${del.dataset.deleteEvidence}/delete`,{}).then(loadCases).then(()=>$('#caseSummary').focus()).catch(error=>toast(error.message));return;}
@@ -702,7 +709,7 @@ document.addEventListener('keydown',event=>{if((event.metaKey||event.ctrlKey)&&e
 function clearServerFormErrors(){for(const id of ['serverName','serverEndpoint']){$(`#${id}-error`).textContent='';$(`#${id}`).removeAttribute('aria-invalid');}}
 $('#serverForm').addEventListener('input',clearServerFormErrors);
 $('#addServer').addEventListener('click',clearServerFormErrors);
-$('#saveServer').addEventListener('click',e=>{e.preventDefault();const form=new FormData($('#serverForm'));const server={id:crypto.randomUUID(),name:form.get('name').trim(),endpoint:form.get('endpoint').trim(),status:'offline',tools:[]};
+$('#saveServer').addEventListener('click',e=>{e.preventDefault();const form=new FormData($('#serverForm'));const server={id:crypto.randomUUID(),name:form.get('name').trim(),endpoint:normalizeEndpoint(form.get('endpoint')),status:'offline',tools:[]};
   clearServerFormErrors();const problem=validateServerForm(server);
   if(problem){$(`#${problem.field}-error`).textContent=problem.message;$(`#${problem.field}`).setAttribute('aria-invalid','true');$(`#${problem.field}`).focus();return;}
  removedBundledEndpoints.delete(server.endpoint);state.servers.push(server);state.tokens.set(server.id,form.get('token'));$('#serverDialog').close();renderAll();connect(server);});

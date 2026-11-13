@@ -146,4 +146,13 @@ html .primary.danger,.danger{background:var(--danger);border-color:var(--danger)
 /* Deep Search: three numbered steps, each a card with its own heading. */
 .deep-step{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-card);padding:var(--space-4);margin:0 0 var(--space-4)}
 .deep-step > h2{font-size:var(--text-lg);margin:0 0 var(--space-3)}
-.deep-level-explain{flex-basis:100%}
+.deep-level-explain{grid-column:1/-1}
+
+/* Tier chips: undo the older stylesheet's faded spans (opacity .7 dropped text below 4.5:1) and mark the pressed chip
+   with a 3:1 border and a ring, not only bolder text. */
+#tierFilters .tier-chip span{opacity:1;margin-left:0}
+#tierFilters .tier-chip[aria-pressed="true"]{border-color:var(--accent-dark);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent-dark) 35%,transparent)}
+.tier-group-title{font-size:var(--text-md);margin:0}
+
+/* Tier badges: the tier color stays as tint and border; the label is ink so it reads at 4.5:1 in both themes. */
+span.tier-badge{color:var(--ink)}

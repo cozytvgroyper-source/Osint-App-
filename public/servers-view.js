@@ -49,3 +49,16 @@ export function validateServerForm({name,endpoint}){
   if(url.protocol!=='https:'&&!BUNDLED_LOCAL.has(url.href))return {field:'serverEndpoint',message:'Custom servers must use https://.'};
   return null;
 }
+
+// Where focus goes after a server card is re-drawn: its main (primary) button, never Disable or Remove, which come
+// first in the row and would turn a repeated Enter into an accidental removal.
+export function serverFocusTarget(card){
+  if(!card)return null;
+  return card.querySelector('.server-actions .primary')||card.querySelector('.server-actions button');
+}
+
+// Saves an address in its canonical form, so a bundled server typed in capitals is still recognized as bundled.
+export function normalizeEndpoint(endpoint){
+  const text=String(endpoint||'').trim();
+  try{return new URL(text).href;}catch{return text;}
+}

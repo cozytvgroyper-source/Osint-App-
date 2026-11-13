@@ -33,3 +33,8 @@ test('the run dialog labels its settings box and explains the default',()=>{
   assert.match(html,/id="runArgs"[^>]*aria-describedby="runArgs-hint"/);
   assert.match(html,/id="runArgs-hint"[^>]*>Leave as \{\} to use the defaults\.</);
 });
+
+test('tier groups have a heading between the page title and the tool cards',()=>{
+  const app=fs.readFileSync(new URL('../public/app.js',import.meta.url),'utf8');
+  assert.match(app,/<h2 class="tier-group-title">\$\{escapeHtml\(group\.tier\.label\)\}<\/h2>/);
+});

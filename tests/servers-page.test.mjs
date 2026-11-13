@@ -8,7 +8,7 @@ const html=read('index.html'),app=read('app.js');
 
 test('server cards come from the view module, and focus follows card changes',()=>{
   assert.match(app,/from '\.\/servers-view\.js\?v=\d+'/);
-  assert.match(app,/function focusServerCard\(id\)\{[^\n]*data-server-card[^\n]*\.focus\(\)/);
+  assert.match(app,/function focusServerCard\(id[^)]*\)\{[\s\S]{0,400}data-server-card[\s\S]{0,400}serverFocusTarget\(card\)\?\.focus\(\)/);
   assert.match(app,/data-disconnect[\s\S]{0,200}focusServerCard\(/);
   assert.match(app,/data-remove[\s\S]{0,400}\$\('#addServer'\)\.focus\(\)/);
 });
@@ -35,4 +35,12 @@ test('self-check results are words with an icon, and tables have column headers'
   assert.match(app,/'✕','Failing'|✕ Failing/);
   assert.doesNotMatch(app,/<th>/,'every th has scope="col"');
   assert.match(html,/Tool self-check: test that each search tool still works/);
+});
+
+test('connecting keeps focus on the card and never snatches it back from elsewhere',()=>{
+  assert.match(app,/function focusServerCard\(id,\{onlyIfStranded=false\}=\{\}\)\{/);
+  assert.match(app,/serverFocusTarget\(/);
+  assert.match(app,/onlyIfStranded&&!\(document\.activeElement===document\.body\|\|!document\.activeElement\|\|card\.contains\(document\.activeElement\)\)/);
+  assert.match(app,/connect\(server\)\.then\(\(\)=>focusServerCard\(server\.id,\{onlyIfStranded:true\}\)\)/);
+  assert.match(app,/saveServer[\s\S]{0,700}normalizeEndpoint\(/);
 });

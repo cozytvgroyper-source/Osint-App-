@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#07110f" />
   <title>Public Desk — OSINT workspace</title>
-  <link rel="stylesheet" href="/ui.css?v=17" />
+  <link rel="stylesheet" href="/ui.css?v=19" />
   <link rel="stylesheet" href="/styles.css?v=20" />
   <link rel="stylesheet" href="/results.css?v=14" />
   <link rel="stylesheet" href="/theme.css?v=19" />
@@ -88,7 +88,7 @@
 
       <section id="deep" class="view deep-view">
         <section class="deep-step" aria-labelledby="deep-step-1"><h2 id="deep-step-1">1. Choose a target and level</h2>
-        <div class="deep-setup"><label>Target<input id="deepTarget" autocomplete="off" placeholder="example.com" /></label><label>Maximum level<select id="deepLevel"><option value="0">Passive</option><option value="1" selected>Light touch</option><option value="2">Active</option><option value="3">Intrusive</option></select></label><p id="deepLevelExplain" class="field-hint deep-level-explain" aria-live="polite"></p><button class="primary" id="buildDeepPlan">Build plan</button></div>
+        <div class="deep-setup"><label>Target<input id="deepTarget" autocomplete="off" placeholder="example.com" /></label><label>Maximum level<select id="deepLevel" aria-describedby="deepLevelExplain"><option value="0">Passive</option><option value="1" selected>Light touch</option><option value="2">Active</option><option value="3">Intrusive</option></select></label><p id="deepLevelExplain" class="field-hint deep-level-explain" aria-live="polite"></p><button class="primary" id="buildDeepPlan">Build plan</button></div>
         </section>
         <section class="deep-step" aria-labelledby="deep-step-2"><h2 id="deep-step-2">2. Review the plan</h2>
         <div id="deepPlan" class="deep-plan"><div class="empty-state">Type a target and build a plan. Nothing runs automatically.</div></div>
@@ -158,6 +158,6 @@
   </dialog>
 
   <div id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/app.js?v=49"></script>
+  <script type="module" src="/app.js?v=50"></script>
 </body>
 </html>

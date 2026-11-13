@@ -43,3 +43,19 @@ test('the add-server form explains what is wrong, field by field',()=>{
   assert.equal(validateServerForm({name:'x',endpoint:'http://127.0.0.1:8893/mcp'}),null);
   assert.equal(validateServerForm({name:'x',endpoint:'https://e.com/mcp'}),null);
 });
+
+// Final review fixes.
+import {serverFocusTarget,normalizeEndpoint} from '../public/servers-view.js';
+test('after a card re-renders, focus goes to its main button, never Disable or Remove',()=>{
+  const buttons={primary:{name:'Reconnect'},any:{name:'Disable'}};
+  const card={querySelector:selector=>selector==='.server-actions .primary'?buttons.primary:selector==='.server-actions button'?buttons.any:null};
+  assert.equal(serverFocusTarget(card),buttons.primary);
+  const noPrimary={querySelector:selector=>selector==='.server-actions button'?buttons.any:null};
+  assert.equal(serverFocusTarget(noPrimary),buttons.any);
+  assert.equal(serverFocusTarget(null),null);
+});
+test('bundled addresses typed differently are saved in their canonical form',()=>{
+  assert.equal(normalizeEndpoint('HTTP://127.0.0.1:8893/mcp'),'http://127.0.0.1:8893/mcp');
+  assert.equal(normalizeEndpoint(' https://Example.com/mcp '),'https://example.com/mcp');
+  assert.equal(validateServerForm({name:'x',endpoint:'HTTP://127.0.0.1:8893/mcp'}),null);
+});

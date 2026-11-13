@@ -28,3 +28,11 @@ test('step 3 explains itself before there is a plan',()=>{
   assert.match(deep,/<p id="deepConfirmHint" class="field-hint">Build a plan in step 1 first\. Then confirm here and run it\.<\/p>/);
   assert.match(app,/\$\('#deepConfirmHint'\)\.hidden=Boolean\(plan\.length\)/);
 });
+
+test('the level explanation spans the row and is read with the level field',()=>{
+  assert.match(read('ui.css'),/\.deep-level-explain\{grid-column:1\/-1\}/);
+  assert.match(deep,/id="deepLevel"[^>]*aria-describedby="deepLevelExplain"/);
+});
+test('step 3 says something true after a plan with no tools',()=>{
+  assert.match(app,/Nothing to run yet: no reviewed tools match this target and level\./);
+});
