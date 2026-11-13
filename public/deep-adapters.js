@@ -2,11 +2,14 @@ import {classifyToolResult,parseToolResult} from './result-classifier.js';
 import {extractIndicatorLists} from './search-dedup.js';
 
 const EMAIL=/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
-const URL_PATTERN=/https?:\/\/[^\s<>"'\])}]+/gi;
+const URL_PATTERN=/https?:\/\/[^\s<>"'\\\])}]+/gi;
 const PHONE=/\+\d{7,15}\b/g;
 const VALID_KINDS=new Set(['account','breach','fact','host','problem','lead']);
 
 const emptyEvidence=()=>({emails:[],usernames:[],phones:[],urls:[],names:[],places:[]});
+const emptyDetails=()=>({names:[],usernames:[],emails:[],phones:[],ips:[],websites:[],places:[]});
+const IMAGE_KEY=/^(?:image|image_bg|avatar|photo|picture)$/i;
+const IMAGE_VALUE=/\.(?:jpe?g|png|gif|webp|svg)$/i;
 const unique=values=>[...new Set(values.filter(Boolean).map(value=>String(value).trim()).filter(Boolean))];
 const source=tool=>({name:String(tool?.name||'Unknown tool'),serverName:String(tool?.serverName||'Unknown MCP server')});
 
@@ -25,6 +28,51 @@ function textOf(result){
   return (Array.isArray(result?.content)?result.content:[]).map(part=>part?.text).filter(value=>typeof value==='string').join('\n');
 }
 
+// Omega tools wrap their answer as {"status":"ok","result":"…"}; read the inner text so escaped line breaks become real ones.
+export function unwrapText(result){
+  const text=textOf(result);
+  try{
+    const parsed=JSON.parse(text);
+    if(parsed&&typeof parsed==='object'&&!Array.isArray(parsed)){
+      if(typeof parsed.result==='string')return parsed.result;
+      if(typeof parsed.output==='string')return parsed.output;
+    }
+  }catch{}
+  return text;
+}
+
+export function cleanUrl(value){
+  let text=String(value??'').trim();let previous;
+  do{previous=text;text=text.replace(/(?:\\[nrt]|\\)+$/,'').replace(/[.,;)\]]+$/,'');}while(text!==previous);
+  return text;
+}
+
+const extractUrls=text=>(String(text).match(URL_PATTERN)||[]).map(cleanUrl).filter(Boolean);
+
+// Known data addresses (JSON/API endpoints) mapped to the public profile page they describe.
+const PAGE_RULES=[
+  [/^https?:\/\/(?:www\.|old\.)?reddit\.com\/user\/([^/?#]+)\/about\.js(?:on)?(?:[?#]|$)/i,user=>`https://www.reddit.com/user/${user}`],
+  [/^https?:\/\/hacker-news\.firebaseio\.com\/v0\/user\/([^/?#]+?)\.jso(?:n)?(?:[?#]|$)/i,user=>`https://news.ycombinator.com/user?id=${user}`],
+  [/^https?:\/\/dev\.to\/api\/users\/by_username\?(?:[^#]*&)?url=([^&#]+)/i,user=>`https://dev.to/${user}`],
+  [/^https?:\/\/(?:en\.)?gravatar\.com\/([^/?#]+)\.json(?:[?#]|$)/i,user=>`https://gravatar.com/${user}`],
+  [/^https?:\/\/hub\.docker\.com\/v2\/users\/([^/?#]+)\/?(?:[?#]|$)/i,user=>`https://hub.docker.com/u/${user}`],
+  [/^https?:\/\/api\.twitch\.tv\/helix\/users\?(?:[^#]*&)?login=([^&#]+)/i,user=>`https://www.twitch.tv/${user}`]
+];
+
+export function profilePageUrl(value){
+  const raw=String(value??'').trim();
+  if(!raw)return{url:'',rawUrl:''};
+  for(const [pattern,page] of PAGE_RULES){
+    const match=raw.match(pattern);
+    if(match)return{url:page(match[1]),rawUrl:raw};
+  }
+  let parsed;
+  try{parsed=new URL(raw);}catch{return{url:'',rawUrl:raw};}
+  const host=parsed.hostname.toLowerCase();const pathname=parsed.pathname.toLowerCase();
+  if(host.startsWith('api.')||host.includes('firebaseio')||pathname.includes('/api/')||pathname.endsWith('.json'))return{url:'',rawUrl:raw};
+  return{url:raw,rawUrl:''};
+}
+
 function dataFor(result){
   const classified=classifyToolResult(result);
   return classified.kind==='data'?classified.data:null;
@@ -39,7 +87,7 @@ function collectEvidence(value,evidence=emptyEvidence(),key=''){
   }
   const text=String(value);
   evidence.emails.push(...(text.match(EMAIL)||[]));
-  evidence.urls.push(...(text.match(URL_PATTERN)||[]));
+  evidence.urls.push(...extractUrls(text));
   evidence.phones.push(...(text.match(PHONE)||[]));
   if(/^(?:username|handle|login|screen_?name)$/i.test(key))evidence.usernames.push(text.replace(/^@/,''));
   if(/^(?:full_?name|display_?name|real_?name|name)$/i.test(key))evidence.names.push(text);
@@ -64,11 +112,33 @@ export function accountCategory(site=''){
   return'other';
 }
 
-function accountFinding(tool,subject,{site,url='',displayName='',verified=false,evidence=emptyEvidence()}){
-  const host=hostFromUrl(url)||site;
-  return finding(tool,subject,'account',url||site,{
-    evidence:cleanEvidence({...emptyEvidence(),...evidence,urls:unique([...(evidence.urls||[]),url])}),
-    account:{site:String(site||host||'Account'),url:String(url||''),...(displayName?{displayName:String(displayName)}:{}),category:accountCategory(host),verified:Boolean(verified)}
+const sameUrl=(a,b)=>Boolean(a&&b)&&cleanUrl(a).toLowerCase().replace(/\/+$/,'')===cleanUrl(b).toLowerCase().replace(/\/+$/,'');
+
+// Details hold only what the account's own profile says: never its own address, images, or the searched value.
+function cleanDetails(details,{url,rawUrl,subject}){
+  const searched=String(subject?.value??'').trim().toLowerCase();
+  const keep=value=>{
+    const text=String(value).trim();
+    if(!text||text.toLowerCase().replace(/^@/,'')===searched)return false;
+    if(IMAGE_VALUE.test(text.replace(/[?#].*$/,'')))return false;
+    if(sameUrl(text,url)||sameUrl(text,rawUrl))return false;
+    return true;
+  };
+  return Object.fromEntries(Object.keys(emptyDetails()).map(key=>[key,unique((details?.[key]||[]).map(value=>String(value).trim())).filter(keep)]));
+}
+
+function accountFinding(tool,subject,{site,url='',displayName='',verified=false,evidence=emptyEvidence(),presence='found',presenceNote='',details=emptyDetails()}){
+  const page=profilePageUrl(cleanUrl(url));
+  const host=hostFromUrl(page.url||page.rawUrl)||site;
+  const evidenceUrl=page.rawUrl||page.url;
+  return finding(tool,subject,'account',evidenceUrl||site,{
+    evidence:cleanEvidence({...emptyEvidence(),...evidence,urls:unique([...(evidence.urls||[]),evidenceUrl])}),
+    account:{
+      site:String(site||host||'Account'),url:page.url,...(page.rawUrl?{rawUrl:page.rawUrl}:{}),
+      ...(displayName?{displayName:String(displayName)}:{}),category:accountCategory(host),verified:Boolean(verified),
+      presence,...(presenceNote?{presenceNote:String(presenceNote)}:{}),
+      details:cleanDetails(details,{url:page.url,rawUrl:page.rawUrl,subject})
+    }
   });
 }
 
@@ -87,7 +157,7 @@ function lineAccounts(tool,result,subject){
   for(const line of textOf(result).split(/\r?\n/)){
     const match=line.match(/(?:\[\+\]|✔️?)\s*(?:\[([^\]]+)\]|([^:]+):)\s*(https?:\/\/\S+)/u);
     if(!match)continue;
-    const url=match[3].replace(/[),.;]+$/,'');
+    const url=cleanUrl(match[3]);
     if(/osintsearch\.org/.test(url))continue;
     out.push(accountFinding(tool,subject,{site:(match[1]||match[2]||hostFromUrl(url)).trim(),url,verified:false}));
   }
@@ -101,9 +171,28 @@ function maigretAdapter(tool,result,subject){
   for(const [site,entry] of Object.entries(data)){
     if(!entry||typeof entry!=='object'||typeof entry.url!=='string')continue;
     const evidence=cleanEvidence(collectEvidence(entry));
-    out.push(accountFinding(tool,subject,{site,url:entry.url,displayName:evidence.names[0]||'',verified:false,evidence}));
+    out.push(accountFinding(tool,subject,{site,url:entry.url,displayName:evidence.names[0]||'',verified:false,evidence,details:maigretDetails(entry.data,subject)}));
   }
   return out;
+}
+
+function maigretDetails(data,subject){
+  const details=emptyDetails();
+  if(!data||typeof data!=='object'||Array.isArray(data))return details;
+  const searched=String(subject?.value??'').trim().toLowerCase();
+  for(const [key,value] of Object.entries(data)){
+    if(value===null||value===undefined||IMAGE_KEY.test(key))continue;
+    const values=(Array.isArray(value)?value:[value]).filter(item=>item!==null&&typeof item!=='object').map(String);
+    if(/^(?:fullname|name)$/i.test(key))details.names.push(...values);
+    if(/^links$/i.test(key))details.websites.push(...values.flatMap(item=>item.split(/[\s,]+/)).map(cleanUrl).filter(item=>/^https?:\/\//i.test(item)));
+    if(/^location$/i.test(key))details.places.push(...values);
+    if(/^(?:username|nickname|login)$/i.test(key))details.usernames.push(...values.map(item=>item.trim().replace(/^@/,'')).filter(item=>item.toLowerCase()!==searched));
+    for(const item of values){
+      details.emails.push(...(item.match(EMAIL)||[]));
+      details.phones.push(...(item.match(PHONE)||[]));
+    }
+  }
+  return details;
 }
 
 function ghuntAdapter(tool,result,subject){
@@ -128,12 +217,48 @@ function breachAdapter(tool,result,subject){
   });
 }
 
-function profileTextAdapter(tool,result,subject){
-  const text=textOf(result);if(!text)return[];
-  const urls=unique(text.match(URL_PATTERN)||[]);const allEvidence=cleanEvidence(collectEvidence(text));
-  return urls.filter(url=>!/^https?:\/\/example\.com\/(?:avatar|linked-profile)/.test(url)).slice(0,250).map(url=>accountFinding(tool,subject,{
-    site:hostFromUrl(url),url,verified:false,evidence:{...emptyEvidence(),emails:allEvidence.emails,usernames:subject.type==='username'?[subject.value]:[],phones:allEvidence.phones,urls:[url],names:allEvidence.names,places:allEvidence.places}
-  }));
+// Evidence for a table answer: what the tool said, minus the searched username echoed back.
+function tableEvidence(text,subject,url){
+  const all=cleanEvidence(collectEvidence(text));
+  return {...emptyEvidence(),emails:all.emails,phones:all.phones,urls:[url],names:all.names,places:all.places};
+}
+
+function presenceFor(status,cross){
+  if(cross||status==='404')return'not-found';
+  if(status==='200')return'found';
+  return'unchecked';
+}
+
+// omega_socmint: "Platform   Status   URL" rows; 200 found, ❌/404 not found, anything else couldn't check.
+function socmintAdapter(tool,result,subject){
+  const text=unwrapText(result);if(!text)return[];
+  const out=[];
+  for(const line of text.split(/\r?\n/)){
+    const coded=line.match(/^\s*(\S.*?)\s{2,}(❌\s*)?(\d{3})\s+(https?:\/\/\S+)/u);
+    const marked=coded?null:line.match(/^\s*(\S.*?)\s{2,}✅\s*Found\s+(https?:\/\/\S+)/u);
+    if(!coded&&!marked)continue;
+    const site=(coded||marked)[1].trim();const url=cleanUrl(coded?coded[4]:marked[2]);
+    if(!url)continue;
+    const presence=coded?presenceFor(coded[3],Boolean(coded[2])):'found';
+    out.push(accountFinding(tool,subject,{site,url,verified:false,presence,presenceNote:coded&&presence!=='found'?coded[3]:'',evidence:tableEvidence(text,subject,url)}));
+  }
+  return out;
+}
+
+// omega_identity: a "Found on N platform(s)" list of "Platform   URL" rows, all found.
+function identityAdapter(tool,result,subject){
+  const text=unwrapText(result);if(!text)return[];
+  const lines=text.split(/\r?\n/);
+  const start=lines.findIndex(line=>/Found on\s+\d+/i.test(line));
+  if(start<0)return[];
+  const out=[];
+  for(const line of lines.slice(start+1)){
+    const match=line.match(/^\s*(\S.*?)\s{2,}(https?:\/\/\S+)/u);
+    if(!match)continue;
+    const url=cleanUrl(match[2]);if(!url)continue;
+    out.push(accountFinding(tool,subject,{site:match[1].trim(),url,verified:false,presence:'found',evidence:tableEvidence(text,subject,url)}));
+  }
+  return out;
 }
 
 function phoneAdapter(tool,result,subject){
@@ -206,8 +331,8 @@ export const ADAPTERS=Object.freeze({
   maigret_username_search:maigretAdapter,
   ghunt_google_search:ghuntAdapter,
   omega_breach:breachAdapter,
-  omega_identity:profileTextAdapter,
-  omega_socmint:profileTextAdapter,
+  omega_identity:identityAdapter,
+  omega_socmint:socmintAdapter,
   phoneinfoga_scan:phoneAdapter,
   omega_phoneosint:phoneAdapter,
   omega_ports:portsAdapter,
