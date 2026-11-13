@@ -51,7 +51,7 @@ test('both views escape hostile text, label external links, keep possible findin
   const person=renderDeepResults(await fixture('run-person'));
   const site=renderDeepResults(await fixture('run-site'));
   for(const html of [person,site]){
-    assert.doesNotMatch(html,/<bad>|<script>/);
+    assert.doesNotMatch(html,/<(?:bad|script)\b/i);
     assert.doesNotMatch(html,/Run grant/i);
     assert.match(html,/tool|omega|whois|maigret|sherlock/i);
     assert.match(html,/MCP|Toolbox/);
