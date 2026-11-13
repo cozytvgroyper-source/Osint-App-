@@ -11,12 +11,23 @@ const TARGET_PATTERNS=[
   ['ip',new RegExp(`(?<![\\d.])((?:${OCTET}\\.){3}${OCTET})(?![\\d]|\\.\\d)`)],
   ['username',/(?:^|\s)@([a-z0-9_](?:[a-z0-9_.-]{0,30}[a-z0-9_])?)(?=$|\s)/i],
   ['username',/\b(?:username|handle)\s*[:=]?\s*@?([a-z0-9_](?:[a-z0-9_.-]{0,30}[a-z0-9_])?)(?=$|\s)/i],
-  ['domain',/(?<![@\w.-])((?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63})(?![\w-]|\.[a-z0-9])/i],
+  // Never starts or ends partway through a word, accented letters included (so "bücher.de" can't become "cher.de").
+  ['domain',/(?<![@\p{L}\p{N}_.-])((?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63})(?![\p{L}\p{N}_-]|\.[a-z0-9])/iu],
   ['phone',/^(\+?[\d\s().-]{8,})$/]
 ];
 
+// Website names with accented letters (bücher.de) become the ASCII form browsers and DNS use (xn--bcher-kva.de)
+// before anything is matched, so tools look up the right site.
+const UNICODE_HOST=/(?<![\p{L}\p{N}_.-])(?:[\p{L}\p{N}](?:[\p{L}\p{N}-]{0,61}[\p{L}\p{N}])?\.)+\p{L}{2,63}(?![\p{L}\p{N}_-])/gu;
+export function asciiHosts(text){
+  return String(text).replace(UNICODE_HOST,host=>{
+    if(/^[\x00-\x7f]*$/.test(host))return host;
+    try{return new URL(`http://${host}`).hostname;}catch{return host;}
+  });
+}
+
 function findTarget(query){
-  const text=String(query).trim();
+  const text=asciiHosts(String(query).trim());
   for(const [kind,pattern] of TARGET_PATTERNS){
     const match=text.match(pattern);
     if(!match)continue;
@@ -50,7 +61,7 @@ export function extractTarget(query){
 export function splitTarget(query){
   const target=findTarget(query);
   if(!target)return{text:String(query),target:null};
-  return{text:String(query).replace(target.raw,' ').replace(/\s+/g,' ').trim(),target:{type:target.type,value:target.value}};
+  return{text:asciiHosts(String(query)).replace(target.raw,' ').replace(/\s+/g,' ').trim(),target:{type:target.type,value:target.value}};
 }
 
 function singularWords(text){
