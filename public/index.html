@@ -93,7 +93,7 @@
         <section class="deep-step" aria-labelledby="deep-step-2"><h2 id="deep-step-2">2. Review the plan</h2>
         <div id="deepPlan" class="deep-plan"><div class="empty-state">Type a target and build a plan. Nothing runs automatically.</div></div>
         </section>
-        <section class="deep-step" aria-labelledby="deep-step-3"><h2 id="deep-step-3">3. Confirm and run</h2>
+        <section class="deep-step" aria-labelledby="deep-step-3"><h2 id="deep-step-3">3. Confirm and run</h2><p id="deepConfirmHint" class="field-hint">Build a plan in step 1 first. Then confirm here and run it.</p>
         <div id="deepConfirmations" class="deep-confirmations" hidden><label class="run-check"><input type="checkbox" id="deepAuthorize" /> I own this target or have written permission to test it.</label><label id="deepTypedWrap" hidden>Type the target exactly to confirm Intrusive testing<input id="deepTypedTarget" autocomplete="off" /></label><p id="deepError" class="form-error"></p><div class="deep-actions"><button class="ghost" id="cancelDeepRun" disabled>Cancel</button><button class="primary" id="runDeepSearch">Run selected tools</button></div></div>
         </section>
         <div id="deepLog" class="deep-log" hidden aria-live="polite"></div>
@@ -158,6 +158,6 @@
   </dialog>
 
   <div id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/app.js?v=48"></script>
+  <script type="module" src="/app.js?v=49"></script>
 </body>
 </html>

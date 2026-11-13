@@ -630,7 +630,7 @@ async function smartInvestigate(query){
 function renderDeepPlan(){
   const plan=state.deepPlan;
   $('#deepPlan').innerHTML=plan.length?plan.map((item,index)=>`<label class="deep-tool"><input type="checkbox" data-deep-tool="${index}" ${item.selected?'checked':''} /><div><b>${escapeHtml(item.tool.name)}</b><p>${escapeHtml(item.tool.description||'No description provided.')}</p><p>${escapeHtml(item.risk.targetSees)}</p></div><div class="deep-tool-meta">${tierBadge(item.risk)}<br>${item.risk.level<=1?'about 30 seconds':item.risk.level===2?'up to 2 minutes':'up to 2 minutes'}</div></label>`).join(''):'<div class="empty-state">No reviewed Deep Search tools match this target and level on the connected servers.</div>';
-  $('#deepConfirmations').hidden=!plan.length;
+  $('#deepConfirmations').hidden=!plan.length;$('#deepConfirmHint').hidden=Boolean(plan.length);
   $('#deepTypedWrap').hidden=Number($('#deepLevel').value)!==3;
 }
 

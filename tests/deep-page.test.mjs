@@ -22,3 +22,9 @@ test('the chosen level is explained',()=>{
   assert.match(deep,/id="deepLevelExplain"[^>]*aria-live="polite"/);
   assert.match(app,/#deepLevelExplain[\s\S]{0,120}TIERS\[/);
 });
+
+// Step 3 is empty until a plan exists; it must say what to do instead of showing a blank card.
+test('step 3 explains itself before there is a plan',()=>{
+  assert.match(deep,/<p id="deepConfirmHint" class="field-hint">Build a plan in step 1 first\. Then confirm here and run it\.<\/p>/);
+  assert.match(app,/\$\('#deepConfirmHint'\)\.hidden=Boolean\(plan\.length\)/);
+});
