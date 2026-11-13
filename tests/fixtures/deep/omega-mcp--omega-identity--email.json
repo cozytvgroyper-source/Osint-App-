@@ -1,0 +1,24 @@
+{
+  "tool": "omega_identity",
+  "serverName": "Omega MCP",
+  "identifier": {
+    "type": "email",
+    "value": "owner@example.com"
+  },
+  "args": {
+    "target": "owner@example.com"
+  },
+  "ms": 1791,
+  "result": {
+    "content": [
+      {
+        "text": "{\n  \"status\": \"ok\",\n  \"result\": \"🪪  Identity Correlation — owner@example.com\\n\\nEmail domain: gmail.com\\nLikely username patterns:\\n  • ownername\\n\\nChecking 30 platforms for handle: ownername…\\n\\n                 ✓  Found on 4 platform(s)\\n\\n  Platform    URL\\n\\n  PyPI        https://pypi.org/user/ownername/\\n  Reddit      https://www.reddit.com/user/ownername/\\n  Steam       https://steamcommunity.com/id/ownername\\n  Twitter/X   https://twitter.com/ownername\\n\\nIdentity confidence score: 20/100  (4 profiles across 30 checked)\"\n}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "structuredContent": {
+      "result": "{\n  \"status\": \"ok\",\n  \"result\": \"\\ud83e\\udeaa  Identity Correlation \\u2014 owner@example.com\\n\\nEmail domain: gmail.com\\nLikely username patterns:\\n  \\u2022 ownername\\n\\nChecking 30 platforms for handle: ownername\\u2026\\n\\n                 \\u2713  Found on 4 platform(s)\\n\\n  Platform    URL\\n\\n  PyPI        https://pypi.org/user/ownername/\\n  Reddit      https://www.reddit.com/user/ownername/\\n  Steam       https://steamcommunity.com/id/ownername\\n  Twitter/X   https://twitter.com/ownername\\n\\nIdentity confidence score: 20/100  (4 profiles across 30 checked)\"\n}"
+    }
+  }
+}

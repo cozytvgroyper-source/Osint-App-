@@ -1,0 +1,24 @@
+{
+  "tool": "omega_attackmap",
+  "serverName": "Omega MCP",
+  "identifier": {
+    "type": "ip",
+    "value": "192.0.2.10"
+  },
+  "args": {
+    "target": "192.0.2.10"
+  },
+  "ms": 18,
+  "result": {
+    "content": [
+      {
+        "text": "{\n  \"status\": \"ok\",\n  \"result\": \"\\u2694  MITRE ATT&CK Mapper \\u2014 192.0.2.10\\n\\nAnalyzing 3 reports...\\n\\nNo ATT&CK techniques mapped from current reports.\\nTry running more omega modules (vuln2, exfil, breach, corscheck, etc.)\"\n}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "structuredContent": {
+      "result": "{\n  \"status\": \"ok\",\n  \"result\": \"\\u2694  MITRE ATT&CK Mapper \\u2014 192.0.2.10\\n\\nAnalyzing 3 reports...\\n\\nNo ATT&CK techniques mapped from current reports.\\nTry running more omega modules (vuln2, exfil, breach, corscheck, etc.)\"\n}"
+    }
+  }
+}

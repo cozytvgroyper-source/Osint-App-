@@ -1,0 +1,24 @@
+{
+  "tool": "omega_vuln",
+  "serverName": "Omega MCP",
+  "identifier": {
+    "type": "ip",
+    "value": "192.0.2.10"
+  },
+  "args": {
+    "target": "192.0.2.10"
+  },
+  "ms": 3417,
+  "result": {
+    "content": [
+      {
+        "text": "{\n  \"status\": \"ok\",\n  \"result\": \"\\ud83d\\udd34  Advanced Vuln Intelligence \\u2014 192.0.2.10\\n\\nCISA KEV: 1779 known exploited vulnerabilities loaded\\nNo CVEs found for '192.0.2.10' in NVD\"\n}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "structuredContent": {
+      "result": "{\n  \"status\": \"ok\",\n  \"result\": \"\\ud83d\\udd34  Advanced Vuln Intelligence \\u2014 192.0.2.10\\n\\nCISA KEV: 1779 known exploited vulnerabilities loaded\\nNo CVEs found for '192.0.2.10' in NVD\"\n}"
+    }
+  }
+}

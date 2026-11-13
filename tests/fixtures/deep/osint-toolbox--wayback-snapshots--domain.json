@@ -1,0 +1,22 @@
+{
+  "tool": "wayback_snapshots",
+  "serverName": "OSINT Toolbox",
+  "identifier": {
+    "type": "domain",
+    "value": "owner-site.example"
+  },
+  "args": {
+    "limit": 10,
+    "url": "owner-site.example"
+  },
+  "ms": 659,
+  "result": {
+    "content": [
+      {
+        "text": "{\n \"url\": \"owner-site.example\",\n \"newest_first\": [\n  {\n   \"time\": \"20261113000026\",\n   \"status\": \"200\",\n   \"type\": \"text/html\",\n   \"url\": \"https://web.archive.org/web/20261113000026/https://owner-site.example/\"\n  },\n  {\n   \"time\": \"20261112132103\",\n   \"status\": \"200\",\n   \"type\": \"text/html\",\n   \"url\": \"https://web.archive.org/web/20261112132103/http://user:lead15@example.net/\"\n  },\n  {\n   \"time\": \"20261112031631\",\n   \"status\": \"200\",\n   \"type\": \"text/html\",\n   \"url\": \"https://web.archive.org/web/20261112031631/https://owner-site.example/\"\n  },\n  {\n   \"time\": \"20261111220444\",\n   \"status\": \"200\",\n   \"type\": \"text/html\",\n   \"url\": \"https://web.archive.org/web/20261111220444/http://www.owner-site.example/\"\n  },\n  {\n   \"time\": \"20261111025926\",\n   \"status\": \"200\",\n   \"type\": \"text/html\",\n   \"url\": \"https://web.archive.org/web/20261111025926/https://owner-site.example/\"\n  },\n  {\n   \"time\": \"20261111021054\",\n   \"status\": \"-\",\n   \"type\": \"warc/revisit\",\n   \"url\": \"https://web.archive.org/web/20261111021054/http://lead16@example.net/\"\n  },\n  {\n   \"time\": \"20261111010223\",\n   \"status\": \"200\",\n   \"type\": \"text/html\",\n   \"url\": \"https://web.archive.org/web/20261111010223/http://owner-site.example/\"\n  },\n  {\n   \"time\": \"20261110115728\",\n   \"status\": \"200\",\n   \"type\": \"text/html\",\n   \"url\": \"https://web.archive.org/web/20261110115728/http://owner-site.example/\"\n  },\n  {\n   \"time\": \"20261110052843\",\n   \"status\": \"200\",\n   \"type\": \"text/html\",\n   \"url\": \"https://web.archive.org/web/20261110052843/https://owner-site.example/\"\n  },\n  {\n   \"time\": \"20261110020859\",\n   \"status\": \"-\",\n   \"type\": \"warc/revisit\",\n   \"url\": \"https://web.archive.org/web/20261110020859/http://lead16@example.net/\"\n  }\n ]\n}",
+        "type": "text"
+      }
+    ],
+    "isError": false
+  }
+}

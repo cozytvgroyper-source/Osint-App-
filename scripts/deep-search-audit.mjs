@@ -10,8 +10,12 @@ export function auditEntry(value, now = new Date()) {
   const level=Number(value?.level);
   const tools=Array.isArray(value?.tools)?value.tools.map(item=>String(item).slice(0,160)).filter(Boolean).slice(0,25):[];
   const outcome=String(value?.outcome||'').trim().slice(0,80);
+  const runId=String(value?.runId||'').trim();
+  const toolCount=Number(value?.toolCount??tools.length);
   if(!target||!Number.isInteger(level)||level<0||level>3||!tools.length||!outcome)throw Object.assign(new Error('Invalid Deep Search audit entry'),{code:'AUDIT_INPUT'});
-  return {time:now.toISOString(),target,level,tools,outcome};
+  if(runId&&!/^[a-z0-9-]{8,64}$/.test(runId))throw Object.assign(new Error('Invalid Deep Search audit entry'),{code:'AUDIT_INPUT'});
+  if(!Number.isInteger(toolCount)||toolCount<tools.length)throw Object.assign(new Error('Invalid Deep Search audit entry'),{code:'AUDIT_INPUT'});
+  return {time:now.toISOString(),target,level,tools,toolCount,outcome,...(runId?{runId}:{})};
 }
 
 export async function appendDeepSearchAudit(file, value, options={}) {

@@ -1,0 +1,21 @@
+{
+  "tool": "ghunt_google_search",
+  "serverName": "OSINT Toolbox",
+  "identifier": {
+    "type": "email",
+    "value": "owner@example.com"
+  },
+  "args": {
+    "identifier": "owner@example.com"
+  },
+  "ms": 464,
+  "result": {
+    "content": [
+      {
+        "text": "GHunt has no valid login: run `ghunt login` (for Docker, see the README). If the saved session was revoked, `ghunt login` fails too: run `ghunt login --clean` first to delete it.",
+        "type": "text"
+      }
+    ],
+    "isError": true
+  }
+}

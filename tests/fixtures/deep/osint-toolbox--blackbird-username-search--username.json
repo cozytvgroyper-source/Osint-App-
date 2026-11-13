@@ -1,0 +1,22 @@
+{
+  "tool": "blackbird_username_search",
+  "serverName": "OSINT Toolbox",
+  "identifier": {
+    "type": "username",
+    "value": "ownername"
+  },
+  "args": {
+    "username": "ownername",
+    "timeout": 60
+  },
+  "ms": 71683,
+  "result": {
+    "content": [
+      {
+        "text": "🔄 Checking for updates...\n✔️  Sites List is up to date\n  ✔️  [Twitter archived profile] http://archive.org/wayback/available?url=https://twitter.com/ownername\n  ✔️  [X] https://api.x.com/i/users/username_available.json?username=ownername\n  ✔️  [Chess.com] https://api.chess.com/pub/player/ownername\n  ✔️  [Instagram] https://www.instagram.com/ownername/\n🛰️  Enumerating accounts with username \"ownername\" — 100% (691/691)🏁 Check completed in 71.2 seconds",
+        "type": "text"
+      }
+    ],
+    "isError": false
+  }
+}

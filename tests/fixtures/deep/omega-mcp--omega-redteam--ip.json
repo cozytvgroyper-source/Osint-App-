@@ -1,0 +1,24 @@
+{
+  "tool": "omega_redteam",
+  "serverName": "Omega MCP",
+  "identifier": {
+    "type": "ip",
+    "value": "192.0.2.10"
+  },
+  "args": {
+    "target": "192.0.2.10"
+  },
+  "ms": 13,
+  "result": {
+    "content": [
+      {
+        "text": "{\n  \"status\": \"ok\",\n  \"result\": \"\\ud83d\\udd34  Red Team Surface  \\u2192  192.0.2.10\\n\\nNo findings JSON found. Run omega auto 192.0.2.10 first.\\n\\nGenerating generic attack surface based on target name\\u2026\\n\\n\\u2713  No known attack vectors identified from findings.\\nRun omega auto 192.0.2.10 for a full surface scan first.\\n\\n\\u26a0  For authorized penetration testing only.\"\n}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "structuredContent": {
+      "result": "{\n  \"status\": \"ok\",\n  \"result\": \"\\ud83d\\udd34  Red Team Surface  \\u2192  192.0.2.10\\n\\nNo findings JSON found. Run omega auto 192.0.2.10 first.\\n\\nGenerating generic attack surface based on target name\\u2026\\n\\n\\u2713  No known attack vectors identified from findings.\\nRun omega auto 192.0.2.10 for a full surface scan first.\\n\\n\\u26a0  For authorized penetration testing only.\"\n}"
+    }
+  }
+}

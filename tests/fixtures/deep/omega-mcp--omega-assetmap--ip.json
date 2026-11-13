@@ -1,0 +1,24 @@
+{
+  "tool": "omega_assetmap",
+  "serverName": "Omega MCP",
+  "identifier": {
+    "type": "ip",
+    "value": "192.0.2.10"
+  },
+  "args": {
+    "target": "192.0.2.10"
+  },
+  "ms": 825,
+  "result": {
+    "content": [
+      {
+        "text": "{\n  \"status\": \"ok\",\n  \"result\": {\n    \"target\": \"192.0.2.10\",\n    \"nodes\": {\n      \"192.0.2.10\": {\n        \"ips\": [\n          \"192.0.2.10\"\n        ]\n      }\n    },\n    \"subdomains\": []\n  }\n}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "structuredContent": {
+      "result": "{\n  \"status\": \"ok\",\n  \"result\": {\n    \"target\": \"192.0.2.10\",\n    \"nodes\": {\n      \"192.0.2.10\": {\n        \"ips\": [\n          \"192.0.2.10\"\n        ]\n      }\n    },\n    \"subdomains\": []\n  }\n}"
+    }
+  }
+}

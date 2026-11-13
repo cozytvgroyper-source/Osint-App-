@@ -1,0 +1,24 @@
+{
+  "tool": "omega_torcheck",
+  "serverName": "Omega MCP",
+  "identifier": {
+    "type": "ip",
+    "value": "192.0.2.10"
+  },
+  "args": {
+    "target": "192.0.2.10"
+  },
+  "ms": 2595,
+  "result": {
+    "content": [
+      {
+        "text": "{\n  \"status\": \"ok\",\n  \"result\": \"\\ud83e\\uddc5  Tor Intelligence \\u2014 192.0.2.10\\n\\nIP: 192.0.2.10\\n\\nChecking Tor exit node lists...\\n  \\u2713 192.0.2.10 is not a known Tor exit node\\n\\nSearching Tor relay database (Onionoo)...\\n  No relay/bridge data found\\n\\nDarknet search (Ahmia.fi)...\\n  Found 2 darknet mentions\\n\\n  .onion                           Title   Description\\n\\n  juhanurmihxlp77nkq76byazcldy2h\\n  juhanurmihxlp77nkq76byazcldy2h\\n\\nNo Tor-related risk indicators found\"\n}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "structuredContent": {
+      "result": "{\n  \"status\": \"ok\",\n  \"result\": \"\\ud83e\\uddc5  Tor Intelligence \\u2014 192.0.2.10\\n\\nIP: 192.0.2.10\\n\\nChecking Tor exit node lists...\\n  \\u2713 192.0.2.10 is not a known Tor exit node\\n\\nSearching Tor relay database (Onionoo)...\\n  No relay/bridge data found\\n\\nDarknet search (Ahmia.fi)...\\n  Found 2 darknet mentions\\n\\n  .onion                           Title   Description\\n\\n  juhanurmihxlp77nkq76byazcldy2h\\n  juhanurmihxlp77nkq76byazcldy2h\\n\\nNo Tor-related risk indicators found\"\n}"
+    }
+  }
+}

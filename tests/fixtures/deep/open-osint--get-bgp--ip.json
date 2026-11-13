@@ -1,0 +1,56 @@
+{
+  "tool": "get_bgp",
+  "serverName": "Open OSINT",
+  "identifier": {
+    "type": "ip",
+    "value": "192.0.2.10"
+  },
+  "args": {
+    "query": "192.0.2.10",
+    "limit": 10,
+    "format": "json"
+  },
+  "ms": 2586,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"data\":{\"resource\":\"192.0.2.10\",\"routing\":{\"announced\":true,\"visibility\":null,\"origins\":[],\"prefix\":\"\",\"firstSeen\":\"\"},\"geolocation\":{\"country\":\"\",\"city\":\"\",\"latitude\":null,\"longitude\":null},\"abuse\":{\"contacts\":[],\"authorityInfo\":\"\"},\"source\":\"RIPEstat\"},\"durationMs\":2556,\"description\":\"BGP routing intelligence via RIPEstat — AS info, prefix announcements, routing status, looking glass. Query with IP, prefix, or ASN (e.g. \\\"8.8.8.0/24\\\", \\\"AS15169\\\"). No auth.\",\"cached\":false,\"cacheTtlMs\":300000,\"_meta\":{\"cachedAt\":null,\"fetchedAt\":\"2026-11-13T11:45:47.383Z\",\"durationMs\":2556,\"fromCache\":false}}"
+      }
+    ],
+    "structuredContent": {
+      "data": {
+        "resource": "192.0.2.10",
+        "routing": {
+          "announced": true,
+          "visibility": null,
+          "origins": [],
+          "prefix": "",
+          "firstSeen": ""
+        },
+        "geolocation": {
+          "country": "",
+          "city": "",
+          "latitude": null,
+          "longitude": null
+        },
+        "abuse": {
+          "contacts": [],
+          "authorityInfo": ""
+        },
+        "source": "RIPEstat"
+      },
+      "durationMs": 2556,
+      "description": "BGP routing intelligence via RIPEstat — AS info, prefix announcements, routing status, looking glass. Query with IP, prefix, or ASN (e.g. \"8.8.8.0/24\", \"AS15169\"). No auth.",
+      "cached": false,
+      "cacheTtlMs": 300000,
+      "_meta": {
+        "cachedAt": null,
+        "fetchedAt": "2026-11-13T11:45:47.383Z",
+        "durationMs": 2556,
+        "fromCache": false
+      }
+    },
+    "isError": false
+  }
+}

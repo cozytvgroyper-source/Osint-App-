@@ -1,0 +1,24 @@
+{
+  "tool": "omega_network",
+  "serverName": "Omega MCP",
+  "identifier": {
+    "type": "ip",
+    "value": "192.0.2.10"
+  },
+  "args": {
+    "target": "192.0.2.10"
+  },
+  "ms": 1405,
+  "result": {
+    "content": [
+      {
+        "text": "{\n  \"status\": \"ok\",\n  \"result\": \"\\ud83c\\udf10  Network Topology  \\u2192  192.0.2.10\\n\\n\\ud83d\\udccd IP Addresses:\\n  192.0.2.10\\n\\n\\ud83c\\udfe2 BGP / Hosting:\\n  ip    192.0.2.10\\n\\n\\ud83d\\udee1  CDN / WAF Detection:\\n  CDN: none detected\\n  WAF: none detected\\n\\n\\ud83c\\udf0d DNS Propagation:\\n\\nResolver             \\u2503 A Records\\n\\nGoogle (8.8.8.8)     \\u2502 timeout/error\\n\\nCloudflare (1.1.1.1) \\u2502 timeout/error\\n\\nQuad9 (9.9.9.9)      \\u2502 timeout/error\\n\\nOpenDNS              \\u2502 timeout/error\\n\\n\\u2713  DNS propagation consistent across all resolvers.\\n\\n\\ud83d\\udd00 Traceroute \\u2192 192.0.2.10:\\nTraceroute requires root/cap_net_raw \\u2014 run with sudo for full trace.\\nAlternative: traceroute 192.0.2.10\"\n}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "structuredContent": {
+      "result": "{\n  \"status\": \"ok\",\n  \"result\": \"\\ud83c\\udf10  Network Topology  \\u2192  192.0.2.10\\n\\n\\ud83d\\udccd IP Addresses:\\n  192.0.2.10\\n\\n\\ud83c\\udfe2 BGP / Hosting:\\n  ip    192.0.2.10\\n\\n\\ud83d\\udee1  CDN / WAF Detection:\\n  CDN: none detected\\n  WAF: none detected\\n\\n\\ud83c\\udf0d DNS Propagation:\\n\\nResolver             \\u2503 A Records\\n\\nGoogle (8.8.8.8)     \\u2502 timeout/error\\n\\nCloudflare (1.1.1.1) \\u2502 timeout/error\\n\\nQuad9 (9.9.9.9)      \\u2502 timeout/error\\n\\nOpenDNS              \\u2502 timeout/error\\n\\n\\u2713  DNS propagation consistent across all resolvers.\\n\\n\\ud83d\\udd00 Traceroute \\u2192 192.0.2.10:\\nTraceroute requires root/cap_net_raw \\u2014 run with sudo for full trace.\\nAlternative: traceroute 192.0.2.10\"\n}"
+    }
+  }
+}

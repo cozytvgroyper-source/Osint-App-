@@ -1,0 +1,24 @@
+{
+  "tool": "omega_breach",
+  "serverName": "Omega MCP",
+  "identifier": {
+    "type": "email",
+    "value": "owner@example.com"
+  },
+  "args": {
+    "target": "owner@example.com"
+  },
+  "ms": 216,
+  "result": {
+    "content": [
+      {
+        "text": "{\n  \"status\": \"ok\",\n  \"result\": {\n    \"target\": \"owner@example.com\",\n    \"breaches\": []\n  }\n}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "structuredContent": {
+      "result": "{\n  \"status\": \"ok\",\n  \"result\": {\n    \"target\": \"owner@example.com\",\n    \"breaches\": []\n  }\n}"
+    }
+  }
+}

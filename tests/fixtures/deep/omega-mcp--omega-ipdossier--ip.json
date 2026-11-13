@@ -1,0 +1,24 @@
+{
+  "tool": "omega_ipdossier",
+  "serverName": "Omega MCP",
+  "identifier": {
+    "type": "ip",
+    "value": "192.0.2.10"
+  },
+  "args": {
+    "target": "192.0.2.10"
+  },
+  "ms": 1679,
+  "result": {
+    "content": [
+      {
+        "text": "{\n  \"status\": \"ok\",\n  \"result\": \"\\ud83c\\udf10  IP Dossier \\u2014 192.0.2.10  [192.0.2.10]\\n\\nPTR: N/A\\n\\nGeolocation & ASN\\n\\nShodan InternetDB\\n  No Shodan data\\n\\nBGP Info (bgp.he.net)\\n  ASN: AS31027  Prefix: 192.168.1.0/24\\n\\nBlacklist Check (8 DNSBLs)\\n  Listed: 2  Clean: 6  Unknown: 0\\n  \\u26d4 zen.spamhaus.org\\n  \\u26d4 cbl.abuseat.org\\n\\nRisk Score: 40/100 (HIGH)\"\n}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "structuredContent": {
+      "result": "{\n  \"status\": \"ok\",\n  \"result\": \"\\ud83c\\udf10  IP Dossier \\u2014 192.0.2.10  [192.0.2.10]\\n\\nPTR: N/A\\n\\nGeolocation & ASN\\n\\nShodan InternetDB\\n  No Shodan data\\n\\nBGP Info (bgp.he.net)\\n  ASN: AS31027  Prefix: 192.168.1.0/24\\n\\nBlacklist Check (8 DNSBLs)\\n  Listed: 2  Clean: 6  Unknown: 0\\n  \\u26d4 zen.spamhaus.org\\n  \\u26d4 cbl.abuseat.org\\n\\nRisk Score: 40/100 (HIGH)\"\n}"
+    }
+  }
+}

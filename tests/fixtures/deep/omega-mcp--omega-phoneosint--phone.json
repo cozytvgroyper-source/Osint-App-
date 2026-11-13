@@ -1,0 +1,24 @@
+{
+  "tool": "omega_phoneosint",
+  "serverName": "Omega MCP",
+  "identifier": {
+    "type": "phone",
+    "value": "+15555550100"
+  },
+  "args": {
+    "target": "+15555550100"
+  },
+  "ms": 986,
+  "result": {
+    "content": [
+      {
+        "text": "{\n  \"status\": \"ok\",\n  \"result\": \"📞  Phone Number OSINT — +15555550100\\n\\n  E.164                +15555550100\\n  Country              MY\\n  Line type            Mobile/Landline\\n\\nTip: set numverify_api_key or abstract_api_key for carrier/line-type data\\n     omega config set numverify_api_key KEY\"\n}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "structuredContent": {
+      "result": "{\n  \"status\": \"ok\",\n  \"result\": \"\\ud83d\\udcde  Phone Number OSINT \\u2014 +15555550100\\n\\n  E.164                +15555550100\\n  Country              MY\\n  Line type            Mobile/Landline\\n\\nTip: set numverify_api_key or abstract_api_key for carrier/line-type data\\n     omega config set numverify_api_key KEY\"\n}"
+    }
+  }
+}

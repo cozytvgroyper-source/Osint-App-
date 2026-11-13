@@ -7,14 +7,17 @@ import { pathToFileURL } from 'node:url';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { DATA_SOURCES, parseKeyFile, sourceStatuses, updateKeyFile, validateKeyValue } from './scripts/api-keys.mjs';
 import { fetchValidated, validatedEndpoint } from './scripts/endpoint-policy.mjs';
-import {authorizeMcpToolCall, createRunGrant} from './scripts/run-grants.mjs';
+import {authorizeMcpToolCall, createRunGrant, releaseRunGrants, serverNameForEndpoint} from './scripts/run-grants.mjs';
+import {deepCallTimeout} from './scripts/deep-call-timeout.mjs';
 import {appendDeepSearchAudit,readDeepSearchAudit} from './scripts/deep-search-audit.mjs';
 import {CaseStore,MAX_EVIDENCE_BYTES,handleCaseRequest} from './scripts/cases.mjs';
+import {DeepRunStore,MAX_DEEP_RUN_BYTES} from './scripts/deep-search-runs.mjs';
 
 const ROOT = fileURLToPath(new URL('./public/', import.meta.url));
 const UPLOAD_ROOT = fileURLToPath(new URL('./work/uploads/', import.meta.url));
 const DEEP_SEARCH_AUDIT_FILE = fileURLToPath(new URL('./work/deep-search-audit.jsonl', import.meta.url));
 const cases = new CaseStore(fileURLToPath(new URL('./work/cases/', import.meta.url)));
+const deepRuns = new DeepRunStore(fileURLToPath(new URL('./work/deep-search-runs/', import.meta.url)));
 const PORT = Number(process.env.PORT || 4173);
 const MAX_MCP_RESPONSE_BYTES = 5_000_000;
 const MAX_MCP_SSE_EVENTS = 1_000;
@@ -492,14 +495,23 @@ const server = http.createServer(async (req, res) => {
       const authorization=authorizeMcpToolCall(payload, runGrants);
       if (payload.initialize) await initialize(payload);
       const cancelled=new AbortController();res.once('close',()=>{if(!res.writableEnded)cancelled.abort();});
-      const options={timeoutMs:authorization.grant?.purpose==='deep-search'?120_000:45_000,signal:cancelled.signal};
+      const options={timeoutMs:deepCallTimeout({
+        ...payload.params,
+        serverName:serverNameForEndpoint(payload.endpoint),
+        deepSearch:payload.deepSearch,
+        timeoutMs:payload.timeoutMs
+      },authorization),signal:cancelled.signal};
       const result = await withSessionRecovery(payload,()=>mcpRequest(payload,options),()=>initialize(payload));
       return json(res, 200, result);
     }
     if (req.method === 'POST' && url.pathname === '/api/run-grants') {
       const payload = await body(req, 100_000);
       for (const tool of Array.isArray(payload.tools) ? payload.tools : []) await validatedEndpoint(tool.endpoint);
-      return json(res, 200, createRunGrant(payload, runGrants,payload.purpose==='deep-search'?{ttl:15*60_000}:{}));
+      return json(res, 200, createRunGrant(payload, runGrants));
+    }
+    if (req.method === 'POST' && url.pathname === '/api/run-grants/release') {
+      const payload=await body(req,10_000);
+      return json(res,200,{released:releaseRunGrants(runGrants,payload.runId)});
     }
     if (url.pathname === '/api/cases' || url.pathname.startsWith('/api/cases/')) {
       const handled = await handleCaseRequest(cases, req.method, url.pathname, () => body(req, MAX_EVIDENCE_BYTES + 100_000));
@@ -516,6 +528,13 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === 'POST' && url.pathname === '/api/deep-search/audit') {
       return json(res, 200, await appendDeepSearchAudit(DEEP_SEARCH_AUDIT_FILE,await body(req,100_000)));
+    }
+    if (req.method === 'POST' && url.pathname === '/api/deep-search/runs') {
+      return json(res,200,await deepRuns.save(await body(req,MAX_DEEP_RUN_BYTES+100_000)));
+    }
+    const deepRunRoute=url.pathname.match(/^\/api\/deep-search\/runs\/([a-z0-9-]{8,64})$/);
+    if (req.method === 'GET' && deepRunRoute) {
+      return json(res,200,await deepRuns.read(deepRunRoute[1]));
     }
     if (req.method === 'POST' && url.pathname === '/api/upload') {
       if (uploadRequests >= MAX_CONCURRENT_UPLOADS) return json(res, 429, { error: 'Too many uploads are already in progress' });
@@ -603,6 +622,10 @@ function errorStatus(error) {
   if (error?.code === 'CASE_NOT_FOUND') return 404;
   if (error?.code === 'CASE_TOO_LARGE') return 413;
   if (error?.code === 'CASE_DAMAGED') return 422;
+  if (error?.code === 'DEEP_RUN_INPUT') return 400;
+  if (error?.code === 'DEEP_RUN_NOT_FOUND') return 404;
+  if (error?.code === 'DEEP_RUN_TOO_LARGE') return 413;
+  if (error?.code === 'DEEP_RUN_DAMAGED') return 422;
   return 502;
 }
 

@@ -1,10 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {authorizeMcpToolCall, createRunGrant, RunGrantError, serverNameForEndpoint, stableArguments} from '../scripts/run-grants.mjs';
+import {authorizeMcpToolCall, createRunGrant, releaseRunGrants, RunGrantError, serverNameForEndpoint, stableArguments} from '../scripts/run-grants.mjs';
 
 const omega = 'http://127.0.0.1:8894/mcp';
 const toolbox = 'http://127.0.0.1:8893/mcp';
 const call = (name, args, extra = {}) => ({endpoint: omega, method:'tools/call', params:{name,arguments:args}, ...extra});
+const activeDeep={purpose:'deep-search',target:'blog.example',level:2,runId:'live',tools:[{endpoint:omega,name:'omega_ports',arguments:{target:'blog.example'}}],confirmation:{acknowledged:true,authorization:true}};
+const toolLibraryGrant={purpose:'tool-library',target:'blog.example',level:1,tools:[{endpoint:omega,name:'omega_headers',arguments:{target:'blog.example'}}],confirmation:{acknowledged:true}};
 
 test('passive calls do not need grants while Light touch and higher calls fail closed', () => {
   assert.equal(authorizeMcpToolCall({endpoint:toolbox,method:'tools/call',params:{name:'whois_lookup',arguments:{query:'example.com'}}},new Map()).required,false);
@@ -50,6 +52,43 @@ test('Deep Search can bind passive calls and consumes their grant',()=>{
   createRunGrant(request,grants,{token:'passive-deep'});
   const result=authorizeMcpToolCall({endpoint:toolbox,method:'tools/call',params:{name:'whois_lookup',arguments:{query:'example.com'}},runGrant:'passive-deep',runTarget:'example.com'},grants);
   assert.equal(result.grant.purpose,'deep-search');assert.equal(grants.size,0);
+});
+
+test('Deep Search grants at Light touch or below need only the acknowledgement',()=>{
+  const grants=new Map();
+  const request={purpose:'deep-search',target:'blog.example',level:1,runId:'r1',tools:[{endpoint:omega,name:'omega_headers',arguments:{target:'blog.example'}}],confirmation:{acknowledged:true}};
+  assert.ok(createRunGrant(request,grants,{token:'lt'}).token);
+  assert.throws(()=>createRunGrant({...request,level:2,tools:[{endpoint:omega,name:'omega_ports',arguments:{target:'blog.example'}}]},grants),/own this target/);
+  assert.throws(()=>createRunGrant({...request,confirmation:{}},grants),/notice/);
+});
+
+test('an Active call is refused under an acknowledgement-only grant',()=>{
+  const grants=new Map();
+  createRunGrant({purpose:'deep-search',target:'blog.example',level:1,runId:'r1',tools:[{endpoint:omega,name:'omega_headers',arguments:{target:'blog.example'}}],confirmation:{acknowledged:true}},grants,{token:'lt'});
+  assert.throws(()=>authorizeMcpToolCall({endpoint:omega,method:'tools/call',params:{name:'omega_ports',arguments:{target:'blog.example'}},runGrant:'lt',runTarget:'blog.example'},grants),/tier|match/);
+});
+
+test('Deep Search grant lifetime is capped at 30 minutes',()=>{
+  const grants=new Map();
+  const issued=createRunGrant({...activeDeep,ttlMs:99*60_000},grants,{now:0,token:'t'});
+  assert.equal(issued.expiresAt,30*60_000);
+});
+
+test('eviction keeps grants of a run in progress',()=>{
+  const grants=new Map();
+  createRunGrant(activeDeep,grants,{token:'keep',now:0});
+  for(let i=0;i<120;i++)createRunGrant(toolLibraryGrant,grants,{token:`x${i}`,now:0});
+  assert.ok(grants.has('keep'));
+  assert.ok(grants.size<=100);
+});
+
+test('releasing a run removes its grants only',()=>{
+  const grants=new Map();
+  createRunGrant({...activeDeep,runId:'a'},grants,{token:'a1'});
+  createRunGrant({...activeDeep,runId:'b'},grants,{token:'b1'});
+  assert.equal(releaseRunGrants(grants,'a'),1);
+  assert.ok(grants.has('b1'));
+  assert.ok(!grants.has('a1'));
 });
 
 test('custom endpoints cannot claim a trusted passive server identity', () => {

@@ -1,0 +1,23 @@
+{
+  "tool": "holehe_email_search",
+  "serverName": "OSINT Toolbox",
+  "identifier": {
+    "type": "email",
+    "value": "owner@example.com"
+  },
+  "args": {
+    "email": "owner@example.com",
+    "timeout": 30,
+    "only_used": true
+  },
+  "ms": 1104,
+  "result": {
+    "content": [
+      {
+        "text": "*****************************\n   owner@example.com\n*****************************\n\n[+] Email used, [-] Email not used, [x] Rate limit\n121 websites checked in 0.72 seconds",
+        "type": "text"
+      }
+    ],
+    "isError": false
+  }
+}

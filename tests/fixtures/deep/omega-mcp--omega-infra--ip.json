@@ -1,0 +1,24 @@
+{
+  "tool": "omega_infra",
+  "serverName": "Omega MCP",
+  "identifier": {
+    "type": "ip",
+    "value": "192.0.2.10"
+  },
+  "args": {
+    "target": "192.0.2.10"
+  },
+  "ms": 1594,
+  "result": {
+    "content": [
+      {
+        "text": "{\n  \"status\": \"ok\",\n  \"result\": \"\\ud83c\\udfd7  Infrastructure Archaeology \\u2014 192.0.2.10\\n\\n\\u26cf  192.0.2.10\\n\\u251c\\u2500\\u2500 IP Addresses\\n\\u2502   \\u2514\\u2500\\u2500 192.0.2.10\\n\\u251c\\u2500\\u2500 ASN / Hosting\\n\\u2502   \\u2514\\u2500\\u2500 192.0.2.10 \\u2192 ? ? (?) Unknown\\n\\u251c\\u2500\\u2500 CDN / WAF\\n\\u2502   \\u2514\\u2500\\u2500 No CDN/WAF detected\\n\\u2514\\u2500\\u2500 DNS / Shared Hosting\\n\\n  IPs     \\u2502 192.0.2.10\\n  ASN     \\u2502 ?\\n  Hosting \\u2502 Unknown\\n  Country \\u2502 ?\\n  CDN     \\u2502 None\\n  WAF     \\u2502 None\"\n}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "structuredContent": {
+      "result": "{\n  \"status\": \"ok\",\n  \"result\": \"\\ud83c\\udfd7  Infrastructure Archaeology \\u2014 192.0.2.10\\n\\n\\u26cf  192.0.2.10\\n\\u251c\\u2500\\u2500 IP Addresses\\n\\u2502   \\u2514\\u2500\\u2500 192.0.2.10\\n\\u251c\\u2500\\u2500 ASN / Hosting\\n\\u2502   \\u2514\\u2500\\u2500 192.0.2.10 \\u2192 ? ? (?) Unknown\\n\\u251c\\u2500\\u2500 CDN / WAF\\n\\u2502   \\u2514\\u2500\\u2500 No CDN/WAF detected\\n\\u2514\\u2500\\u2500 DNS / Shared Hosting\\n\\n  IPs     \\u2502 192.0.2.10\\n  ASN     \\u2502 ?\\n  Hosting \\u2502 Unknown\\n  Country \\u2502 ?\\n  CDN     \\u2502 None\\n  WAF     \\u2502 None\"\n}"
+    }
+  }
+}

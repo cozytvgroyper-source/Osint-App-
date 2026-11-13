@@ -1,0 +1,24 @@
+{
+  "tool": "omega_persona",
+  "serverName": "Omega MCP",
+  "identifier": {
+    "type": "username",
+    "value": "ownername"
+  },
+  "args": {
+    "target": "ownername"
+  },
+  "ms": 16,
+  "result": {
+    "content": [
+      {
+        "text": "{\n  \"status\": \"ok\",\n  \"result\": \"🎭  OpSec Persona Builder\\n\\n  Donald Garcia  #0d2cef15023d\\n\\n  Gender               Male\\n  DOB                  1994-07-16 (age 32)\\n  Location             Seattle, United States\\n  Timezone             America/New_York\\n  Job                  Cloud Architect (3y exp)\\n  University           Georgia Tech (2017)\\n  Phone                +1 688 969 038\\n  Primary Email        lead3@example.net\\n  Backup Email         lead4@example.net\\n  Usernames            donald_garcia / donaldgarcia / _donaldgarcia_\\n  Interests            cooking · astronomy\\n\\nDonald Garcia works remotely as a Cloud Architect. They maintain a low profile online, preferring cooking over social media. They have a side project related to\\nastronomy they work on weekends.\\n\\n⚠  For authorized red team / OpSec use only. All data is fictitious.\"\n}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "structuredContent": {
+      "result": "{\n  \"status\": \"ok\",\n  \"result\": \"\\ud83c\\udfad  OpSec Persona Builder\\n\\n  Donald Garcia  #0d2cef15023d\\n\\n  Gender               Male\\n  DOB                  1994-07-16 (age 32)\\n  Location             Seattle, United States\\n  Timezone             America/New_York\\n  Job                  Cloud Architect (3y exp)\\n  University           Georgia Tech (2017)\\n  Phone                +1 688 969 038\\n  Primary Email        lead3@example.net\\n  Backup Email         lead4@example.net\\n  Usernames            donald_garcia / donaldgarcia / _donaldgarcia_\\n  Interests            cooking \\u00b7 astronomy\\n\\nDonald Garcia works remotely as a Cloud Architect. They maintain a low profile online, preferring cooking over social media. They have a side project related to\\nastronomy they work on weekends.\\n\\n\\u26a0  For authorized red team / OpSec use only. All data is fictitious.\"\n}"
+    }
+  }
+}

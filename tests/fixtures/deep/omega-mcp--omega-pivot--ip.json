@@ -1,0 +1,24 @@
+{
+  "tool": "omega_pivot",
+  "serverName": "Omega MCP",
+  "identifier": {
+    "type": "ip",
+    "value": "192.0.2.10"
+  },
+  "args": {
+    "target": "192.0.2.10"
+  },
+  "ms": 518,
+  "result": {
+    "content": [
+      {
+        "text": "{\n  \"status\": \"ok\",\n  \"result\": \"\\ud83d\\udd17  IOC Pivot Engine \\u2014 192.0.2.10  (depth=2)\\n\\nDetected: ipv4\\n\\n\\ud83d\\udd17 192.0.2.10 (ipv4)\\n\\nPivot summary: 1 nodes explored, 0 edges\"\n}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "structuredContent": {
+      "result": "{\n  \"status\": \"ok\",\n  \"result\": \"\\ud83d\\udd17  IOC Pivot Engine \\u2014 192.0.2.10  (depth=2)\\n\\nDetected: ipv4\\n\\n\\ud83d\\udd17 192.0.2.10 (ipv4)\\n\\nPivot summary: 1 nodes explored, 0 edges\"\n}"
+    }
+  }
+}
