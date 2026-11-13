@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#07110f" />
   <title>Public Desk — OSINT workspace</title>
-  <link rel="stylesheet" href="/ui.css?v=16" />
+  <link rel="stylesheet" href="/ui.css?v=17" />
   <link rel="stylesheet" href="/styles.css?v=20" />
   <link rel="stylesheet" href="/results.css?v=14" />
   <link rel="stylesheet" href="/theme.css?v=19" />
@@ -87,9 +87,15 @@
       </section>
 
       <section id="deep" class="view deep-view">
-        <div class="deep-setup"><label>Target<input id="deepTarget" autocomplete="off" placeholder="example.com" /></label><label>Maximum level<select id="deepLevel"><option value="0">Passive</option><option value="1" selected>Light touch</option><option value="2">Active</option><option value="3">Intrusive</option></select></label><button class="primary" id="buildDeepPlan">Build plan</button></div>
+        <section class="deep-step" aria-labelledby="deep-step-1"><h2 id="deep-step-1">1. Choose a target and level</h2>
+        <div class="deep-setup"><label>Target<input id="deepTarget" autocomplete="off" placeholder="example.com" /></label><label>Maximum level<select id="deepLevel"><option value="0">Passive</option><option value="1" selected>Light touch</option><option value="2">Active</option><option value="3">Intrusive</option></select></label><p id="deepLevelExplain" class="field-hint deep-level-explain" aria-live="polite"></p><button class="primary" id="buildDeepPlan">Build plan</button></div>
+        </section>
+        <section class="deep-step" aria-labelledby="deep-step-2"><h2 id="deep-step-2">2. Review the plan</h2>
         <div id="deepPlan" class="deep-plan"><div class="empty-state">Type a target and build a plan. Nothing runs automatically.</div></div>
+        </section>
+        <section class="deep-step" aria-labelledby="deep-step-3"><h2 id="deep-step-3">3. Confirm and run</h2>
         <div id="deepConfirmations" class="deep-confirmations" hidden><label class="run-check"><input type="checkbox" id="deepAuthorize" /> I own this target or have written permission to test it.</label><label id="deepTypedWrap" hidden>Type the target exactly to confirm Intrusive testing<input id="deepTypedTarget" autocomplete="off" /></label><p id="deepError" class="form-error"></p><div class="deep-actions"><button class="ghost" id="cancelDeepRun" disabled>Cancel</button><button class="primary" id="runDeepSearch">Run selected tools</button></div></div>
+        </section>
         <div id="deepLog" class="deep-log" hidden aria-live="polite"></div>
         <div class="deep-history"><div class="section-heading"><div><h3>Run history</h3><p class="subtle">Every Deep Search run, from the private audit log on this Mac (<code>work/deep-search-audit.jsonl</code>).</p></div><button class="text-button" id="refreshDeepHistory">Refresh</button></div><div id="deepHistory"></div></div>
       </section>
@@ -152,6 +158,6 @@
   </dialog>
 
   <div id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/app.js?v=47"></script>
+  <script type="module" src="/app.js?v=48"></script>
 </body>
 </html>

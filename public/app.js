@@ -708,7 +708,10 @@ $('#saveServer').addEventListener('click',e=>{e.preventDefault();const form=new 
  removedBundledEndpoints.delete(server.endpoint);state.servers.push(server);state.tokens.set(server.id,form.get('token'));$('#serverDialog').close();renderAll();connect(server);});
 $('#executeTool').addEventListener('click',async e=>{e.preventDefault();const blocked=runBlockedReason(state.activeTool.tool);if(blocked){$('#runError').textContent=blocked;return;}try{const args=JSON.parse($('#runArgs').value);const grant=await requestRunGrant(state.activeTool.tool,state.activeTool.serverId,args);$('#runDialog').close();await runTool(state.activeTool.tool,state.activeTool.serverId,args,state.activeTool.tool.name,grant);}catch(error){$('#runError').textContent=error.message;}});
 $('#buildDeepPlan').onclick=buildDeepPlan;
-$('#deepLevel').onchange=()=>{$('#deepTypedWrap').hidden=Number($('#deepLevel').value)!==3;if(state.deepPlan.length)buildDeepPlan();};
+// Explain the chosen Deep Search level in plain words (the tier's own description of what the target sees).
+const explainDeepLevel=()=>{$('#deepLevelExplain').textContent=`${TIERS[Number($('#deepLevel').value)].label}: ${TIERS[Number($('#deepLevel').value)].targetSees}`;};
+$('#deepLevel').onchange=()=>{$('#deepTypedWrap').hidden=Number($('#deepLevel').value)!==3;explainDeepLevel();if(state.deepPlan.length)buildDeepPlan();};
+explainDeepLevel();
 $('#runDeepSearch').onclick=runDeepSearch;
 $('#cancelDeepRun').onclick=()=>state.deepController?.abort();
 $$('[data-close-result]').forEach(b=>b.onclick=()=>$('#resultDialog').close());
