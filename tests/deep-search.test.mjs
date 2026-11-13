@@ -14,15 +14,15 @@ import {toolRisk} from '../public/tool-tiers.js';
 const FIXTURE_TOOLS=JSON.parse(fs.readFileSync(new URL('./fixtures/mcp-tools.json',import.meta.url),'utf8'));
 
 test('detects and normalises messy input',()=>{
-  assert.deepEqual(detectDeepTarget(' Jane.Smith+news@Mail.COM '),{type:'email',value:'jane.smith+news@mail.com'});
-  assert.deepEqual(detectDeepTarget('@JSmith88'),{type:'username',value:'jsmith88'});
-  assert.deepEqual(detectDeepTarget('jsmith88'),{type:'username',value:'jsmith88'});
+  assert.deepEqual(detectDeepTarget(' Owner.Name+news@Example.COM '),{type:'email',value:'owner.name+news@example.com'});
+  assert.deepEqual(detectDeepTarget('@OwnerName88'),{type:'username',value:'ownername88'});
+  assert.deepEqual(detectDeepTarget('ownername88'),{type:'username',value:'ownername88'});
   assert.deepEqual(detectDeepTarget('https://Example.com/about'),{type:'domain',value:'example.com'});
   assert.deepEqual(detectDeepTarget('8.8.8.8'),{type:'ip',value:'8.8.8.8'});
   assert.deepEqual(detectDeepTarget('+1 (415) 555-2671'),{type:'phone',value:'+14155552671'});
   assert.deepEqual(detectDeepTarget('cve-2024-3094'),{type:'cve',value:'CVE-2024-3094'});
   assert.deepEqual(detectDeepTarget('D41D8CD98F00B204E9800998ECF8427E'),{type:'hash',value:'d41d8cd98f00b204e9800998ecf8427e'});
-  assert.equal(detectDeepTarget('jane smith'),null);
+  assert.equal(detectDeepTarget('owner example'),null);
   assert.equal(detectDeepTarget('a'),null);
 });
 
@@ -75,9 +75,9 @@ test('deep arguments apply the overrides',()=>{
   const maigret=FIXTURE_TOOLS.find(tool=>tool.name==='maigret_username_search');
   const holehe=FIXTURE_TOOLS.find(tool=>tool.name==='holehe_email_search');
   const sherlock=FIXTURE_TOOLS.find(tool=>tool.name==='sherlock_username_search');
-  assert.equal(deepArgs(maigret,{type:'username',value:'jsmith88'}).all_sites,true);
+  assert.equal(deepArgs(maigret,{type:'username',value:'ownername88'}).all_sites,true);
   assert.equal(deepArgs(holehe,{type:'email',value:'owner@example.com'}).only_used,true);
-  assert.equal(deepArgs(sherlock,{type:'username',value:'jsmith88'}).output_format,'txt');
+  assert.equal(deepArgs(sherlock,{type:'username',value:'ownername88'}).output_format,'txt');
 });
 
 test('confirmations: none for people, ownership for sites, typed target at Intrusive',()=>{

@@ -37,5 +37,6 @@ jobs:
           zsh -n "Stop Public Desk.command"
           zsh -n scripts/apply-open-osint-patches.zsh
           zsh -n scripts/service-ownership.zsh
+          zsh -n scripts/setup-local.zsh
       - name: Run tests
         run: npm test

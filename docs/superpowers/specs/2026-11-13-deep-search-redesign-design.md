@@ -217,14 +217,14 @@ Every finding gets one of three statuses, by **rules the page can explain**. The
      - the GHunt account for that email
      - PhoneInfoga for that number
 
-     Reason: "Registered with jane@mail.com".
-  2. **Profile shows a known identifier.** Profile data from the tool (Maigret's extracted fields, Omega identity, socmint or gitrecon data) contains an email, phone or link already in the run's linked set. Reason: "Profile shows jane@mail.com".
-  3. **Links to a linked account.** A profile links to a URL that's already a linked account. Reason: "Links to github.com/jsmith88 (linked)".
+     Reason: "Registered with owner@example.com".
+  2. **Profile shows a known identifier.** Profile data from the tool (Maigret's extracted fields, Omega identity, socmint or gitrecon data) contains an email, phone or link already in the run's linked set. Reason: "Profile shows owner@example.com".
+  3. **Links to a linked account.** A profile links to a URL that's already a linked account. Reason: "Links to github.com/ownername88 (linked)".
   4. **Chain.** Linked through a chain of the above, recorded step by step. This is the folded trail on the results page.
 - **Possible:** only the username matches (Sherlock, Blackbird, or Maigret with no linking fields), or only a display name matches. Reason: "Same username; nothing else links it."
 - **Dropped:** empty answers, errors, "not found", echoes of the query, and records that don't mention the identifier at all. Errors appear only in Search details.
 
-A **name** found on linked profiles (for example, "Jane Smith" from GHunt) is shown in the summary card with its source. Sanctions or PEP lists are checked with that name only when the name comes from at least two linked sources. A hit there is shown as **"Possible sanctions match: check"**, never as a fact.
+A **name** found on linked profiles (for example, "Owner Example" from GHunt) is shown in the summary card with its source. Sanctions or PEP lists are checked with that name only when the name comes from at least two linked sources. A hit there is shown as **"Possible sanctions match: check"**, never as a fact.
 
 ### 7.2 Websites and IPs
 
@@ -263,7 +263,7 @@ Mockup choice: **A, show the work**. It replaces the setup area while a run is g
   3. Checking linked websites
   4. Putting the results together
 
-  New leads appear under their stage as they're found: "Found 2 new leads: jane.smith@mail.com, @janesmith".
+  New leads appear under their stage as they're found: "Found 2 new leads: owner.name@example.com, @ownername".
 - **Live counts:** linked so far · possible · tools done of total.
 - **Cancel search** opens a `confirmAction` dialog ("Stop the search? What's been found so far will be kept."). After stopping, the results page opens marked "Stopped early".
 - **Screen readers:**

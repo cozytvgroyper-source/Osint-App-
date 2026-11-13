@@ -56,17 +56,17 @@
 
 ## Review Focus
 
-1. **The same account found by several tools or rounds** (Maigret and Sherlock both report `github.com/jsmith88`, once with a trailing slash) is shown **once**, with every source. *Test: Task 5, `the same profile from two tools is one finding with both sources`.*
+1. **The same account found by several tools or rounds** (Maigret and Sherlock both report `github.com/ownername88`, once with a trailing slash) is shown **once**, with every source. *Test: Task 5, `the same profile from two tools is one finding with both sources`.*
 2. **Lead loops and repeats.**
-   - A profile links back to the seed, or the seed comes back as `@JSmith88`.
+   - A profile links back to the seed, or the seed comes back as `@OwnerName88`.
    - Two profiles link to each other.
 
    Nothing is searched twice, and the run ends after round 3. *Tests: Task 5, `normalised identifiers are never searched twice`; Task 6, `a lead loop ends without repeating calls`.*
 3. **Messy input.** Each of these is detected and normalised correctly:
-   - `Jane.Smith+news@Mail.COM ` → email `jane.smith+news@mail.com`
-   - `@JSmith88` → username `jsmith88`
+   - `Owner.Name+news@Example.COM ` → email `owner.name+news@example.com`
+   - `@OwnerName88` → username `ownername88`
    - `https://Example.com/about` → domain `example.com`
-   - `jane smith` → unsupported
+   - `owner example` → unsupported
 
    *Test: Task 2, `detects and normalises messy input`.*
 4. **A tool answers with something huge or malformed** (a 3 MB string, invalid JSON, a server that drops mid-call). The run continues: the answer is trimmed with a note, and the tool is listed as failed or trimmed under Search details. *Tests: Task 4, `malformed answers become one dropped finding, not a crash`; Task 6, `a failing and an oversized tool do not stop the run`.*
@@ -193,15 +193,15 @@ Also ask them to start the app from `Start Public Desk.command`, so the MCP serv
 
   ```js
   test('detects and normalises messy input',()=>{
-    assert.deepEqual(detectDeepTarget(' Jane.Smith+news@Mail.COM '),{type:'email',value:'jane.smith+news@mail.com'});
-    assert.deepEqual(detectDeepTarget('@JSmith88'),{type:'username',value:'jsmith88'});
-    assert.deepEqual(detectDeepTarget('jsmith88'),{type:'username',value:'jsmith88'});
+    assert.deepEqual(detectDeepTarget(' Owner.Name+news@Example.COM '),{type:'email',value:'owner.name+news@example.com'});
+    assert.deepEqual(detectDeepTarget('@OwnerName88'),{type:'username',value:'ownername88'});
+    assert.deepEqual(detectDeepTarget('ownername88'),{type:'username',value:'ownername88'});
     assert.deepEqual(detectDeepTarget('https://Example.com/about'),{type:'domain',value:'example.com'});
     assert.deepEqual(detectDeepTarget('8.8.8.8'),{type:'ip',value:'8.8.8.8'});
     assert.deepEqual(detectDeepTarget('+1 (415) 555-2671'),{type:'phone',value:'+14155552671'});
     assert.deepEqual(detectDeepTarget('cve-2024-3094'),{type:'cve',value:'CVE-2024-3094'});
     assert.deepEqual(detectDeepTarget('D41D8CD98F00B204E9800998ECF8427E'),{type:'hash',value:'d41d8cd98f00b204e9800998ecf8427e'});
-    assert.equal(detectDeepTarget('jane smith'),null);
+    assert.equal(detectDeepTarget('owner example'),null);
     assert.equal(detectDeepTarget('a'),null);
   });
   test('person searches use Passive tools only, at any level',()=>{
@@ -227,7 +227,7 @@ Also ask them to start the app from `Start Public Desk.command`, so the MCP serv
   });
   test('deep arguments apply the overrides',()=>{
     const maigret=FIXTURE_TOOLS.find(t=>t.name==='maigret_username_search');
-    assert.equal(deepArgs(maigret,{type:'username',value:'jsmith88'}).all_sites,true);
+    assert.equal(deepArgs(maigret,{type:'username',value:'ownername88'}).all_sites,true);
   });
   test('confirmations: none for people, ownership for sites, typed target at Intrusive',()=>{
     assert.equal(deepRunBlocked({target:'a@b.co',level:0,person:true}),'');
@@ -422,10 +422,10 @@ Also ask them to start the app from `Start Public Desk.command`, so the MCP serv
   test('username-only and display-name-only matches are possible, with the reason',()=>{/* sherlock → 'possible', /Same username/ */});
   test('empty, error and echo findings are dropped',()=>{});
   test('the same profile from two tools is one finding with both sources',()=>{
-    // maigret github.com/jsmith88/ + sherlock https://github.com/JSmith88 → one finding, sources.length===2, linked if either is
+    // maigret github.com/ownername88/ + sherlock https://github.com/OwnerName88 → one finding, sources.length===2, linked if either is
   });
   test('normalised identifiers are never searched twice',()=>{
-    const {leads}=linkFindings([leadFinding('@JSmith88','username'),leadFinding('Jane@Mail.com','email')],{type:'username',value:'jsmith88'},{searched:[{type:'email',value:'jane@mail.com'}]});
+    const {leads}=linkFindings([leadFinding('@OwnerName88','username'),leadFinding('Owner@Example.com','email')],{type:'username',value:'ownername88'},{searched:[{type:'email',value:'owner@example.com'}]});
     assert.deepEqual(leads,[]);
   });
   test('leads come only from linked findings',()=>{/* a lead inside a possible finding is not returned */});
