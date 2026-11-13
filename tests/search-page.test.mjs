@@ -46,3 +46,29 @@ test('the sources status explains an empty connection list',()=>{
 test('page switches do not animate for people who ask for less motion',()=>{
   assert.match(app,/matchMedia\('\(prefers-reduced-motion: reduce\)'\)\.matches\?'auto':'smooth'/);
 });
+
+// Final review fixes.
+test('running a recent search again always searches, and keeps keyboard focus in the box',()=>{
+  const handler=app.match(/const rerun=event\.target\.closest\('\[data-rerun\]'\);[^\n]*/)[0];
+  assert.match(handler,/\$\('#query'\)\.focus\(\)/);
+  assert.match(handler,/smartInvestigate\(/);
+  assert.doesNotMatch(handler,/requestSubmit/,'a selected file must not be analyzed instead');
+});
+test('a recent search button keeps its visible text in its name',()=>{
+  const fn=app.match(/function renderRecentSearches\(\)\{[\s\S]*?\n\}/)[0];
+  assert.doesNotMatch(fn,/aria-label=/);
+  assert.match(fn,/<span class="visually-hidden">Search again: <\/span>/);
+});
+test('the sources status tells connecting and load failures apart, and only speaks when it changes',()=>{
+  const fn=app.match(/function renderSourcesStatus\(\)\{[\s\S]*?\n\}/)[0];
+  assert.match(fn,/Connecting to MCP servers…/);
+  assert.match(fn,/dataSources\.error/);
+  assert.match(fn,/if\(html===lastSourcesStatus\)return;/);
+});
+test('the Search page layout: one column below the search, a tall results panel, no rings behind phone text',()=>{
+  const ui=read('ui.css');
+  assert.match(ui,/#workspace \.lower-grid\{grid-template-columns:1fr\}/);
+  assert.match(ui,/dialog\.result-dialog\[open\]\{display:flex;flex-direction:column\}/);
+  assert.match(ui,/dialog\.result-dialog \.result-body\{flex:1;max-height:none;min-height:0\}/);
+  assert.match(ui,/@media\(max-width:720px\)\{\.hero-card::?after\{display:none\}\}/);
+});

@@ -92,3 +92,10 @@ dialog.result-dialog{width:min(1100px,calc(100vw - 32px));max-height:90vh}
 button.history-item{width:100%;min-height:44px;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);color:inherit;font:inherit;cursor:pointer}
 button.history-item:hover{background:var(--surface-2)}
 .history-text{display:block;min-width:0}
+
+/* Below the search: one column. Results panel grows to 90vh with its body scrolling. On phones the decorative rings
+   would sit behind small text, so they are hidden there. */
+#workspace .lower-grid{grid-template-columns:1fr}
+dialog.result-dialog[open]{display:flex;flex-direction:column}
+dialog.result-dialog .result-body{flex:1;max-height:none;min-height:0}
+@media(max-width:720px){.hero-card::after{display:none}}
