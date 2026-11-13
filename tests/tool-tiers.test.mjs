@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {TIERS,toolRisk,runRequirements,groupToolsByTier,toolUsage} from '../public/tool-tiers.js';
-import {isPassiveSearchTool} from '../public/search-planner.js';
+import {TIERS,toolRisk,runRequirements,groupToolsByTier} from '../public/tool-tiers.js';
+import {isPassiveSearchTool,toolUsage} from '../public/search-planner.js';
 
 // Every connected tool gets one reviewed risk tier: 0 Passive, 1 Light touch, 2 Active, 3 Intrusive. A tool nobody has
 // reviewed is treated as Intrusive, so a new scanner can never be mistaken for a safe one.
@@ -118,4 +118,12 @@ test('flags the Consensus tools that create research threads and run its AI agen
 test('every tool the main search may run is read-only and carries no flags',()=>{
   const offenders=tools.filter(tool=>isPassiveSearchTool(tool)&&(toolRisk(tool).flags.length||tool.annotations?.readOnlyHint===false||tool.annotations?.destructiveHint===true)).map(tool=>`${tool.serverName}/${tool.name}`);
   assert.deepEqual(offenders,[]);
+});
+
+// Tiers belong to a server's tools, not to tool names: a custom server that names a tool like a reviewed one is not
+// reviewed, so it can never pass as passive.
+test('a reviewed tool name on another server is still unreviewed',()=>{
+  for(const name of ['whois_lookup','sherlock_username_search','omega_whois'])assert.equal(toolRisk({name,serverName:'My Custom MCP'}).level,3,name);
+  assert.equal(toolRisk({name:'whois_lookup',serverName:'OSINT Toolbox'}).level,0);
+  assert.equal(toolRisk({name:'omega_whois',serverName:'Omega MCP'}).level,0);
 });

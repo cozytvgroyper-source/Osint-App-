@@ -1,7 +1,6 @@
 // Risk tiers for every connected tool: what running it does to the target. The main search may only run Tier 0, which
 // tests/tool-tiers.test.mjs enforces against the planner. Tool Library groups tools by tier and asks for confirmation
 // before Tier 2+. Design and open review questions: docs/search-overhaul.md.
-import {isPassiveSearchTool} from './search-planner.js';
 
 export const TIERS = Object.freeze([
   {level: 0, key: 'passive', label: 'Passive', targetSees: 'Nothing: it asks public databases and third parties.'},
@@ -90,8 +89,9 @@ const PASSIVE_SERVERS = new Set(['Open OSINT']);
 const UNREVIEWED = {level: 3, flags: []};
 
 export function toolRisk(tool) {
-  const entry = (tool.serverName === 'Consensus' ? CONSENSUS[tool.name] : null) ?? TOOLBOX[tool.name] ?? OMEGA[tool.name]
-    ?? (PASSIVE_SERVERS.has(tool.serverName) ? t(0) : null);
+  // A tier belongs to one server's tool: the same name on another server (a custom one) is not reviewed.
+  const table = {Consensus: CONSENSUS, 'OSINT Toolbox': TOOLBOX, 'Omega MCP': OMEGA}[tool.serverName];
+  const entry = (table && Object.hasOwn(table, tool.name) ? table[tool.name] : null) ?? (PASSIVE_SERVERS.has(tool.serverName) ? t(0) : null);
   const {level, flags} = entry ?? UNREVIEWED;
   const tier = TIERS[level];
   return {
@@ -121,9 +121,4 @@ export function groupToolsByTier(tools) {
     groups[risk.reviewed ? risk.level : 4].tools.push(tool);
   }
   return groups.filter(group => group.tools.length);
-}
-
-// The main search only runs passive tools that the planner allows (no slow or unreviewed ones).
-export function toolUsage(tool) {
-  return toolRisk(tool).level === 0 && isPassiveSearchTool(tool) ? 'Main search can use it' : 'Tool Library only';
 }

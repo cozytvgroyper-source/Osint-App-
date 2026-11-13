@@ -1,4 +1,5 @@
 import {extractMapArea,splitTarget} from './search-query.js';
+import {toolRisk} from './tool-tiers.js';
 
 // Includes request words ("reports", "info", "lookup") that describe the ask rather than the subject.
 const STOP_WORDS=new Set(['a','an','and','are','as','at','be','by','for','from','how','in','is','it','of','on','or','the','to','what','when','where','which','report','reports','info','information','data','details','lookup','check','find','search','who','with']);
@@ -36,6 +37,10 @@ function exclusionReason(tool){
   if(tool.annotations?.readOnlyHint===false||tool.annotations?.destructiveHint===true)return 'Writes or changes data (never auto-run)';
   if(TOO_SLOW_FOR_AUTO_SEARCH.has(tool.name))return 'Too slow for automatic search (Tool Library only)';
   if(isOmegaTool(tool)&&!OMEGA_AUTO_SEARCH_TOOLS.has(tool.name))return 'Omega tool not reviewed for automatic search';
+  // Only reviewed passive tools with no paid or side-effect flags may run without the user choosing them.
+  const risk=toolRisk(tool);
+  if(!risk.reviewed)return 'Unreviewed tool (Tool Library only)';
+  if(risk.level!==0||risk.flags.length)return `${risk.label} tool${risk.flags.length?' with paid or side effects':''} (Tool Library only)`;
   return null;
 }
 function passiveCandidate(tool){return exclusionReason(tool)===null;}
@@ -133,3 +138,5 @@ export function summarizePlanDiagnostics(explained,{nearMisses=12}={}){
 }
 
 export function isPassiveSearchTool(tool){return passiveCandidate(tool);}
+// Where a tool can be used: the main search runs only the tools the planner may pick on its own.
+export function toolUsage(tool){return passiveCandidate(tool)?'Main search can use it':'Tool Library only';}

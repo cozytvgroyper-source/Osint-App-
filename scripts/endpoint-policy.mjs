@@ -1,5 +1,8 @@
 import { lookup } from 'node:dns/promises';
+import http from 'node:http';
+import https from 'node:https';
 import { isIP } from 'node:net';
+import { Readable } from 'node:stream';
 
 const LOCAL_PORTS = [8892, 8893, 8894];
 const ALLOWED_LOCAL_URLS = new Set(LOCAL_PORTS.flatMap(port => [
@@ -55,29 +58,57 @@ export class EndpointPolicyError extends Error {
   constructor(message) { super(message); this.name = 'EndpointPolicyError'; this.code = 'ENDPOINT_POLICY'; }
 }
 
-export async function validatedEndpoint(value, { resolver = lookup } = {}) {
+// Checks an endpoint and returns the URL with the address it must be reached at (null for the bundled local servers,
+// which are fixed loopback addresses).
+export async function resolveValidatedEndpoint(value, { resolver = lookup } = {}) {
   let url;
   try { url = new URL(value); } catch { throw new EndpointPolicyError('The MCP endpoint is not a valid URL'); }
   if (!['http:', 'https:'].includes(url.protocol)) throw new EndpointPolicyError('Only HTTP(S) MCP endpoints are supported');
   if (url.username || url.password) throw new EndpointPolicyError('Credentials must be supplied as a token, not embedded in the URL');
-  if (ALLOWED_LOCAL_URLS.has(url.href)) return url;
+  if (ALLOWED_LOCAL_URLS.has(url.href)) return { url, pin: null };
   if (url.protocol !== 'https:') throw new EndpointPolicyError('Custom MCP endpoints must use HTTPS');
   const hostname = url.hostname.toLowerCase().replace(/\.$/, '').replace(/^\[|\]$/g, '');
   if (hostname === 'metadata.google.internal') throw new EndpointPolicyError('Cloud metadata endpoints are blocked');
-  const answers = isIP(hostname) ? [{ address: hostname }] : await resolver(hostname, { all: true, verbatim: true });
+  const answers = isIP(hostname) ? [{ address: hostname, family: isIP(hostname) }] : await resolver(hostname, { all: true, verbatim: true });
   if (!answers.length || answers.some(answer => isPrivateAddress(answer.address))) throw new EndpointPolicyError('Private, local, and metadata endpoint addresses are blocked');
-  return url;
+  return { url, pin: { address: answers[0].address, family: answers[0].family || isIP(answers[0].address) } };
 }
 
-export async function fetchValidated(value, options = {}, { resolver = lookup, fetchImpl = fetch, maxRedirects = 3 } = {}) {
-  let url = await validatedEndpoint(value, { resolver });
+export async function validatedEndpoint(value, options) {
+  return (await resolveValidatedEndpoint(value, options)).url;
+}
+
+// Sends a request to a fixed address while keeping the URL's host for TLS certificate checks and the Host header,
+// so a second DNS lookup (DNS rebinding) cannot send it somewhere else. Never follows redirects.
+export function pinnedFetch(url, { method = 'GET', headers = {}, body, signal } = {}, pin) {
+  const client = url.protocol === 'https:' ? https : http;
+  const lookupPinned = (host, options, callback) => options?.all ? callback(null, [pin]) : callback(null, pin.address, pin.family);
+  return new Promise((resolve, reject) => {
+    const request = client.request(url, { method, headers: { 'accept-encoding': 'identity', ...headers }, signal, lookup: lookupPinned }, response => {
+      const responseHeaders = new Headers();
+      for (const [name, value] of Object.entries(response.headers)) {
+        for (const item of Array.isArray(value) ? value : [value]) if (item !== undefined) responseHeaders.append(name, String(item));
+      }
+      const empty = method === 'HEAD' || [204, 205, 304].includes(response.statusCode);
+      if (empty) response.resume();
+      resolve(new Response(empty ? null : Readable.toWeb(response), { status: response.statusCode, statusText: response.statusMessage, headers: responseHeaders }));
+    });
+    request.on('error', reject);
+    request.end(body);
+  });
+}
+
+const defaultFetch = (url, options, pin) => pin ? pinnedFetch(url, options, pin) : fetch(url, options);
+
+export async function fetchValidated(value, options = {}, { resolver = lookup, fetchImpl = defaultFetch, maxRedirects = 3 } = {}) {
+  let { url, pin } = await resolveValidatedEndpoint(value, { resolver });
   for (let redirectCount = 0; ; redirectCount += 1) {
-    const response = await fetchImpl(url, { ...options, redirect: 'manual' });
+    const response = await fetchImpl(url, { ...options, redirect: 'manual' }, pin);
     if (![301, 302, 303, 307, 308].includes(response.status)) return response;
     if (redirectCount >= maxRedirects) throw new Error('MCP endpoint redirected too many times');
     if (![307, 308].includes(response.status)) throw new Error(`MCP endpoint returned unsupported redirect ${response.status}`);
     const location = response.headers.get('location');
     if (!location) throw new Error('MCP endpoint redirected without a destination');
-    url = await validatedEndpoint(new URL(location, url), { resolver });
+    ({ url, pin } = await resolveValidatedEndpoint(new URL(location, url), { resolver }));
   }
 }
