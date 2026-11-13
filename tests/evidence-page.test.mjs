@@ -30,3 +30,17 @@ test('Evidence uses the view module and opens findings in the results panel',()=
   assert.match(app,/data-set-status[\s\S]{0,300}updateFinding\(/);
   assert.match(app,/note-count-/);
 });
+
+test('Export is one menu button with three described items',()=>{
+  assert.match(html,/id="exportButton" aria-haspopup="menu" aria-expanded="false" aria-controls="exportItems">Export</);
+  assert.equal((html.match(/role="menuitem"/g)||[]).length,3);
+  for(const id of ['reportMarkdown','reportHtml','exportEvidence'])assert.match(html,new RegExp(`role="menuitem" tabindex="-1" id="${id}"`));
+});
+
+test('the menu works from the keyboard',()=>{
+  const fn=app.match(/function setupMenu\(button,menu\)\{[\s\S]*?\n\}/)[0];
+  for(const key of ['ArrowDown','ArrowUp','Home','End','Escape','Tab'])assert.match(fn,new RegExp(`'${key}'`),key);
+  assert.match(fn,/aria-expanded/);
+  assert.match(app,/\$\('#exportButton'\)\.disabled=/);
+  assert.match(app,/setupMenu\(\$\('#exportButton'\),\$\('#exportItems'\)\)/);
+});

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#07110f" />
   <title>Public Desk — OSINT workspace</title>
-  <link rel="stylesheet" href="/ui.css?v=11" />
+  <link rel="stylesheet" href="/ui.css?v=12" />
   <link rel="stylesheet" href="/styles.css?v=20" />
   <link rel="stylesheet" href="/results.css?v=14" />
   <link rel="stylesheet" href="/theme.css?v=19" />
@@ -103,7 +103,14 @@
       </section>
 
       <section id="evidence" class="view">
-        <div class="section-heading view-actions"><div class="case-exports"><button class="ghost" id="reportMarkdown" title="Readable report with fingerprints, as Markdown">Report (Markdown)</button><button class="ghost" id="reportHtml" title="Printable report: open it, then File &gt; Print &gt; Save as PDF">Report (HTML / PDF)</button><button class="ghost" id="exportEvidence">Export JSON</button></div></div>
+        <div class="section-heading view-actions"><div class="menu" id="exportMenu">
+          <button type="button" class="ghost" id="exportButton" aria-haspopup="menu" aria-expanded="false" aria-controls="exportItems">Export</button>
+          <div role="menu" id="exportItems" aria-labelledby="exportButton" hidden>
+            <button type="button" role="menuitem" tabindex="-1" id="reportMarkdown"><b>Report (Markdown)</b><span>A readable report with every finding and its fingerprint.</span></button>
+            <button type="button" role="menuitem" tabindex="-1" id="reportHtml"><b>Report (printable page / PDF)</b><span>Open it, then print or save as PDF.</span></button>
+            <button type="button" role="menuitem" tabindex="-1" id="exportEvidence"><b>Raw data (JSON)</b><span>The whole case as data, for other tools.</span></button>
+          </div>
+        </div></div>
         <div class="case-bar"><label>Case<select id="caseSelect"></select></label><button class="ghost" id="newCase">＋ New case</button><button class="text-button" id="renameCase">Rename</button><button class="text-button" id="deleteCase">Delete</button></div>
         <div id="caseImport" class="case-import" hidden></div>
         <p id="caseSummary" class="subtle"></p>
@@ -145,6 +152,6 @@
   </dialog>
 
   <div id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/app.js?v=41"></script>
+  <script type="module" src="/app.js?v=42"></script>
 </body>
 </html>

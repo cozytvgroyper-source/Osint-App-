@@ -116,3 +116,11 @@ dialog.result-dialog .result-body{flex:1;max-height:none;min-height:0}
 .evidence-note label{font-weight:650}
 #confirmDialog{max-width:min(520px,calc(100vw - 32px))}
 .primary.danger,.danger{background:var(--danger);border-color:var(--danger);color:var(--on-danger)}
+
+/* Menu button (Export): a panel of described items under the button. */
+.menu{position:relative;display:inline-block}
+.menu [role="menu"]{position:absolute;right:0;top:calc(100% + var(--space-1));z-index:20;min-width:300px;background:var(--surface);border:1px solid var(--field-border);border-radius:var(--radius-card);box-shadow:var(--shadow);padding:var(--space-1)}
+.menu [role="menu"][hidden]{display:none}
+.menu [role="menuitem"]{display:block;width:100%;min-height:44px;text-align:left;background:none;border:0;border-radius:var(--radius-control);padding:var(--space-2) var(--space-3);color:var(--ink);font:var(--text-sm) var(--sans);cursor:pointer}
+.menu [role="menuitem"]:hover,.menu [role="menuitem"]:focus-visible{background:var(--surface-2)}
+.menu [role="menuitem"] span{display:block;color:var(--muted);font-size:var(--text-xs)}
