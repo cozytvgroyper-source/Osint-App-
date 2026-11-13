@@ -1,0 +1,24 @@
+{
+  "tool": "omega_socmint",
+  "serverName": "Omega MCP",
+  "identifier": {
+    "type": "username",
+    "value": "ownername"
+  },
+  "args": {
+    "target": "ownername"
+  },
+  "ms": 8513,
+  "result": {
+    "content": [
+      {
+        "text": "{\n  \"status\": \"ok\",\n  \"result\": \"👤  Social Media OSINT — @ownername\\n\\n                                           Platform Search\\n\\n  Platform          Status     URL                                                            Notes\\n\\n  GitHub            ❌ 404     https://github.com/ownername\\n  GitLab            403        https://gitlab.com/ownername\\n  Twitter/X         200        https://x.com/ownername\\n  Reddit            403        https://www.reddit.com/user/ownername/about.json\\n  HackerNews        200        https://hacker-news.firebaseio.com/v0/user/ownername.jso\\n  Dev.to            ❌ 404     https://dev.to/api/users/by_username?url=ownername\\n  Keybase           ❌ 404     https://keybase.io/ownername\\n  Gravatar          ❌ 404     https://en.gravatar.com/ownername.json\\n  SourceHatch       ❌ 404     https://sr.ht/~ownername/\\n  npmjs             403        https://www.npmjs.com/~ownername\\n  PyPI              200        https://pypi.org/user/ownername/\\n  DockerHub         ❌ 404     https://hub.docker.com/v2/users/ownername/\\n  TryHackMe         429        https://tryhackme.com/p/ownername\\n  HackTheBox        200        https://app.hackthebox.com/api/v4/user/profile/overview/cozy\\n  Pastebin          ❌ 404     https://pastebin.com/u/ownername\\n  ProductHunt       403        https://www.producthunt.com/@ownername\\n  Medium            ✅ Found   https://medium.com/@ownername\\n  Mastodon          ❌ 404     https://mastodon.social/@ownername\\n  Twitch            401        https://api.twitch.tv/helix/users?login=ownername\\n  Linktree          ❌ 404     https://linktr.ee/ownername\\n  About.me          ❌ 404     https://about.me/ownername\\n  Replit            ❌ 404     https://replit.com/@ownername\\n  Codepen           403        https://codepen.io/ownername\\n  SoundCloud        ❌ 404     https://soundcloud.com/ownername\\n  Instagram         200        https://www.instagram.com/ownername/\\n  Flickr            ❌ 404     https://www.flickr.com/people/ownername/\\n  Vimeo             ❌ 404     https://vimeo.com/ownername\\n\\nFound on 1/27 platforms\\n✅ Profiles: Medium\"\n}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "structuredContent": {
+      "result": "{\n  \"status\": \"ok\",\n  \"result\": \"\\ud83d\\udc64  Social Media OSINT \\u2014 @ownername\\n\\n                                           Platform Search\\n\\n  Platform          Status     URL                                                            Notes\\n\\n  GitHub            \\u274c 404     https://github.com/ownername\\n  GitLab            403        https://gitlab.com/ownername\\n  Twitter/X         200        https://x.com/ownername\\n  Reddit            403        https://www.reddit.com/user/ownername/about.json\\n  HackerNews        200        https://hacker-news.firebaseio.com/v0/user/ownername.jso\\n  Dev.to            \\u274c 404     https://dev.to/api/users/by_username?url=ownername\\n  Keybase           \\u274c 404     https://keybase.io/ownername\\n  Gravatar          \\u274c 404     https://en.gravatar.com/ownername.json\\n  SourceHatch       \\u274c 404     https://sr.ht/~ownername/\\n  npmjs             403        https://www.npmjs.com/~ownername\\n  PyPI              200        https://pypi.org/user/ownername/\\n  DockerHub         \\u274c 404     https://hub.docker.com/v2/users/ownername/\\n  TryHackMe         429        https://tryhackme.com/p/ownername\\n  HackTheBox        200        https://app.hackthebox.com/api/v4/user/profile/overview/cozy\\n  Pastebin          \\u274c 404     https://pastebin.com/u/ownername\\n  ProductHunt       403        https://www.producthunt.com/@ownername\\n  Medium            \\u2705 Found   https://medium.com/@ownername\\n  Mastodon          \\u274c 404     https://mastodon.social/@ownername\\n  Twitch            401        https://api.twitch.tv/helix/users?login=ownername\\n  Linktree          \\u274c 404     https://linktr.ee/ownername\\n  About.me          \\u274c 404     https://about.me/ownername\\n  Replit            \\u274c 404     https://replit.com/@ownername\\n  Codepen           403        https://codepen.io/ownername\\n  SoundCloud        \\u274c 404     https://soundcloud.com/ownername\\n  Instagram         200        https://www.instagram.com/ownername/\\n  Flickr            \\u274c 404     https://www.flickr.com/people/ownername/\\n  Vimeo             \\u274c 404     https://vimeo.com/ownername\\n\\nFound on 1/27 platforms\\n\\u2705 Profiles: Medium\"\n}"
+    }
+  }
+}

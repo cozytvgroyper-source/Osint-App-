@@ -1,0 +1,68 @@
+{
+  "tool": "get_whois",
+  "serverName": "Open OSINT",
+  "identifier": {
+    "type": "ip",
+    "value": "192.0.2.10"
+  },
+  "args": {
+    "query": "192.0.2.10",
+    "limit": 10,
+    "format": "json"
+  },
+  "ms": 716,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"data\":{\"ip\":\"192.0.2.10\",\"name\":\"PRIVATE-ADDRESS-CBLK-RFC1918-IANA-RESERVED\",\"type\":\"\",\"handle\":\"NET-192-168-0-0-1\",\"parentHandle\":\"NET-192-0-0-0-0\",\"startAddress\":\"192.168.0.0\",\"endAddress\":\"192.168.255.255\",\"country\":\"\",\"entities\":[{\"handle\":\"IANA\",\"roles\":[\"registrant\"],\"name\":\"Internet Assigned Numbers Authority\"}],\"events\":[{\"action\":\"last changed\",\"date\":\"2024-05-24T10:19:53-04:00\"},{\"action\":\"registration\",\"date\":\"1994-03-15T00:00:00-05:00\"}],\"links\":[\"https://rdap.arin.net/registry/ip/192.168.0.0\"],\"source\":\"RDAP\"},\"durationMs\":697,\"description\":\"Domain and IP WHOIS/RDAP lookup — registrar, registration dates, nameservers, abuse contacts. Free, no auth. Query with domain (owner-site.example) or IP (8.8.8.8).\",\"cached\":false,\"cacheTtlMs\":300000,\"_meta\":{\"cachedAt\":null,\"fetchedAt\":\"2026-11-13T11:45:48.398Z\",\"durationMs\":697,\"fromCache\":false}}"
+      }
+    ],
+    "structuredContent": {
+      "data": {
+        "ip": "192.0.2.10",
+        "name": "PRIVATE-ADDRESS-CBLK-RFC1918-IANA-RESERVED",
+        "type": "",
+        "handle": "NET-192-168-0-0-1",
+        "parentHandle": "NET-192-0-0-0-0",
+        "startAddress": "192.168.0.0",
+        "endAddress": "192.168.255.255",
+        "country": "",
+        "entities": [
+          {
+            "handle": "IANA",
+            "roles": [
+              "registrant"
+            ],
+            "name": "Internet Assigned Numbers Authority"
+          }
+        ],
+        "events": [
+          {
+            "action": "last changed",
+            "date": "2024-05-24T10:19:53-04:00"
+          },
+          {
+            "action": "registration",
+            "date": "1994-03-15T00:00:00-05:00"
+          }
+        ],
+        "links": [
+          "https://rdap.arin.net/registry/ip/192.168.0.0"
+        ],
+        "source": "RDAP"
+      },
+      "durationMs": 697,
+      "description": "Domain and IP WHOIS/RDAP lookup — registrar, registration dates, nameservers, abuse contacts. Free, no auth. Query with domain (owner-site.example) or IP (8.8.8.8).",
+      "cached": false,
+      "cacheTtlMs": 300000,
+      "_meta": {
+        "cachedAt": null,
+        "fetchedAt": "2026-11-13T11:45:48.398Z",
+        "durationMs": 697,
+        "fromCache": false
+      }
+    },
+    "isError": false
+  }
+}

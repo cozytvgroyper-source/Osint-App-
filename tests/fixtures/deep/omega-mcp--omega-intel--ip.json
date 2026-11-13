@@ -1,0 +1,24 @@
+{
+  "tool": "omega_intel",
+  "serverName": "Omega MCP",
+  "identifier": {
+    "type": "ip",
+    "value": "192.0.2.10"
+  },
+  "args": {
+    "target": "192.0.2.10"
+  },
+  "ms": 619,
+  "result": {
+    "content": [
+      {
+        "text": "{\n  \"status\": \"ok\",\n  \"result\": \"\\ud83d\\udee1  Threat Intelligence  \\u2192  192.0.2.10\\n\\n\\ud83d\\udd2c AlienVault OTX: 192.0.2.10\\n\\nAbuseIPDB: no API key (set with omega config set abuseipdb_api_key KEY)\\n\\n\\ud83c\\udf29  GreyNoise: 192.0.2.10\\n  GreyNoise error: 400 Client Error: Bad Request for url: https://api.greynoise.io/v3/community/192.0.2.10\\n\\nAlso check:\\n  https://otx.alienvault.com/indicator/domain/192.0.2.10\\n  https://www.abuseipdb.com/check/192.0.2.10\\n  https://viz.greynoise.io/ip/192.0.2.10\"\n}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "structuredContent": {
+      "result": "{\n  \"status\": \"ok\",\n  \"result\": \"\\ud83d\\udee1  Threat Intelligence  \\u2192  192.0.2.10\\n\\n\\ud83d\\udd2c AlienVault OTX: 192.0.2.10\\n\\nAbuseIPDB: no API key (set with omega config set abuseipdb_api_key KEY)\\n\\n\\ud83c\\udf29  GreyNoise: 192.0.2.10\\n  GreyNoise error: 400 Client Error: Bad Request for url: https://api.greynoise.io/v3/community/192.0.2.10\\n\\nAlso check:\\n  https://otx.alienvault.com/indicator/domain/192.0.2.10\\n  https://www.abuseipdb.com/check/192.0.2.10\\n  https://viz.greynoise.io/ip/192.0.2.10\"\n}"
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "tool": "omega_persona",
+  "serverName": "Omega MCP",
+  "identifier": {
+    "type": "email",
+    "value": "owner@example.com"
+  },
+  "args": {
+    "target": "owner@example.com"
+  },
+  "ms": 15,
+  "result": {
+    "content": [
+      {
+        "text": "{\n  \"status\": \"ok\",\n  \"result\": \"🎭  OpSec Persona Builder\\n\\n  Donald Young  #43ff51773698\\n\\n  Gender               Male\\n  DOB                  1997-05-01 (age 29)\\n  Location             Ottawa, Canada\\n  Timezone             America/Toronto\\n  Job                  Penetration Tester (3y exp)\\n  University           University of Toronto (2018)\\n  Phone                +1 467 268 914\\n  Primary Email        lead1@example.net\\n  Backup Email         lead2@example.net\\n  Usernames            donaldyoung / donald_young / donald.young\\n  Interests            electronics · reading\\n\\nDonald is a Penetration Tester with 3 years of experience. Originally from Canada, they relocated for work and now live in Ottawa. Known online for their posts\\nabout electronics.\\n\\n⚠  For authorized red team / OpSec use only. All data is fictitious.\"\n}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "structuredContent": {
+      "result": "{\n  \"status\": \"ok\",\n  \"result\": \"\\ud83c\\udfad  OpSec Persona Builder\\n\\n  Donald Young  #43ff51773698\\n\\n  Gender               Male\\n  DOB                  1997-05-01 (age 29)\\n  Location             Ottawa, Canada\\n  Timezone             America/Toronto\\n  Job                  Penetration Tester (3y exp)\\n  University           University of Toronto (2018)\\n  Phone                +1 467 268 914\\n  Primary Email        lead1@example.net\\n  Backup Email         lead2@example.net\\n  Usernames            donaldyoung / donald_young / donald.young\\n  Interests            electronics \\u00b7 reading\\n\\nDonald is a Penetration Tester with 3 years of experience. Originally from Canada, they relocated for work and now live in Ottawa. Known online for their posts\\nabout electronics.\\n\\n\\u26a0  For authorized red team / OpSec use only. All data is fictitious.\"\n}"
+    }
+  }
+}

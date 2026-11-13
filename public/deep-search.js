@@ -8,37 +8,36 @@ const tool=(name,options={})=>Object.freeze({name,...options});
 export const DEEP_TOOLS=Object.freeze({
   email:Object.freeze([
     tool('holehe_email_search'),tool('ghunt_google_search'),tool('omega_email'),tool('omega_breach'),
-    tool('omega_identity'),tool('omega_persona'),tool('omega_socmint'),tool('get_opensanctions')
+    tool('omega_identity')
   ]),
   username:Object.freeze([
     tool('maigret_username_search',{timeoutMs:600_000}),
     tool('sherlock_username_search',{timeoutMs:300_000}),
     tool('blackbird_username_search',{timeoutMs:300_000}),
-    tool('omega_username'),tool('omega_social'),tool('omega_socmint'),tool('omega_gitrecon'),
-    tool('omega_identity'),tool('omega_persona')
+    tool('omega_social'),tool('omega_socmint'),tool('omega_gitrecon'),tool('omega_identity')
   ]),
   phone:Object.freeze([tool('phoneinfoga_scan'),tool('omega_phoneosint')]),
   domain:Object.freeze([
     tool('whois_lookup'),tool('dns_lookup'),tool('crtsh_certificate_search'),tool('wayback_snapshots'),
     tool('dnstwist_lookalike_domains'),tool('theharvester_domain_search'),tool('omega_intel'),tool('omega_spoofcheck'),
     tool('omega_headers'),tool('omega_ssl'),tool('omega_tech'),tool('omega_cors'),tool('omega_mailsec'),
-    tool('omega_certhunt'),tool('omega_crypto'),tool('omega_cvemap'),tool('omega_deepweb'),tool('omega_docosint'),
+    tool('omega_certhunt'),tool('omega_cvemap'),tool('omega_deepweb'),tool('omega_docosint'),
     tool('omega_harvester'),tool('omega_infra'),tool('omega_opsec'),tool('omega_phishcheck'),tool('omega_screenshot'),
     tool('omega_typosquat'),
     tool('omega_ports'),tool('omega_crawl'),tool('omega_dnsbrute'),tool('omega_subdomains'),tool('dnsrecon_domain_scan'),
     tool('spiderfoot_scan',{timeoutMs:600_000}),tool('omega_recon'),tool('omega_apiosint'),tool('omega_assetmap'),
     tool('omega_attackmap'),tool('omega_buckets'),tool('omega_cloud'),tool('omega_cloud2'),tool('omega_creds'),
     tool('omega_jscan'),tool('omega_secrets'),tool('omega_spider'),tool('omega_webcrawl'),tool('omega_dossier'),
-    tool('omega_vuln'),tool('omega_fuzzer'),tool('omega_redteam'),tool('omega_exfil')
+    tool('omega_vuln'),tool('omega_fuzzer'),tool('omega_exfil')
   ]),
   ip:Object.freeze([
     tool('get_bgp'),tool('get_greynoise'),tool('get_whois'),tool('omega_ipinfo'),tool('omega_ipdossier'),
     tool('omega_intel'),tool('omega_asn'),tool('omega_reverseip'),
     tool('omega_ssl'),tool('omega_headers'),tool('omega_infra'),tool('omega_network'),tool('omega_torcheck'),
-    tool('omega_cvemap'),tool('omega_crypto'),
+    tool('omega_cvemap'),
     tool('omega_ports'),tool('spiderfoot_scan',{timeoutMs:600_000}),tool('omega_recon'),tool('omega_assetmap'),
-    tool('omega_attackmap'),tool('omega_c2'),tool('omega_deception'),
-    tool('omega_vuln'),tool('omega_pivot'),tool('omega_redteam'),tool('omega_exfil')
+    tool('omega_attackmap'),tool('omega_c2'),
+    tool('omega_vuln'),tool('omega_pivot'),tool('omega_exfil')
   ]),
   cve:Object.freeze([tool('get_nvd_cves'),tool('get_cisa_kev'),tool('get_epss'),tool('omega_cvssrank'),tool('omega_cve')]),
   hash:Object.freeze([tool('get_malwarebazaar'),tool('omega_malware')])
@@ -95,7 +94,8 @@ export function isPersonType(type){return PERSON_TYPES.has(String(type));}
 const ARG_OVERRIDES=Object.freeze({
   maigret_username_search:{all_sites:true,timeout:60},
   holehe_email_search:{only_used:true,timeout:30},
-  sherlock_username_search:{output_format:'csv',timeout:60},
+  // The installed Sherlock CLI rejects the wrapper's CSV flags; text mode returns the profile URLs reliably.
+  sherlock_username_search:{output_format:'txt',timeout:60},
   blackbird_username_search:{timeout:60},
   spiderfoot_scan:{use_case:'all'}
 });

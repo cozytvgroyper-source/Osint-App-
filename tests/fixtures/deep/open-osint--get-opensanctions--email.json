@@ -1,0 +1,43 @@
+{
+  "tool": "get_opensanctions",
+  "serverName": "Open OSINT",
+  "identifier": {
+    "type": "email",
+    "value": "owner@example.com"
+  },
+  "args": {
+    "query": "owner@example.com",
+    "limit": 10,
+    "format": "json"
+  },
+  "ms": 7730,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\n  \"data\": {\n    \"entities\": [],\n    \"total\": 0,\n    \"totalInDatabase\": 84638,\n    \"query\": \"owner@example.com\",\n    \"schema\": \"all\",\n    \"source\": \"OpenSanctions bulk data (targets.simple.csv)\"\n  },\n  \"durationMs\": 7705,\n  \"description\": \"Example profile biography.\",\n  \"cached\": false,\n  \"cacheTtlMs\": 300000,\n  \"_meta\": {\n    \"cachedAt\": null,\n    \"fetchedAt\": \"2026-11-13T11:39:38.765Z\",\n    \"durationMs\": 7705,\n    \"fromCache\": false\n  }\n}"
+      }
+    ],
+    "structuredContent": {
+      "data": {
+        "entities": [],
+        "total": 0,
+        "totalInDatabase": 84638,
+        "query": "owner@example.com",
+        "schema": "all",
+        "source": "OpenSanctions bulk data (targets.simple.csv)"
+      },
+      "durationMs": 7705,
+      "description": "Example profile biography.",
+      "cached": false,
+      "cacheTtlMs": 300000,
+      "_meta": {
+        "cachedAt": null,
+        "fetchedAt": "2026-11-13T11:39:38.765Z",
+        "durationMs": 7705,
+        "fromCache": false
+      }
+    },
+    "isError": false
+  }
+}

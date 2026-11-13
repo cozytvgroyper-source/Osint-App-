@@ -1,0 +1,24 @@
+{
+  "tool": "omega_c2",
+  "serverName": "Omega MCP",
+  "identifier": {
+    "type": "ip",
+    "value": "192.0.2.10"
+  },
+  "args": {
+    "target": "192.0.2.10"
+  },
+  "ms": 10472,
+  "result": {
+    "content": [
+      {
+        "text": "{\n  \"status\": \"ok\",\n  \"result\": \"\\u2620  C2 Infrastructure Detection  \\u2192  192.0.2.10\\n\\nRunning TLS fingerprint (JARM-like) probes\\u2026\\n   TLS Fingerprint Analysis\\n\\nPort \\u2503 Fingerprint \\u2503 Match\\n\\nProbing banners for C2 artifacts\\u2026\\n\\n\\u2713  No known C2 fingerprints detected.\\nTip: use --deep to cross-check against C2 intel feeds.\\n\\nAlso check:\\n  https://search.censys.io/hosts/192.0.2.10\\n  https://hunt.io/ip/192.0.2.10\"\n}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "structuredContent": {
+      "result": "{\n  \"status\": \"ok\",\n  \"result\": \"\\u2620  C2 Infrastructure Detection  \\u2192  192.0.2.10\\n\\nRunning TLS fingerprint (JARM-like) probes\\u2026\\n   TLS Fingerprint Analysis\\n\\nPort \\u2503 Fingerprint \\u2503 Match\\n\\nProbing banners for C2 artifacts\\u2026\\n\\n\\u2713  No known C2 fingerprints detected.\\nTip: use --deep to cross-check against C2 intel feeds.\\n\\nAlso check:\\n  https://search.censys.io/hosts/192.0.2.10\\n  https://hunt.io/ip/192.0.2.10\"\n}"
+    }
+  }
+}

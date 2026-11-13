@@ -1,0 +1,24 @@
+{
+  "tool": "omega_exfil",
+  "serverName": "Omega MCP",
+  "identifier": {
+    "type": "ip",
+    "value": "192.0.2.10"
+  },
+  "args": {
+    "target": "192.0.2.10"
+  },
+  "ms": 126,
+  "result": {
+    "content": [
+      {
+        "text": "{\n  \"status\": \"ok\",\n  \"result\": \"\\ud83d\\udd75  Exfiltration & C2 Detection \\u2014 192.0.2.10\\n\\nOpen ports: []\\nTags:       none\\n\\u2713  No obvious C2 indicators found\"\n}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "structuredContent": {
+      "result": "{\n  \"status\": \"ok\",\n  \"result\": \"\\ud83d\\udd75  Exfiltration & C2 Detection \\u2014 192.0.2.10\\n\\nOpen ports: []\\nTags:       none\\n\\u2713  No obvious C2 indicators found\"\n}"
+    }
+  }
+}

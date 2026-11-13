@@ -1,0 +1,23 @@
+{
+  "tool": "sherlock_username_search",
+  "serverName": "OSINT Toolbox",
+  "identifier": {
+    "type": "username",
+    "value": "ownername"
+  },
+  "args": {
+    "username": "ownername",
+    "timeout": 60,
+    "output_format": "txt"
+  },
+  "ms": 124125,
+  "result": {
+    "content": [
+      {
+        "text": "[*] Checking username ownername on:\n\n[+] 7Cups: https://www.7cups.com/@ownername\n[+] BuyMeACoffee: https://buymeacoff.ee/ownername\n[+] Chess: https://www.chess.com/member/ownername\n[+] F3.cool: https://f3.cool/ownername/\n[+] Houzz: https://houzz.com/user/ownername\n\n[*] Search completed with 5 results\n\nGo deeper than a username. Explore public profiles and export your findings.\nTry OSINTSearch: \u001b]8;;https://osintsearch.org/go/sherlock\u001b\\https://osintsearch.org\u001b]8;;\u001b\\",
+        "type": "text"
+      }
+    ],
+    "isError": false
+  }
+}

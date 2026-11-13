@@ -1,0 +1,24 @@
+{
+  "tool": "omega_username",
+  "serverName": "Omega MCP",
+  "identifier": {
+    "type": "username",
+    "value": "ownername"
+  },
+  "args": {
+    "target": "ownername"
+  },
+  "ms": 11,
+  "result": {
+    "content": [
+      {
+        "text": "{\n  \"status\": \"error\",\n  \"error\": \"asyncio.run() cannot be called from a running event loop\"\n}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "structuredContent": {
+      "result": "{\n  \"status\": \"error\",\n  \"error\": \"asyncio.run() cannot be called from a running event loop\"\n}"
+    }
+  }
+}

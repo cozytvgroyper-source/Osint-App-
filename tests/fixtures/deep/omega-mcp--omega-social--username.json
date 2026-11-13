@@ -1,0 +1,24 @@
+{
+  "tool": "omega_social",
+  "serverName": "Omega MCP",
+  "identifier": {
+    "type": "username",
+    "value": "ownername"
+  },
+  "args": {
+    "target": "ownername"
+  },
+  "ms": 1717,
+  "result": {
+    "content": [
+      {
+        "text": "{\n  \"status\": \"ok\",\n  \"result\": {\n    \"target\": \"ownername\"\n  }\n}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "structuredContent": {
+      "result": "{\n  \"status\": \"ok\",\n  \"result\": {\n    \"target\": \"ownername\"\n  }\n}"
+    }
+  }
+}

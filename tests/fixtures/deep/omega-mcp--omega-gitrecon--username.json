@@ -1,0 +1,24 @@
+{
+  "tool": "omega_gitrecon",
+  "serverName": "Omega MCP",
+  "identifier": {
+    "type": "username",
+    "value": "ownername"
+  },
+  "args": {
+    "target": "ownername"
+  },
+  "ms": 2018,
+  "result": {
+    "content": [
+      {
+        "text": "{\n  \"status\": \"ok\",\n  \"result\": {\n    \"target\": \"ownername\",\n    \"repos\": [],\n    \"secrets\": [],\n    \"dork_hits\": []\n  }\n}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "structuredContent": {
+      "result": "{\n  \"status\": \"ok\",\n  \"result\": {\n    \"target\": \"ownername\",\n    \"repos\": [],\n    \"secrets\": [],\n    \"dork_hits\": []\n  }\n}"
+    }
+  }
+}

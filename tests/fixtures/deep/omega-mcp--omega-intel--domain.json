@@ -1,0 +1,24 @@
+{
+  "tool": "omega_intel",
+  "serverName": "Omega MCP",
+  "identifier": {
+    "type": "domain",
+    "value": "owner-site.example"
+  },
+  "args": {
+    "target": "owner-site.example"
+  },
+  "ms": 2280,
+  "result": {
+    "content": [
+      {
+        "text": "{\n  \"status\": \"ok\",\n  \"result\": \"\\ud83d\\udee1  Threat Intelligence  \\u2192  owner-site.example\\n\\n\\ud83d\\udd2c AlienVault OTX: owner-site.example\\n  OTX Pulses    50\\n  Reputation    0\\n    Pulse       Microsoft Phishing Collection\\n    Pulse       NSO ->FMGLaw.com (Christopher Ahmann) is responsib\\n    Pulse       NSO ->FMGLaw.com (Christopher Ahmann) is responsib\\n\\nAbuseIPDB + GreyNoise only available for IP addresses.\\nTry: omega dns owner-site.example to resolve IPs first.\\n\\nAlso check:\\n  https://otx.alienvault.com/indicator/domain/owner-site.example\"\n}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "structuredContent": {
+      "result": "{\n  \"status\": \"ok\",\n  \"result\": \"\\ud83d\\udee1  Threat Intelligence  \\u2192  owner-site.example\\n\\n\\ud83d\\udd2c AlienVault OTX: owner-site.example\\n  OTX Pulses    50\\n  Reputation    0\\n    Pulse       Microsoft Phishing Collection\\n    Pulse       NSO ->FMGLaw.com (Christopher Ahmann) is responsib\\n    Pulse       NSO ->FMGLaw.com (Christopher Ahmann) is responsib\\n\\nAbuseIPDB + GreyNoise only available for IP addresses.\\nTry: omega dns owner-site.example to resolve IPs first.\\n\\nAlso check:\\n  https://otx.alienvault.com/indicator/domain/owner-site.example\"\n}"
+    }
+  }
+}

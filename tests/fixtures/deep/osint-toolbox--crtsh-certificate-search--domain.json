@@ -1,0 +1,21 @@
+{
+  "tool": "crtsh_certificate_search",
+  "serverName": "OSINT Toolbox",
+  "identifier": {
+    "type": "domain",
+    "value": "owner-site.example"
+  },
+  "args": {
+    "domain": "owner-site.example"
+  },
+  "ms": 761,
+  "result": {
+    "content": [
+      {
+        "text": "{\n \"domain\": \"owner-site.example\",\n \"certificates\": 81,\n \"hostnames\": [\n  \"*.owner-site.example\",\n  \"dev.owner-site.example\",\n  \"owner-site.example\",\n  \"m.owner-site.example\",\n  \"m.testowner-site.example\",\n  \"products.owner-site.example\",\n  \"support.owner-site.example\",\n  \"www.owner-site.example\"\n ],\n \"emails\": [\n  \"lead7@example.net\",\n  \"lead8@example.net\"\n ]\n}",
+        "type": "text"
+      }
+    ],
+    "isError": false
+  }
+}

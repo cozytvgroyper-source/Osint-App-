@@ -1,0 +1,24 @@
+{
+  "tool": "omega_ports",
+  "serverName": "Omega MCP",
+  "identifier": {
+    "type": "ip",
+    "value": "192.0.2.10"
+  },
+  "args": {
+    "target": "192.0.2.10"
+  },
+  "ms": 1017,
+  "result": {
+    "content": [
+      {
+        "text": "{\n  \"status\": \"ok\",\n  \"result\": {\n    \"ports\": [],\n    \"open_count\": 0,\n    \"scanned\": 29\n  }\n}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "structuredContent": {
+      "result": "{\n  \"status\": \"ok\",\n  \"result\": {\n    \"ports\": [],\n    \"open_count\": 0,\n    \"scanned\": 29\n  }\n}"
+    }
+  }
+}

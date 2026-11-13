@@ -1,0 +1,24 @@
+{
+  "tool": "omega_spoofcheck",
+  "serverName": "Omega MCP",
+  "identifier": {
+    "type": "domain",
+    "value": "owner-site.example"
+  },
+  "args": {
+    "target": "owner-site.example"
+  },
+  "ms": 967,
+  "result": {
+    "content": [
+      {
+        "text": "{\n  \"status\": \"ok\",\n  \"result\": {\n    \"spf\": {\n      \"found\": true,\n      \"record\": \"v=spf1 -all\",\n      \"risk\": \"LOW \\u2014 '-all' hard fail, good configuration\"\n    },\n    \"dmarc\": {\n      \"found\": true,\n      \"record\": \"v=DMARC1;p=reject;sp=reject;adkim=s;aspf=s\",\n      \"policy\": \"reject\",\n      \"risk\": \"LOW \\u2014 p=reject blocks spoofed email\"\n    },\n    \"dkim\": {\n      \"selectors_found\": [\n        \"default\",\n        \"google\",\n        \"mail\",\n        \"email\",\n        \"dkim\",\n        \"k1\",\n        \"k2\",\n        \"selector1\",\n        \"selector2\",\n        \"s1\",\n        \"s2\",\n        \"smtp\",\n        \"mimecast\",\n        \"proofpoint\",\n        \"mailchimp\",\n        \"sendgrid\",\n        \"ses\",\n        \"amazonses\",\n        \"mandrill\",\n        \"mailgun\",\n        \"postmark\",\n        \"zoho\",\n        \"outlook\"\n      ]\n    }\n  }\n}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "structuredContent": {
+      "result": "{\n  \"status\": \"ok\",\n  \"result\": {\n    \"spf\": {\n      \"found\": true,\n      \"record\": \"v=spf1 -all\",\n      \"risk\": \"LOW \\u2014 '-all' hard fail, good configuration\"\n    },\n    \"dmarc\": {\n      \"found\": true,\n      \"record\": \"v=DMARC1;p=reject;sp=reject;adkim=s;aspf=s\",\n      \"policy\": \"reject\",\n      \"risk\": \"LOW \\u2014 p=reject blocks spoofed email\"\n    },\n    \"dkim\": {\n      \"selectors_found\": [\n        \"default\",\n        \"google\",\n        \"mail\",\n        \"email\",\n        \"dkim\",\n        \"k1\",\n        \"k2\",\n        \"selector1\",\n        \"selector2\",\n        \"s1\",\n        \"s2\",\n        \"smtp\",\n        \"mimecast\",\n        \"proofpoint\",\n        \"mailchimp\",\n        \"sendgrid\",\n        \"ses\",\n        \"amazonses\",\n        \"mandrill\",\n        \"mailgun\",\n        \"postmark\",\n        \"zoho\",\n        \"outlook\"\n      ]\n    }\n  }\n}"
+    }
+  }
+}

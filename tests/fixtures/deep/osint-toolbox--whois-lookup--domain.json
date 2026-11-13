@@ -1,0 +1,21 @@
+{
+  "tool": "whois_lookup",
+  "serverName": "OSINT Toolbox",
+  "identifier": {
+    "type": "domain",
+    "value": "owner-site.example"
+  },
+  "args": {
+    "query": "owner-site.example"
+  },
+  "ms": 492,
+  "result": {
+    "content": [
+      {
+        "text": "{\n \"ldhName\": \"owner-site.example\",\n \"handle\": \"2336799_DOMAIN_COM-VRSN\",\n \"status\": [\n  \"client delete prohibited\",\n  \"client transfer prohibited\",\n  \"client update prohibited\"\n ],\n \"events\": {\n  \"registration\": \"1995-08-14T04:00:00Z\",\n  \"expiration\": \"2027-08-13T04:00:00Z\",\n  \"last changed\": \"2026-08-14T08:01:43Z\",\n  \"last update of RDAP database\": \"2026-11-13T11:44:03Z\"\n },\n \"nameservers\": [\n  \"ELLIOTT.NS.CLOUDFLARE.COM\",\n  \"HERA.NS.CLOUDFLARE.COM\"\n ],\n \"dnssec\": true,\n \"contacts\": [\n  {\n   \"roles\": [\n    \"registrar\"\n   ],\n   \"handle\": \"376\",\n   \"fn\": \"RESERVED-Internet Assigned Numbers Authority\",\n   \"contacts\": [\n    {\n     \"roles\": [\n      \"abuse\"\n     ]\n    }\n   ]\n  }\n ]\n}",
+        "type": "text"
+      }
+    ],
+    "isError": false
+  }
+}

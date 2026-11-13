@@ -1,0 +1,24 @@
+{
+  "tool": "omega_ipinfo",
+  "serverName": "Omega MCP",
+  "identifier": {
+    "type": "ip",
+    "value": "192.0.2.10"
+  },
+  "args": {
+    "target": "192.0.2.10"
+  },
+  "ms": 165,
+  "result": {
+    "content": [
+      {
+        "text": "{\n  \"status\": \"ok\",\n  \"result\": \"[ IP INFO ] 192.0.2.10\\n\\n  IP         192.0.2.10\\n  Status     fail\\n  Country    None (None)\\n  Region     None (None)\\n  Lat/Lon    None, None\\n\\nipwhois error: IPv4 address 192.0.2.10 is already defined as Private-Use Networks via RFC 1918.\"\n}",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "structuredContent": {
+      "result": "{\n  \"status\": \"ok\",\n  \"result\": \"[ IP INFO ] 192.0.2.10\\n\\n  IP         192.0.2.10\\n  Status     fail\\n  Country    None (None)\\n  Region     None (None)\\n  Lat/Lon    None, None\\n\\nipwhois error: IPv4 address 192.0.2.10 is already defined as Private-Use Networks via RFC 1918.\"\n}"
+    }
+  }
+}

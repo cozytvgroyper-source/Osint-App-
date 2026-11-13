@@ -77,7 +77,7 @@ test('deep arguments apply the overrides',()=>{
   const sherlock=FIXTURE_TOOLS.find(tool=>tool.name==='sherlock_username_search');
   assert.equal(deepArgs(maigret,{type:'username',value:'jsmith88'}).all_sites,true);
   assert.equal(deepArgs(holehe,{type:'email',value:'owner@example.com'}).only_used,true);
-  assert.equal(deepArgs(sherlock,{type:'username',value:'jsmith88'}).output_format,'csv');
+  assert.equal(deepArgs(sherlock,{type:'username',value:'jsmith88'}).output_format,'txt');
 });
 
 test('confirmations: none for people, ownership for sites, typed target at Intrusive',()=>{

@@ -15,7 +15,7 @@ import {loadStoredState,mergeStoredServers,persistStoredState} from './browser-s
 import {TIERS,groupToolsByTier,runRequirements,toolRisk} from './tool-tiers.js?v=1';
 import {resultPivot} from './result-pivots.js?v=1';
 import {buildRunGrantRequest} from './run-grant-client.js?v=1';
-import {deepRunBlocked,deepSearchPlan} from './deep-search.js?v=2';
+import {deepRunBlocked,deepSearchPlan} from './deep-search.js?v=3';
 
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
