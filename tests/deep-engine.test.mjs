@@ -135,3 +135,39 @@ test('public-only tools are skipped for a private IP and shown as skipped',async
   assert.deepEqual(publicRun.seen.sort(),['get_bgp','get_greynoise']);
   assert.equal(publicRun.run.calls.some(call=>call.outcome==='skipped'),false);
 });
+
+test('a refused permission fails only its own tools and the run keeps everything else',async()=>{
+  const tools=[toolbox('whois_lookup','domain'),toolbox('dns_lookup','domain'),omega('omega_headers'),omega('omega_ssl')];const called=[];let released=0;
+  const run=await runDeepSearch({id:'refused-run',target:{type:'domain',value:'example.com'},level:2,tools,excluded:new Set(),confirmation:{acknowledged:true,authorization:true},
+    callTool:async current=>{called.push(current.name);return{result:textResult(JSON.stringify({target:'example.com',status:'ok'}))};},
+    requestGrant:async()=>{throw new Error('Server refused the grant (HTTP 400)');},releaseGrants:async()=>{released+=1;}});
+  assert.equal(run.outcome,'completed');
+  assert.deepEqual(called.sort(),['dns_lookup','whois_lookup']);
+  const refused=run.calls.filter(call=>['omega_headers','omega_ssl'].includes(call.tool));
+  assert.equal(refused.length,2);
+  for(const call of refused){assert.equal(call.outcome,'error');assert.match(call.error,/permission.*Server refused the grant \(HTTP 400\)/i);}
+  assert.equal(run.calls.filter(call=>call.outcome!=='error').length,2);
+  assert.equal(released,1);
+});
+
+test('a person search keeps round-one findings when a later permission is refused',async()=>{
+  const tools=[toolbox('holehe_email_search','email'),toolbox('phoneinfoga_scan','number'),omega('omega_headers')];let asked=0;
+  const run=await runDeepSearch({id:'person-refused',target:{type:'phone',value:'+15555550100'},level:0,tools,excluded:new Set(),confirmation:{acknowledged:true},
+    callTool:async(current)=>({result:current.name==='phoneinfoga_scan'?textResult('Contact lead@owner-site.example, site https://owner-site.example'):textResult('[+] ExampleSite')}),
+    requestGrant:async()=>{asked+=1;throw new Error('network blip');}});
+  assert.equal(run.outcome,'completed');
+  assert.ok(asked>=1,'a permission was asked for the lead website');
+  assert.ok(run.calls.some(call=>call.tool==='omega_headers'&&call.outcome==='error'&&/network blip/.test(call.error)));
+  assert.ok(run.calls.some(call=>call.tool==='phoneinfoga_scan'&&call.outcome!=='error'));
+  assert.ok(run.findings.length>0);
+});
+
+test('a failed permission renewal records the tool error instead of ending the run',async()=>{
+  const tools=[omega('omega_headers'),omega('omega_ssl')];let grants=0;
+  const run=await runDeepSearch({id:'renew-fail',target:{type:'domain',value:'example.com'},level:2,tools,excluded:new Set(),confirmation:{acknowledged:true,authorization:true},
+    callTool:async()=>({error:{message:'Run grant expired'}}),
+    requestGrant:async()=>{grants+=1;if(grants>1)throw new Error('refused on renewal');return{token:'g1',expiresAt:Date.now()+1e6};}});
+  assert.equal(run.outcome,'completed');
+  assert.equal(run.calls.length,2);
+  assert.ok(run.calls.every(call=>call.outcome==='error'&&/expired/.test(call.error)));
+});

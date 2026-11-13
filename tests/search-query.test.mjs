@@ -161,3 +161,14 @@ test('the ranking subject is the target, or the phrase without its topic and fra
   assert.equal(searchSubjectFor('8.8.8.8 abuse reports'),'8.8.8.8');
   assert.equal(searchSubjectFor('sanctions'),'sanctions');
 });
+
+test('website names with accented letters are read whole, in the form browsers send',()=>{
+  assert.deepEqual(extractTarget('münchen.de whois'),{type:'domain',value:'xn--mnchen-3ya.de'});
+  assert.deepEqual(extractTarget('bücher.de'),{type:'domain',value:'xn--bcher-kva.de'});
+  assert.deepEqual(extractTarget('https://bücher.de/katalog'),{type:'domain',value:'xn--bcher-kva.de'});
+  assert.deepEqual(extractTarget('café.example.com'),{type:'domain',value:'xn--caf-dma.example.com'});
+  assert.deepEqual(extractTarget('owner@bücher.de breach'),{type:'email',value:'owner@xn--bcher-kva.de'});
+  assert.deepEqual(argsForSearch(byName('whois_lookup'),'münchen.de whois'),{query:'xn--mnchen-3ya.de'});
+  for(const query of ['münchen.de','bücher.de','Ñandú.com'])
+    assert.ok(!/^(?:nchen|cher|and)/.test(extractTarget(query)?.value||''),query);
+});

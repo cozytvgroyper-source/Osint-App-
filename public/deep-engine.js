@@ -73,8 +73,10 @@ export async function runDeepSearch(options={}){
     try{response=await callTool(task.tool,task.args,{grant:grantToken,deepSearch:true,timeoutMs:task.timeoutMs,signal});}
     catch(error){response={error:{message:error?.message||String(error)}};}
     if(response?.error&&grantToken&&allowRenew&&/grant|permission|expired|confirmed/i.test(String(response.error.message||''))&&typeof requestGrant==='function'&&!signal?.aborted){
-      const renewed=await requestGrant({target:task.identifier.value,level:task.risk.level,runId:id,ttlMs:30*60_000,tools:[{tool:task.tool,args:task.args}],confirmation:task.confirmation});
-      return recordTask(task,renewed?.token,false);
+      // A refused renewal keeps the tool's own error below; it never ends the whole run.
+      let renewed=null;
+      try{renewed=await requestGrant({target:task.identifier.value,level:task.risk.level,runId:id,ttlMs:30*60_000,tools:[{tool:task.tool,args:task.args}],confirmation:task.confirmation});}catch{}
+      if(renewed?.token)return recordTask(task,renewed.token,false);
     }
     const ms=Math.max(0,now()-started);let outcome='error';let error='';
     if(response?.error){error=String(response.error.message||'Tool call failed');}
@@ -125,12 +127,23 @@ export async function runDeepSearch(options={}){
       countsEvent();
       const passive=tasks.filter(task=>task.risk.level===0);
       const controlled=tasks.filter(task=>task.risk.level>0);
+      // A permission that can't be had fails only the tools it was for, with the reason; the rest of the run carries on
+      // and keeps everything already found.
+      const refuse=(chunk,message)=>{
+        for(const task of chunk){
+          calls.push({tool:task.tool.name,serverName:task.tool.serverName,identifier:task.identifier,outcome:'error',error:message,ms:0});
+          onEvent({type:'tool-end',tool:task.tool,identifier:task.identifier,outcome:'error',ms:0});
+        }
+        countsEvent();
+      };
       const controlledRun=async()=>{
         for(const group of byIdentifier(controlled)){
           for(const chunk of chunks(group,25)){
             if(signal?.aborted)break;
-            if(typeof requestGrant!=='function')throw new Error('A confirmed Deep Search permission is required for target-contacting tools.');
-            const grant=await requestGrant({target:chunk[0].identifier.value,level:Math.max(...chunk.map(task=>task.risk.level)),runId:id,ttlMs:30*60_000,tools:chunk.map(task=>({tool:task.tool,args:task.args})),confirmation:chunk[0].confirmation});
+            if(typeof requestGrant!=='function'){refuse(chunk,'A confirmed Deep Search permission is required for target-contacting tools.');continue;}
+            let grant;
+            try{grant=await requestGrant({target:chunk[0].identifier.value,level:Math.max(...chunk.map(task=>task.risk.level)),runId:id,ttlMs:30*60_000,tools:chunk.map(task=>({tool:task.tool,args:task.args})),confirmation:chunk[0].confirmation});}
+            catch(error){refuse(chunk,`Permission to run this tool was not given: ${error?.message||String(error)}`);continue;}
             for(const task of chunk){if(signal?.aborted)break;await recordTask(task,grant?.token);}
           }
         }

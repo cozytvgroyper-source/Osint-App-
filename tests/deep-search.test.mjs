@@ -132,3 +132,11 @@ test('website input with www or a path is a website, never a username',()=>{
   assert.deepEqual(detectDeepTarget('ownername'),{type:'username',value:'ownername'});
   assert.deepEqual(detectDeepTarget('owner.name'),{type:'domain',value:'owner.name'}); // current behaviour, unchanged
 });
+
+test('a website name with accented letters is the whole site, never part of it',()=>{
+  assert.deepEqual(detectDeepTarget('bücher.de'),{type:'domain',value:'xn--bcher-kva.de'});
+  assert.deepEqual(detectDeepTarget('münchen.de'),{type:'domain',value:'xn--mnchen-3ya.de'});
+  assert.deepEqual(detectDeepTarget('https://bücher.de/'),{type:'domain',value:'xn--bcher-kva.de'});
+  assert.deepEqual(detectDeepTarget('www.bücher.de/katalog'),{type:'domain',value:'xn--bcher-kva.de'});
+  assert.deepEqual(detectDeepTarget('owner@bücher.de'),{type:'email',value:'owner@xn--bcher-kva.de'});
+});

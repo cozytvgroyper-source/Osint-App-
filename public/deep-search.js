@@ -1,4 +1,4 @@
-import {argsForSearch,extractTarget} from './search-query.js';
+import {argsForSearch,asciiHosts,extractTarget} from './search-query.js';
 import {toolRisk} from './tool-tiers.js';
 
 const tool=(name,options={})=>Object.freeze({name,...options});
@@ -75,7 +75,7 @@ function exactExtractedTarget(text,found){
 }
 
 export function detectDeepTarget(input){
-  const text=String(input??'').trim();
+  const text=asciiHosts(String(input??'').trim());
   if(!text)return null;
   if(URL_PATTERN.test(text)){
     try{
