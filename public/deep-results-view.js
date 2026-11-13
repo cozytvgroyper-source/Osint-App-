@@ -3,6 +3,9 @@ import {TIERS} from './tool-tiers.js';
 import {button,card,escapeHtml} from './ui.js';
 
 const categories=Object.freeze([['social','Social'],['developer','Developer'],['forums','Forums'],['shopping','Shopping'],['other','Other']]);
+const detailGroups=Object.freeze([
+  ['names','Names'],['usernames','Usernames'],['emails','Emails'],['phones','Phones'],['ips','IPs'],['websites','Websites'],['places','Locations']
+]);
 const severityOrder={high:0,medium:1,low:2};
 const plural=(count,one,many=`${one}s`)=>count===1?one:many;
 
@@ -30,38 +33,107 @@ function pivotButton(value){
   return button({label:'Pivot →',kind:'secondary',attrs:{'data-pivot':value,'aria-label':`Pivot: investigate ${value}`}});
 }
 
-function findingValues(finding){
-  const evidence=finding.evidence||{};const values=[];
-  if(finding.kind==='fact'&&finding.fact?.value)values.push([finding.fact.label||'Fact',finding.fact.value]);
-  for(const [label,key] of [['Name','names'],['Email','emails'],['Username','usernames'],['Phone','phones'],['Place','places']]){
-    for(const value of evidence[key]||[])values.push([label,value]);
-  }
-  if(finding.kind==='breach')values.push(['Data breach',[finding.breach?.name,finding.breach?.date].filter(Boolean).join(' · ')]);
-  const seen=new Set();
-  return values.filter(([,value])=>{const key=String(value).toLowerCase();if(!key||seen.has(key))return false;seen.add(key);return true;});
+const emptyDetails=()=>Object.fromEntries(detailGroups.map(([key])=>[key,[]]));
+
+function detailSourceNames(finding){
+  const origin=finding.kind==='account'?(finding.account?.site||'Account'):(finding.fact?.label||finding.host?.value||finding.breach?.name||'Finding');
+  return (finding.sources?.length?finding.sources:[finding.tool]).filter(Boolean)
+    .map(item=>`${origin} (${item.name||'Unknown tool'} · ${item.serverName||'Unknown MCP server'})`);
 }
 
-function summaryCard(findings){
-  const rows=findings.flatMap(finding=>findingValues(finding).map(([label,value])=>
-    `<li><strong>${escapeHtml(label)}:</strong> ${escapeHtml(value)} ${sourceLine(finding)}</li>`));
-  return card({title:'What we know',headingLevel:2,body:rows.length?`<ul class="result-list">${rows.join('')}</ul>`:'<p>No linked identity details were found.</p>'});
+function linkedDetailValues(finding){
+  const values=emptyDetails();
+  const source=finding.kind==='account'?(finding.account?.details||{}):(finding.evidence||{});
+  for(const [key] of detailGroups)values[key].push(...(source[key]||[]));
+  if(finding.kind!=='account')values.websites.push(...(source.urls||[]));
+  if(finding.kind==='host'&&finding.host?.value)values.websites.push(finding.host.value);
+  if(finding.kind==='lead'&&finding.lead?.value){
+    const key={email:'emails',username:'usernames',phone:'phones',ip:'ips',domain:'websites'}[finding.lead.type];
+    if(key)values[key].push(finding.lead.value);
+  }
+  if(finding.kind==='fact'&&finding.fact?.value){
+    const label=String(finding.fact.label||'').toLowerCase();
+    const key=/email/.test(label)?'emails':/user/.test(label)?'usernames':/phone/.test(label)?'phones':/\bip\b/.test(label)?'ips':/site|url|website/.test(label)?'websites':/place|location|city/.test(label)?'places':/name/.test(label)?'names':'';
+    if(key)values[key].push(finding.fact.value);
+  }
+  return values;
+}
+
+function websiteKey(value){
+  const raw=String(value??'').trim();
+  try{
+    const url=new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)?raw:`https://${raw}`);
+    return`${url.hostname.toLowerCase().replace(/^www\./,'')}${url.pathname.replace(/\/+$/,'').toLowerCase()}`;
+  }catch{return raw.toLowerCase().replace(/^https?:\/\/(?:www\.)?/,'').replace(/[?#].*$/,'').replace(/\/+$/,'');}
+}
+
+function isSeedDetail(key,value,seed){
+  const type={usernames:'username',emails:'email',phones:'phone'}[key];
+  if(!type||seed?.type!==type)return false;
+  const clean=text=>{
+    const raw=String(text??'').trim().toLowerCase();
+    return type==='phone'?raw.replace(/\D/g,''):type==='username'?raw.replace(/^@/,''):raw;
+  };
+  return clean(value)===clean(seed.value);
+}
+
+function collectConnectedDetails(findings,seed){
+  const collected=Object.fromEntries(detailGroups.map(([key])=>[key,new Map()]));
+  for(const finding of findings.filter(item=>item.status==='linked')){
+    const sources=detailSourceNames(finding);const values=linkedDetailValues(finding);
+    for(const [key] of detailGroups){
+      for(const raw of values[key]){
+        const value=String(raw??'').trim();if(!value||isSeedDetail(key,value,seed))continue;
+        const normalized=key==='websites'?websiteKey(value):value.toLowerCase();
+        if(!collected[key].has(normalized))collected[key].set(normalized,{value,sources:new Set()});
+        for(const source of sources)collected[key].get(normalized).sources.add(source);
+      }
+    }
+  }
+  return Object.fromEntries(detailGroups.map(([key])=>[key,[...collected[key].values()]]));
+}
+
+function connectedDetails(details){
+  const rows=[];
+  for(const [key,label] of detailGroups){
+    for(const item of details[key]){
+      const pivot=['websites','emails','usernames'].includes(key)?` ${pivotButton(item.value)}`:'';
+      rows.push(`<li><strong>${label}:</strong> ${escapeHtml(item.value)} <span class="result-source">from ${escapeHtml([...item.sources].join(', '))}</span>${pivot}</li>`);
+    }
+  }
+  return `<section class="connected-details"><h2>Connected details</h2>${rows.length?`<ul class="result-list">${rows.join('')}</ul>`:'<p>No details were confirmed. Accounts that only share the username are listed below.</p>'}</section>`;
 }
 
 function trailDetails(finding){
-  const steps=(finding.trail||[]).map(step=>`<li><strong>${escapeHtml(step.from?.value||'Lead')}</strong> — ${escapeHtml(step.note||'Linked by evidence.')} <span class="result-source">${escapeHtml(step.tool||'Unknown tool')}</span></li>`).join('');
-  return `<details><summary>How we found this</summary>${steps?`<ol>${steps}</ol>`:'<p>This account was linked directly to what you searched.</p>'}</details>`;
+  const reasons=(finding.reasons||[]).map(item=>`<li>${escapeHtml(item.text||item)}</li>`);
+  const trail=(finding.trail||[]).map(step=>`<li><strong>${escapeHtml(step.from?.value||'Lead')}</strong> — ${escapeHtml(step.note||'Linked by evidence.')} <span class="result-source">${escapeHtml(step.tool||'Unknown tool')}</span></li>`);
+  const steps=reasons.length?reasons:trail;
+  return `<details><summary>How we found this</summary>${steps.length?`<ol>${steps.join('')}</ol>`:'<p>No evidence beyond the matching username was found.</p>'}</details>`;
 }
 
-function accountCard(finding,headingLevel=4){
+function accountOwnDetails(account,seed){
+  const details=account?.details||{};const rows=[];
+  for(const [key,label] of detailGroups){
+    for(const value of details[key]||[])if(!isSeedDetail(key,value,seed))rows.push(`<li><strong>${label}:</strong> ${escapeHtml(value)}</li>`);
+  }
+  return rows.length?`<div class="account-details"><p><strong>Details from this profile</strong></p><ul>${rows.join('')}</ul></div>`:'';
+}
+
+function accountCard(finding,headingLevel=4,seed){
   const account=finding.account||{};const title=account.site||account.displayName||'Account';
-  const body=`<p>${externalLink(account.url,account.displayName||account.url||title)}</p><p><strong>Why linked:</strong> ${escapeHtml(finding.reason||'Linked by matching evidence.')}</p>${sourceLine(finding)}${trailDetails(finding)}`;
-  return card({title,headingLevel,body,actions:pivotButton(account.url||title)});
+  const address=account.url?externalLink(account.url,account.displayName||account.url):`${escapeHtml(title)} <span class="subtle">No page address</span>`;
+  const count=(finding.confirmedBy||[]).length;const level=finding.level;
+  const badge=finding.status==='linked'&&level?`<p class="deep-level-badge">Level ${escapeHtml(level)} · backed by ${count} of 3 rules</p>`:'';
+  const why=finding.status==='linked'?'Why confirmed':'Why not confirmed';
+  const body=`${badge}<p>${address}</p><p><strong>${why}:</strong> ${escapeHtml(finding.reason||'Linked by matching evidence.')}</p>${accountOwnDetails(account,seed)}${sourceLine(finding)}${trailDetails(finding)}`;
+  return card({title,headingLevel,body,actions:account.url?pivotButton(account.url):''});
 }
 
-function groupedAccounts(findings){
+function groupedAccounts(findings,seed){
   const accounts=findings.filter(item=>item.kind==='account'&&item.status==='linked');
   const groups=categories.map(([key,label])=>[label,accounts.filter(item=>(item.account?.category||'other')===key)]).filter(([,items])=>items.length);
-  return `<section><h2>Linked accounts (${accounts.length})</h2>${groups.map(([label,items])=>`<section><h3>${label}</h3>${items.map(item=>accountCard(item)).join('')}</section>`).join('')||'<p>No linked accounts were found.</p>'}</section>`;
+  const sort=(a,b)=>(Number(a.level)||9)-(Number(b.level)||9)||String(a.account?.site||'').localeCompare(String(b.account?.site||''));
+  return `<section><h2>Confirmed accounts (${accounts.length})</h2>${groups.map(([label,items])=>`<section><h3>${label}</h3>${[...items].sort(sort).map(item=>accountCard(item,4,seed)).join('')}</section>`).join('')||'<p>No accounts were confirmed.</p>'}</section>`;
 }
 
 function websites(findings){
@@ -75,9 +147,19 @@ function unfollowed(leads){
   return `<section><h2>More leads we didn&#39;t follow</h2><ul>${leads.map(item=>`<li>${escapeHtml(item.value)} ${targetButton(item.value,'Deep Search this lead')} ${pivotButton(item.value)}</li>`).join('')}</ul></section>`;
 }
 
-function possibleMatches(findings){
-  const possible=findings.filter(item=>item.status==='possible');if(!possible.length)return'';
-  return `<details><summary>Show ${possible.length} ${plural(possible.length,'possible match')}</summary>${possible.map(item=>item.kind==='account'?accountCard(item,3):card({title:item.problem?.title||item.fact?.label||item.kind,headingLevel:3,body:`<p>${escapeHtml(item.reason||'Not enough evidence to link this finding.')}</p>${sourceLine(item)}`})).join('')}</details>`;
+function possibleAccounts(findings,seed){
+  const possible=findings.filter(item=>item.kind==='account'&&item.status==='possible');if(!possible.length)return'';
+  const usernames=[...new Set(possible.map(item=>item.subject?.type==='username'?item.subject.value:'').filter(Boolean))];
+  let body;
+  if(usernames.length>1)body=usernames.map(username=>`<section><h3>${escapeHtml(username)}</h3>${possible.filter(item=>item.subject?.value===username).map(item=>accountCard(item,4,seed)).join('')}</section>`).join('');
+  else body=possible.map(item=>accountCard(item,3,seed)).join('');
+  return `<details><summary>Same username, not confirmed (${possible.length})</summary>${body}</details>`;
+}
+
+function droppedAccounts(findings){
+  const dropped=findings.filter(item=>item.kind==='account'&&item.status==='dropped');if(!dropped.length)return'';
+  const rows=dropped.map(item=>`<li>${escapeHtml(item.account?.site||'Unknown site')} — ${escapeHtml(item.reason||'Couldn\'t check.')}${sourceLine(item)}</li>`).join('');
+  return `<details><summary>Not found or couldn&#39;t check (${dropped.length})</summary><ul>${rows}</ul></details>`;
 }
 
 function searchDetails(run){
@@ -94,7 +176,13 @@ function resultActions(){return `<div class="deep-result-actions">${button({labe
 
 export function renderPersonResults(run){
   const findings=Array.isArray(run?.findings)?run.findings:[];const linked=findings.filter(item=>item.status==='linked');
-  return `${resultHeader(run)}${summaryCard(linked)}${groupedAccounts(linked)}${websites(linked)}${unfollowed(run.leadsNotFollowed)}${possibleMatches(findings)}${searchDetails(run)}${resultActions()}`;
+  const details=collectConnectedDetails(findings,run.target);
+  const accounts=findings.filter(item=>item.kind==='account');
+  const found=accounts.filter(item=>!['not-found','unchecked'].includes(item.account?.presence||'found')).length;
+  const confirmed=accounts.filter(item=>item.status==='linked').length;
+  const counts=detailGroups.map(([key,label])=>details[key].length?`${details[key].length} ${plural(details[key].length,label.slice(0,-1).toLowerCase())}`:'').filter(Boolean);
+  const summary=`<p class="deep-results-summary">${found} ${plural(found,'account')} found · ${confirmed} confirmed${counts.length?` · details: ${counts.join(', ')}`:''}</p>`;
+  return `${resultHeader(run)}${summary}${connectedDetails(details)}${groupedAccounts(findings,run.target)}${websites(linked)}${unfollowed(run.leadsNotFollowed)}${possibleAccounts(findings,run.target)}${droppedAccounts(findings)}${searchDetails(run)}${resultActions()}`;
 }
 
 function siteOverview(findings,problemCount){

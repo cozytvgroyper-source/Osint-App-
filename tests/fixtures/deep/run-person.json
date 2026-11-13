@@ -19,8 +19,10 @@
       "trail": [{"from": {"type": "email", "value": "owner@example.com"}, "tool": "omega_identity", "note": "Found while checking the email."}]
     },
     {
-      "id": "account-1", "kind": "account", "status": "linked", "reason": "Profile shows owner@example.com.",
-      "account": {"site": "GitHub <script>", "url": "https://github.com/ownername", "displayName": "Owner Example", "category": "developer"},
+      "id": "account-1", "kind": "account", "status": "linked", "reason": "Registered with owner@example.com.",
+      "confirmedBy": ["a"], "level": 3,
+      "reasons": [{"rule": "a", "text": "Registered with owner@example.com."}],
+      "account": {"site": "GitHub <script>", "url": "https://github.com/ownername", "displayName": "Owner Example", "category": "developer", "presence": "found", "details": {"names": ["Owner Example"], "usernames": [], "emails": ["owner@example.com"], "phones": [], "ips": [], "websites": ["https://owner-site.example"], "places": ["Example City"]}},
       "evidence": {"names": ["Owner Example"], "emails": ["owner@example.com"], "usernames": ["ownername"], "phones": [], "urls": ["https://github.com/ownername"], "places": []},
       "sources": [{"name": "omega_gitrecon", "serverName": "Omega MCP"}],
       "trail": [
@@ -36,7 +38,8 @@
     },
     {
       "id": "possible-1", "kind": "account", "status": "possible", "reason": "Same username; nothing else links it.",
-      "account": {"site": "Forum", "url": "https://forum.example/ownername", "category": "forums"},
+      "confirmedBy": [], "level": null, "reasons": [],
+      "account": {"site": "Forum", "url": "https://forum.example/ownername", "category": "forums", "presence": "found", "details": {"names": [], "usernames": [], "emails": [], "phones": [], "ips": [], "websites": [], "places": []}},
       "evidence": {"names": [], "emails": [], "usernames": ["ownername"], "phones": [], "urls": [], "places": []},
       "sources": [{"name": "sherlock_username_search", "serverName": "OSINT Toolbox"}], "trail": []
     }

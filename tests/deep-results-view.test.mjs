@@ -4,25 +4,94 @@ import {readFile} from 'node:fs/promises';
 
 const fixture=async name=>JSON.parse(await readFile(new URL(`./fixtures/deep/${name}.json`,import.meta.url),'utf8'));
 
-test('person results show linked facts, grouped accounts, trails, leads and calls',async()=>{
+const source=(name='maigret_username_search',serverName='OSINT Toolbox')=>({name,serverName});
+const accountDetails=overrides=>({names:[],usernames:[],emails:[],phones:[],ips:[],websites:[],places:[],...overrides});
+const personRun=findings=>({
+  id:'person-test',target:{type:'username',value:'ownername'},level:0,outcome:'completed',rounds:1,calls:[],
+  findings,leadsNotFollowed:[]
+});
+const accountFinding=(id,{site='GitHub',url=`https://example.com/${id}`,status='linked',level=3,details={},reason='Registered with owner@example.com.',presence='found',presenceNote='',subject={type:'username',value:'ownername'}}={})=>({
+  id,kind:'account',status,reason,level,confirmedBy:status==='linked'?['a']:[],reasons:status==='linked'?[{rule:'a',text:reason}]:[],
+  subject,account:{site,url,category:'developer',presence,...(presenceNote?{presenceNote}:{}),details:accountDetails(details)},
+  evidence:{names:[],emails:[],usernames:[],phones:[],urls:[],places:[]},sources:[source()],trail:[]
+});
+
+test('person results show connected details, grouped accounts, trails, leads and calls',async()=>{
   const {renderPersonResults}=await import('../public/deep-results-view.js');
   const html=renderPersonResults(await fixture('run-person'));
-  assert.match(html,/<h2[^>]*>What we know<\/h2>/);
-  assert.match(html,/<h2[^>]*>Linked accounts \(1\)<\/h2>/);
+  assert.match(html,/<h2[^>]*>Connected details<\/h2>/);
+  assert.match(html,/<h2[^>]*>Confirmed accounts \(1\)<\/h2>/);
   assert.match(html,/<h3[^>]*>Developer<\/h3>/);
   assert.match(html,/<h4[^>]*>GitHub &lt;script&gt;<\/h4>/);
-  assert.match(html,/Why linked:/);
+  assert.match(html,/Level 3 · backed by 1 of 3 rules/);
+  assert.match(html,/details: 1 name, 1 website, 1 location/);
+  assert.doesNotMatch(html,/details:[^<]*email/);
   assert.match(html,/omega_gitrecon · Omega MCP/);
   assert.match(html,/<summary>How we found this<\/summary>/);
-  assert.match(html,/Found @ownername[\s\S]*Profile shows the email/);
+  assert.match(html,/Registered with owner@example\.com\./);
   assert.match(html,/Websites found[\s\S]*data-deep-target="owner-site\.example"/);
   assert.match(html,/More leads we didn&#39;t follow[\s\S]*data-deep-target="owner-alt"/);
-  assert.match(html,/<details><summary>Show 1 possible match<\/summary>/);
+  assert.match(html,/<details[^>]*><summary>Same username, not confirmed \(1\)<\/summary>/);
   assert.match(html,/Same username; nothing else links it/);
   assert.match(html,/<details><summary>Search details<\/summary>[\s\S]*Timed out/);
   assert.match(html,/data-deep-save/);assert.match(html,/data-deep-new/);
   assert.match(html,/Stopped early/);
   assert.doesNotMatch(html,/Run grant/i);
+});
+
+test('person results show connected details from confirmed sources only',async()=>{
+  const {renderPersonResults}=await import('../public/deep-results-view.js');
+  const confirmed=accountFinding('confirmed',{site:'GitHub',url:'https://github.com/ownername',details:{names:['Owner Example'],emails:['owner@example.com'],websites:['https://owner-site.example']}});
+  const possible=accountFinding('possible',{site:'Forum',url:'https://forum.example/ownername',status:'possible',level:null,reason:'Same username; nothing else links it.',details:{names:['Stranger Name']}});
+  const html=renderPersonResults(personRun([confirmed,possible]));
+  const foldAt=html.indexOf('Same username, not confirmed (1)');
+  assert.ok(foldAt>html.indexOf('Connected details'));
+  assert.match(html.slice(0,foldAt),/Owner Example[\s\S]*from GitHub \(maigret_username_search · OSINT Toolbox\)/);
+  assert.doesNotMatch(html.slice(0,foldAt),/Stranger Name/);
+  assert.match(html.slice(foldAt),/Stranger Name/);
+  assert.match(html,/data-pivot="owner@example\.com" aria-label="Pivot: investigate owner@example\.com"/);
+});
+
+test('confirmed accounts show exact level badges and sort strongest first',async()=>{
+  const {renderPersonResults}=await import('../public/deep-results-view.js');
+  const weak=accountFinding('weak',{site:'Alpha',url:'https://alpha.example/ownername',level:3});
+  const strong={...accountFinding('strong',{site:'Zulu',url:'https://zulu.example/ownername',level:1}),confirmedBy:['a','b','c']};
+  const html=renderPersonResults(personRun([weak,strong]));
+  assert.match(html,/Level 1 · backed by 3 of 3 rules/);
+  assert.match(html,/Level 3 · backed by 1 of 3 rules/);
+  assert.ok(html.indexOf('Zulu')<html.indexOf('Alpha'));
+});
+
+test('not found and could not check accounts are folded and listed',async()=>{
+  const {renderPersonResults}=await import('../public/deep-results-view.js');
+  const missing=accountFinding('missing',{site:'Missing Site',url:'https://missing.example/ownername',status:'dropped',level:null,presence:'not-found',reason:'Not found.'});
+  const blocked=accountFinding('blocked',{site:'Blocked Site',url:'https://blocked.example/ownername',status:'dropped',level:null,presence:'unchecked',presenceNote:'403',reason:"Couldn't check (403)."});
+  const html=renderPersonResults(personRun([missing,blocked]));
+  assert.match(html,/<summary>Not found or couldn&#39;t check \(2\)<\/summary>/);
+  assert.match(html,/Missing Site — Not found/);
+  assert.match(html,/Blocked Site — Couldn&#39;t check \(403\)/);
+});
+
+test('an account without a page address has no link or empty pivot',async()=>{
+  const {renderPersonResults}=await import('../public/deep-results-view.js');
+  const noPage=accountFinding('no-page',{site:'Data Only',url:'',details:{names:['Owner Example']}});
+  noPage.account.rawUrl='https://api.example.com/users/ownername.json';
+  const html=renderPersonResults(personRun([noPage]));
+  const card=html.match(/<article class="card"><h4[^>]*>Data Only<\/h4>[\s\S]*?<\/article>/)?.[0]||'';
+  assert.match(card,/No page address/);
+  assert.doesNotMatch(card,/<a\b/);
+  assert.doesNotMatch(card,/data-pivot=""/);
+});
+
+test('empty Connected details explains why and older account shapes still render',async()=>{
+  const {renderPersonResults}=await import('../public/deep-results-view.js');
+  const empty=personRun([accountFinding('possible-old',{site:'Forum',status:'possible',level:null,reason:'Same username; nothing else links it.'})]);
+  delete empty.findings[0].account.presence;delete empty.findings[0].account.details;
+  assert.match(renderPersonResults(empty),/No details were confirmed\. Accounts that only share the username are listed below\./);
+  const old=await fixture('run-person');
+  for(const item of old.findings)if(item.kind==='account'){delete item.account.presence;delete item.account.details;}
+  const html=renderPersonResults(old);
+  assert.match(html,/Confirmed accounts \(1\)/);
 });
 
 test('site results show an overview, ordered problems and other hosts',async()=>{
@@ -57,7 +126,7 @@ test('both views escape hostile text, label external links, keep possible findin
     assert.match(html,/MCP|Toolbox/);
   }
   assert.match(person,/\(opens in a new tab\)/);
-  assert.ok(person.indexOf('Same username; nothing else links it')>person.indexOf('<summary>Show 1 possible match</summary>'));
+  assert.ok(person.indexOf('Same username; nothing else links it')>person.indexOf('<summary>Same username, not confirmed (1)</summary>'));
 });
 
 test('evidence records exclude raw answers',async()=>{
