@@ -231,3 +231,10 @@ test('account categories are stable and unknown sites stay Other',()=>{
   assert.equal(accountCategory('shop.example'),'other');
   assert.ok(ADAPTERS.maigret_username_search);
 });
+
+test('a Wayback "available" data address becomes the archived page itself',()=>{
+  const raw='http://archive.org/wayback/available?url=https://twitter.com/ownername';
+  assert.deepEqual(profilePageUrl(raw),{url:'https://web.archive.org/web/https://twitter.com/ownername',rawUrl:raw});
+  const encoded='https://archive.org/wayback/available?url=https%3A%2F%2Fx.com%2Fownername&timestamp=2020';
+  assert.equal(profilePageUrl(encoded).url,'https://web.archive.org/web/https://x.com/ownername');
+});

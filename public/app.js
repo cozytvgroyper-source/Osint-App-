@@ -348,7 +348,7 @@ async function loadDeepHistory(){
     // The count is exact only when the whole log was read; otherwise Delete all doesn't name a number.
     state.deepHistoryCount=total>entries.length?null:runs.length;
     $('#deleteAllDeepHistory').hidden=!runs.length;$('#deleteAllDeepHistory').disabled=busy;$('#deepHistoryBusy').hidden=!busy;
-    box.innerHTML=runs.length?`<div class="table-scroll" role="region" tabindex="0" aria-label="Run history table"><table class="deep-history-table"><thead><tr><th scope="col">When</th><th scope="col">Target</th><th scope="col">Max level</th><th scope="col">Tools</th><th scope="col">Outcome</th><th scope="col">Results</th></tr></thead><tbody>${runs.map(entry=>`<tr><td>${escapeHtml(new Date(entry.time).toLocaleString())}</td><td><code>${escapeHtml(entry.target)}</code></td><td>${escapeHtml(levelName(entry.level))}</td><td title="${escapeHtml((entry.tools||[]).join(', '))}">${entry.toolCount??(entry.tools||[]).length} tool${(entry.toolCount??(entry.tools||[]).length)===1?'':'s'}</td><td>${escapeHtml(entry.outcome)}</td><td>${entry.runId?`<button type="button" class="text-button" data-open-deep="${escapeHtml(entry.runId)}">Open results</button>`:'Results weren\'t kept for this run'} ${deleteButton(entry)}</td></tr>`).join('')}</tbody></table></div>${total>runs.length?`<p class="subtle">Showing the latest ${runs.length} of ${total} audit entries.</p>`:''}${skipped?`<p class="subtle">${skipped} damaged line${skipped===1?' was':'s were'} skipped in the audit log.</p>`:''}`:'<div class="empty-state">No Deep Search runs yet.</div>';
+    box.innerHTML=runs.length?`<div class="table-scroll" role="region" tabindex="0" aria-label="Run history table"><table class="deep-history-table"><thead><tr><th scope="col">When</th><th scope="col">Target</th><th scope="col">Max level</th><th scope="col">Tools</th><th scope="col">Outcome</th><th scope="col">Results</th></tr></thead><tbody>${runs.map(entry=>`<tr><td>${escapeHtml(new Date(entry.time).toLocaleString())}</td><td><code>${escapeHtml(entry.target)}</code></td><td>${escapeHtml(levelName(entry.level))}</td><td title="${escapeHtml((entry.tools||[]).join(', '))}">${entry.toolCount??(entry.tools||[]).length} tool${(entry.toolCount??(entry.tools||[]).length)===1?'':'s'}</td><td>${escapeHtml(entry.outcome)}</td><td>${entry.runId?`<button type="button" class="text-button" data-open-deep="${escapeHtml(entry.runId)}"${busy?' disabled':''}>Open results</button>`:'Results weren\'t kept for this run'} ${deleteButton(entry)}</td></tr>`).join('')}</tbody></table></div>${total>runs.length?`<p class="subtle">Showing the latest ${runs.length} of ${total} audit entries.</p>`:''}${skipped?`<p class="subtle">${skipped} damaged line${skipped===1?' was':'s were'} skipped in the audit log.</p>`:''}`:'<div class="empty-state">No Deep Search runs yet.</div>';
   }catch(error){$('#deleteAllDeepHistory').hidden=true;box.innerHTML=`<div class="empty-state">Could not read the audit log: ${escapeHtml(error.message)}</div>`;}
 }
 const selfCheck={running:false,stop:false};
@@ -541,7 +541,7 @@ function renderReadableResult(result,openKeys=null){
     const errors=!('Still Running' in report)&&!hasFindings&&Array.isArray(payload.errors)&&payload.errors.length?`<section class="result-category warning"><div class="category-head"><div><p class="eyebrow">SEARCH RESULT</p><h3>No results returned</h3></div></div>${renderArray(payload.errors)}</section>`:'';
     return `${content}${errors}`||'<p class="empty-copy">No matching results returned.</p>';
   }
-  if(Array.isArray(payload))return renderArray(payload);
+  if(Array.isArray(payload))return `<section class="result-category"><div class="category-head"><div><p class="eyebrow">RESULT</p><h3>Findings</h3></div></div>${renderArray(payload)}</section>`;
   if(payload&&typeof payload==='object')return `<section class="result-category"><div class="category-head"><div><p class="eyebrow">RESULT</p><h3>Findings</h3></div></div>${renderRecord(payload)}${Object.entries(payload).filter(([,value])=>Array.isArray(value)).map(([key,items])=>`<div class="result-subgroup"><h4>${escapeHtml(humanize(key))}</h4>${renderArray(items)}</div>`).join('')}</section><details class="raw-result"><summary>Technical details</summary><pre>${escapeHtml(JSON.stringify(parsed,null,2))}</pre></details>`;
   return `<div class="plain-result">${escapeHtml(String(payload??'No result returned.'))}</div>`;
 }
@@ -736,10 +736,23 @@ async function startDeepSearch(){
 
 async function cancelDeepSearch(){
   if(!state.deepController)return;
-  if(await confirmAction({title:'Stop the search?',message:"Stop the search? What's been found so far will be kept.",confirmLabel:'Stop search'}))state.deepController.abort();
+  // The search may finish while this question is open, and the progress card is redrawn meanwhile, so the button that
+  // opened it may be gone: stop only what is still running, then put focus on the heading that is showing.
+  if(await confirmAction({title:'Stop the search?',message:"Stop the search? What's been found so far will be kept.",confirmLabel:'Stop search'}))state.deepController?.abort();
+  if(document.activeElement===document.body||!document.activeElement)(state.deepRun?document.getElementById('deepProgressHeading'):document.getElementById('deepResultsHeading'))?.focus();
+}
+
+// While a search runs, its progress (and its Stop button) must stay reachable: anything that would replace it shows it.
+function showLiveDeepSearch(){
+  if(!state.deepRun)return false;
+  switchView('deep');$('#deepSetup').hidden=true;$('#deepResults').hidden=true;$('#deepProgress').hidden=false;
+  toast('A search is still running. Wait for it to finish, or stop it, first.',6000);
+  document.getElementById('deepProgressHeading')?.focus();
+  return true;
 }
 
 function resetDeepSearch(value=''){
+  if(showLiveDeepSearch())return;
   $('#deepSetup').hidden=false;$('#deepProgress').hidden=true;$('#deepResults').hidden=true;$('#deepTarget').value=value;$('#deepAuthorize').checked=false;$('#deepTypedTarget').value='';updateDeepSetup();window.scrollTo({top:0,behavior:'smooth'});$('#deepTarget').focus();
 }
 
@@ -790,6 +803,7 @@ async function deleteAllDeepRuns(){
 }
 
 async function openDeepResults(runId){
+  if(showLiveDeepSearch())return;
   const stored=await apiGet(`/api/deep-search/runs/${encodeURIComponent(runId)}`);const run=rebuildDeepFindings(stored);
   state.deepCurrent=run;switchView('deep');$('#deepSetup').hidden=true;$('#deepProgress').hidden=true;$('#deepResults').hidden=false;$('#deepResults').innerHTML=renderDeepResults(run);document.getElementById('deepResultsHeading')?.focus();
 }

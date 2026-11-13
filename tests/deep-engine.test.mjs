@@ -171,3 +171,18 @@ test('a failed permission renewal records the tool error instead of ending the r
   assert.equal(run.calls.length,2);
   assert.ok(run.calls.every(call=>call.outcome==='error'&&/expired/.test(call.error)));
 });
+
+test('leads found in the last round are listed as not followed, never announced and dropped',async()=>{
+  const events=[];
+  const next={'+15555550100':'e1@owner-site.example','e1@owner-site.example':'e2@owner-site.example','e2@owner-site.example':'e3@owner-site.example'};
+  const run=await runDeepSearch({id:'chain',target:{type:'phone',value:'+15555550100'},level:0,tools:[toolbox('phoneinfoga_scan','number'),omega('omega_email')],excluded:new Set(),confirmation:{acknowledged:true},
+    onEvent:event=>events.push(event),
+    callTool:async(current,args)=>{const from=args.number||args.target;return{result:textResult(next[from]?`Results for ${from}: contact ${next[from]}`:'nothing')};}});
+  assert.equal(run.rounds,MAX_ROUNDS);
+  const announced=events.filter(event=>event.type==='lead').map(event=>event.identifier.value);
+  const searched=new Set(run.calls.map(call=>call.identifier.value));
+  for(const value of announced)assert.ok(searched.has(value),`announced lead ${value} was searched`);
+  const missed=run.leadsNotFollowed.map(item=>item.value);
+  for(const value of Object.values(next))assert.ok(searched.has(value)||missed.includes(value),`${value} is searched or listed as not followed`);
+  assert.ok(missed.includes('e3@owner-site.example'),'the lead from the last round is listed');
+});
