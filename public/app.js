@@ -480,7 +480,7 @@ function readableValue(key,value){
 }
 function pivotButton(value){
   const pivot=resultPivot(value);
-  return pivot?`<button type="button" class="pivot-button" data-pivot="${escapeHtml(pivot.target)}" aria-label="${escapeHtml(`${pivot.label}: ${pivot.target}`)}">Pivot →</button>`:'';
+  return pivot?`<button type="button" class="pivot-button" data-pivot="${escapeHtml(pivot.target)}" aria-label="${escapeHtml(`Pivot: ${pivot.label.toLowerCase()} ${pivot.target}`)}">Pivot →</button>`:'';
 }
 function renderRecord(data){
   // Multi-line text (Omega's captured module output) keeps its line breaks and column alignment.

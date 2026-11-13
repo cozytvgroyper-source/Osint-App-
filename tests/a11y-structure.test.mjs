@@ -93,3 +93,11 @@ test('every card list has a section heading so headings never skip a level',()=>
   assert.match(html,/<h2 class="visually-hidden">Stories<\/h2>\s*<div id="intelNewsList"/);
   assert.match(html,/<h2 class="visually-hidden">Findings<\/h2>\s*<div id="evidenceList"/);
 });
+
+// Label in name (WCAG 2.5.3): the Pivot button's accessible name starts with the word it shows, so "click Pivot" works
+// for voice control; the rest says what it looks up.
+test('the Pivot button is named by the word it shows',()=>{
+  const fn=app.match(/function pivotButton\(value\)\{[\s\S]*?\n\}/)[0];
+  assert.match(fn,/>Pivot →<\/button>/);
+  assert.match(fn,/aria-label="\$\{escapeHtml\(`Pivot: \$\{pivot\.label\.toLowerCase\(\)\} \$\{pivot\.target\}`\)\}"/);
+});
