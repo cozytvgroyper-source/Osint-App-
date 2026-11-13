@@ -45,6 +45,18 @@ test('grants are chunked with runId and released at the end',async()=>{
   assert.deepEqual(released,['grant-run']);
 });
 
+test('a website linked to a person gets Passive and Light touch checks only',async()=>{
+  const tools=[toolbox('phoneinfoga_scan','number'),toolbox('whois_lookup','domain'),omega('omega_headers'),omega('omega_ports')];
+  const calls=[];const grants=[];
+  await runDeepSearch({id:'linked-site',target:{type:'phone',value:'+15555550100'},level:3,tools,excluded:new Set(),confirmation:{acknowledged:true},
+    callTool:async(current,args)=>{calls.push([current.name,args]);return{result:textResult(current.name==='phoneinfoga_scan'?'Website: https://blog.example/about':'{}')}},
+    requestGrant:async request=>{grants.push(request);return{token:'site-grant',expiresAt:Date.now()+1e6}}});
+  assert.ok(calls.some(([name,args])=>name==='whois_lookup'&&args.domain==='blog.example'));
+  assert.ok(calls.some(([name,args])=>name==='omega_headers'&&args.target==='blog.example'));
+  assert.ok(!calls.some(([name])=>name==='omega_ports'));
+  assert.ok(grants.some(request=>request.target==='blog.example'&&request.level===1&&request.confirmation.acknowledged&&!request.confirmation.authorization));
+});
+
 test('an expired grant is renewed once with the same confirmation',async()=>{
   const tools=[omega('omega_headers')];let grants=0,calls=0;
   await runDeepSearch({id:'renew',target:{type:'domain',value:'example.com'},level:1,tools,excluded:new Set(),confirmation:{acknowledged:true},

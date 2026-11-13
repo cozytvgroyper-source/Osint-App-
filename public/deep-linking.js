@@ -1,4 +1,4 @@
-import {normalizeIdentifier} from './deep-search.js';
+import {detectDeepTarget,normalizeIdentifier} from './deep-search.js';
 
 const PERSON_TYPES=new Set(['email','username','phone']);
 const STATUS_WEIGHT={dropped:0,possible:1,linked:2};
@@ -24,6 +24,16 @@ function evidenceIdentifiers(finding){
   for(const value of evidence.emails||[])out.push(normalizeIdentifier({type:'email',value}));
   for(const value of evidence.usernames||[])out.push(normalizeIdentifier({type:'username',value}));
   for(const value of evidence.phones||[])out.push(normalizeIdentifier({type:'phone',value}));
+  const profileUrl=normalizeUrl(finding?.account?.url||'');
+  for(const value of evidence.urls||[]){
+    if(profileUrl&&normalizeUrl(value)===profileUrl)continue;
+    const target=detectDeepTarget(value);
+    if(target?.type==='domain')out.push(target);
+  }
+  if(finding?.kind==='host'){
+    const target=detectDeepTarget(finding.host?.value);
+    if(target?.type==='domain')out.push(target);
+  }
   if(finding?.lead)out.push(normalizeIdentifier(finding.lead));
   return out.filter(Boolean);
 }
