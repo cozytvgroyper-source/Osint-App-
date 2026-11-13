@@ -1,5 +1,5 @@
-import {appendFile,chmod,mkdir,open,rename,stat,writeFile} from 'node:fs/promises';
-import {dirname} from 'node:path';
+import {appendFile,chmod,mkdir,open,readFile,readdir,rename,stat,unlink,writeFile} from 'node:fs/promises';
+import {basename,dirname,join} from 'node:path';
 import {randomBytes} from 'node:crypto';
 
 export const MAX_AUDIT_BYTES = 1_000_000;
@@ -34,10 +34,86 @@ export async function appendDeepSearchAudit(file, value, options={}) {
     }
     return entry;
   };
+  return queued(file,run);
+}
+
+// Every write to one log file (append, delete, clear) runs one at a time, in the order it was asked for, so a search
+// finishing while the owner deletes another never loses or scrambles a line.
+async function queued(file,work){
   const previous=auditQueues.get(file)||Promise.resolve();
-  const current=previous.then(run,run);
+  const current=previous.then(work,work);
   auditQueues.set(file,current);
   try{return await current;}finally{if(auditQueues.get(file)===current)auditQueues.delete(file);}
+}
+
+const auditInputError=()=>Object.assign(new Error('Invalid Deep Search history delete'),{code:'AUDIT_INPUT'});
+
+async function readWholeLog(file){
+  try{return await readFile(file,'utf8');}catch(error){if(error.code==='ENOENT')return null;throw error;}
+}
+
+async function replaceLog(file,text){
+  const temporary=`${file}.${process.pid}.${randomBytes(4).toString('hex')}.tmp`;
+  try{
+    await writeFile(temporary,text,{encoding:'utf8',mode:0o600});
+    await chmod(temporary,0o600);
+    await rename(temporary,file);
+  }catch(error){
+    // A temporary file holds a full copy of the log; never leave it behind.
+    await unlink(temporary).catch(()=>{});
+    throw error;
+  }
+}
+
+// Temporary copies of the log ("<log name>.<pid>.<hex>.tmp") left by a crash or failed write hold old history.
+// Deleting must remove them too. Only called inside the queue, so no write of ours is in flight.
+async function removeLeftoverCopies(file){
+  const prefix=basename(file).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  const pattern=new RegExp(`^${prefix}\\.\\d+\\.[0-9a-f]+\\.tmp$`);
+  let names;
+  try{names=await readdir(dirname(file));}catch(error){if(error.code==='ENOENT')return;throw error;}
+  for(const name of names)if(pattern.test(name))await unlink(join(dirname(file),name)).catch(error=>{if(error.code!=='ENOENT')throw error;});
+}
+
+// Removes one search's lines from the log: by runId (both its "started" and final lines), or, for older lines that
+// have no runId, by their exact time and target. Every other line, damaged ones included, is kept byte-for-byte.
+// Returns how many lines were removed; a missing log removes nothing.
+export async function deleteDeepSearchAudit(file,match={}){
+  let matches;
+  if(Object.hasOwn(match,'runId')){
+    const runId=match.runId;
+    if(typeof runId!=='string'||!/^[a-z0-9-]{8,64}$/.test(runId))throw auditInputError();
+    matches=entry=>entry.runId===runId;
+  }else{
+    const {time,target}=match;
+    if(typeof time!=='string'||!time||typeof target!=='string'||!target)throw auditInputError();
+    matches=entry=>!entry.runId&&entry.time===time&&entry.target===target;
+  }
+  return queued(file,async()=>{
+    await removeLeftoverCopies(file);
+    const raw=await readWholeLog(file);
+    if(raw===null)return 0;
+    const lines=raw.split('\n');
+    const kept=lines.filter(line=>{
+      if(!line.trim())return true;
+      let entry;try{entry=JSON.parse(line);}catch{return true;}
+      return !(entry&&typeof entry==='object'&&matches(entry));
+    });
+    const removed=lines.length-kept.length;
+    if(removed)await replaceLog(file,kept.join('\n'));
+    return removed;
+  });
+}
+
+// Empties the whole log. Returns how many lines it held; a missing log stays missing.
+export async function clearDeepSearchAudit(file){
+  return queued(file,async()=>{
+    await removeLeftoverCopies(file);
+    const raw=await readWholeLog(file);
+    if(raw===null)return 0;
+    await replaceLog(file,'');
+    return raw.split('\n').filter(line=>line.trim()).length;
+  });
 }
 
 async function readAuditTail(file,maxBytes){
