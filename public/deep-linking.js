@@ -10,13 +10,26 @@ const idKey=identifier=>{
 const sourceKey=source=>`${source.serverName}\n${source.name}`;
 const unique=values=>[...new Set((values||[]).filter(Boolean))];
 
+const HOST_ALIASES={'twitter.com':'x.com'};
+const aliasHost=host=>HOST_ALIASES[host]||host;
+
 export function normalizeUrl(value){
   try{
     const url=new URL(String(value));
-    const host=url.hostname.toLowerCase().replace(/^www\./,'');
+    const host=aliasHost(url.hostname.toLowerCase().replace(/^www\./,''));
     const path=url.pathname.replace(/\/+$/,'').toLowerCase();
     return`${host}${path}`;
-  }catch{return String(value||'').trim().toLowerCase().replace(/^https?:\/\/(?:www\.)?/,'').replace(/[?#].*$/,'').replace(/\/+$/,'');}
+  }catch{
+    const bare=String(value||'').trim().toLowerCase().replace(/^https?:\/\/(?:www\.)?/,'').replace(/[?#].*$/,'').replace(/\/+$/,'');
+    const slash=bare.indexOf('/');
+    return slash<0?aliasHost(bare):`${aliasHost(bare.slice(0,slash))}${bare.slice(slash)}`;
+  }
+}
+
+// Level 1 is the strongest: every one of the three rules holds.
+export function accountLevel(rulesHeld){
+  const count=Number(rulesHeld)||0;
+  return count>=3?1:count===2?2:count===1?3:null;
 }
 
 function evidenceIdentifiers(finding){
@@ -66,7 +79,7 @@ function dropped(finding,reason='No evidence links this answer to the target.'){
 }
 
 function classificationKey(finding){
-  if(finding.kind==='account')return`account:${normalizeUrl(finding.account?.url)||String(finding.account?.site||'').toLowerCase()}`;
+  if(finding.kind==='account')return accountKey(finding);
   if(finding.kind==='breach')return`breach:${String(finding.breach?.name||'').toLowerCase()}:${finding.breach?.date||''}`;
   if(finding.kind==='fact')return`fact:${String(finding.fact?.label||'').toLowerCase()}:${String(finding.fact?.value||'').toLowerCase()}`;
   if(finding.kind==='host')return`host:${String(finding.host?.relation||'')}:${String(finding.host?.value||'').toLowerCase()}`;
@@ -92,14 +105,234 @@ function mergeFindings(findings){
   return[...merged.values()];
 }
 
+// ---- Accounts: confirmed only by rules a, b and c ----
+
+const DETAIL_KEYS=['names','usernames','emails','phones','ips','websites','places'];
+const PRESENCE_RANK={'not-found':0,unchecked:1,found:2};
+const IMAGE_VALUE=/\.(?:jpe?g|png|gif|webp|svg)$/i;
+const looseKey=value=>String(value??'').trim().toLowerCase().replace(/^@/,'');
+const nameKey=value=>String(value??'').trim().toLowerCase().replace(/\s+/g,' ');
+const isImage=value=>IMAGE_VALUE.test(String(value??'').trim().replace(/[?#].*$/,''));
+const hostOf=value=>normalizeUrl(value).split('/')[0];
+const presenceOf=finding=>Object.hasOwn(PRESENCE_RANK,finding?.account?.presence)?finding.account.presence:'found';
+const accountAddress=finding=>finding?.account?.url||finding?.account?.rawUrl||'';
+
+function accountKey(finding){
+  const address=normalizeUrl(accountAddress(finding));
+  return`account:${address||`site:${String(finding?.account?.site||'').toLowerCase()}`}`;
+}
+
+function presenceText(presence,note){
+  const text=presence==='not-found'?'not found':presence==='unchecked'?'couldn\'t check':'found';
+  return note?`${text} (${note})`:text;
+}
+
+// Details as linking sees them: no searched identifier (they are echoes), no image addresses, no repeats.
+function cleanDetails(values,key,isSearched){
+  const seen=new Set();const out=[];
+  for(const raw of values||[]){
+    const value=String(raw??'').trim();if(!value)continue;
+    if(isSearched(value,key))continue;
+    if(key==='websites'&&isImage(value))continue;
+    const dedupeKey=key==='websites'?normalizeUrl(value):key==='names'?nameKey(value):looseKey(value);
+    if(seen.has(dedupeKey))continue;
+    seen.add(dedupeKey);out.push(value);
+  }
+  return out;
+}
+
+function mergeAccounts(findings,isSearched,searchedKeys){
+  const groups=new Map();
+  for(const finding of findings){
+    const key=accountKey(finding);
+    if(!groups.has(key))groups.set(key,[]);
+    groups.get(key).push(finding);
+  }
+  return[...groups.entries()].map(([key,members])=>{
+    const presence=members.map(presenceOf).reduce((best,value)=>PRESENCE_RANK[value]>PRESENCE_RANK[best]?value:best,'not-found');
+    const base=members.find(member=>presenceOf(member)===presence)||members[0];
+    const details=Object.fromEntries(DETAIL_KEYS.map(field=>[field,cleanDetails(members.flatMap(member=>member.account?.details?.[field]||[]),field,isSearched)]));
+    const disagree=new Set(members.map(presenceOf)).size>1;
+    const presenceNotes=disagree?unique(members.filter(member=>presenceOf(member)!==presence)
+      .map(member=>`${member.tool?.name||'Unknown tool'}: ${presenceText(presenceOf(member),member.account?.presenceNote)}`)):[];
+    const presenceNote=members.find(member=>presenceOf(member)===presence&&member.account?.presenceNote)?.account.presenceNote||'';
+    const registeredWith=unique(members.filter(member=>member.account?.verified&&member.subject?.type==='email')
+      .map(member=>normalizeIdentifier(member.subject)).filter(identifier=>identifier&&searchedKeys.has(idKey(identifier))).map(identifier=>identifier.value));
+    const sources=[...new Map(members.map(member=>[sourceKey(member.tool),{...member.tool}])).values()];
+    const url=members.map(member=>member.account?.url).find(Boolean)||'';
+    const rawUrl=members.map(member=>member.account?.rawUrl).find(Boolean)||'';
+    const address=url||rawUrl;
+    const evidence=members.reduce((all,member)=>mergeEvidence(all,member.evidence),{});
+    const account={...base.account,url,...(rawUrl?{rawUrl}:{}),presence,verified:members.some(member=>Boolean(member.account?.verified)),details};
+    if(presenceNote)account.presenceNote=presenceNote;else delete account.presenceNote;
+    return{key,host:address?hostOf(address):key,ownUrl:address?normalizeUrl(address):'',presence,presenceNote,presenceNotes,registeredWith,
+      ids:new Set(members.map(member=>member.id)),finding:{...base,evidence,account},sources};
+  });
+}
+
+// Rule c: two or more found accounts on different hosts show the same name, website or email.
+function corroborations(entries,searchedLoose){
+  const groups=new Map();
+  const add=(entry,kind,key,label)=>{
+    const groupKey=`${kind}:${key}`;
+    if(!groups.has(groupKey))groups.set(groupKey,{kind,label,entries:new Set()});
+    groups.get(groupKey).entries.add(entry);
+  };
+  for(const entry of entries){
+    const details=entry.finding.account.details;
+    for(const name of details.names){const key=nameKey(name);if(key.length>=2&&!searchedLoose.has(key))add(entry,'name',key,name.trim().replace(/\s+/g,' '));}
+    for(const site of details.websites){
+      if(isImage(site))continue;
+      const key=normalizeUrl(site);if(!key||hostOf(site)===entry.host)continue;
+      add(entry,'website',key,key);
+    }
+    for(const email of details.emails){const key=email.trim().toLowerCase();if(key)add(entry,'email',key,key);}
+  }
+  const out=new Map();
+  for(const group of groups.values()){
+    if(new Set([...group.entries].map(entry=>entry.host)).size<2)continue;
+    const what=group.kind==='name'?`the name "${group.label}"`:group.kind==='website'?`the website ${group.label}`:`the email ${group.label}`;
+    const text=`${group.entries.size} profiles with this username share ${what}.`;
+    for(const entry of group.entries){if(!out.has(entry))out.set(entry,[]);out.get(entry).push(text);}
+  }
+  return out;
+}
+
+function emptyConfirmed(){return{urls:new Set(),linkedTo:new Set(),emails:new Set(),usernames:new Set()};}
+
+function addEntryToConfirmed(set,entry){
+  const details=entry.finding.account.details;
+  if(entry.ownUrl)set.urls.add(entry.ownUrl);
+  for(const site of details.websites){if(isImage(site))continue;const key=normalizeUrl(site);if(key){set.urls.add(key);set.linkedTo.add(key);}}
+  for(const email of details.emails)set.emails.add(looseKey(email));
+  for(const username of details.usernames)set.usernames.add(looseKey(username));
+}
+
+function mergeConfirmed(target,source){
+  for(const field of Object.keys(target))for(const value of source[field])target[field].add(value);
+  return target;
+}
+
+// Rule b: the account's details show something already confirmed, or a confirmed profile links to this account.
+function ruleBReasons(entry,set){
+  const details=entry.finding.account.details;const reasons=[];
+  const forward=details.websites.find(site=>!isImage(site)&&(set.urls.has(normalizeUrl(site))||set.urls.has(hostOf(site))))
+    ||details.emails.find(email=>set.emails.has(looseKey(email)))
+    ||details.usernames.find(username=>set.usernames.has(looseKey(username)));
+  if(forward)reasons.push(`Profile links to ${forward}, which is confirmed.`);
+  if(entry.ownUrl&&set.linkedTo.has(entry.ownUrl))reasons.push('A confirmed profile links to this account.');
+  return reasons;
+}
+
+// Confirmed accounts and values reachable from rules a and c, spreading by b, without the excluded account,
+// so an account can never back itself up through its own details.
+function confirmedWithout(entries,excluded,rootSet,searchedLoose){
+  const pool=entries.filter(entry=>entry!==excluded);
+  const corroborated=corroborations(pool,searchedLoose);
+  const confirmed=new Set(pool.filter(entry=>entry.registeredWith.length||corroborated.has(entry)));
+  let changed=true;let set;
+  while(changed){
+    changed=false;
+    set=mergeConfirmed(emptyConfirmed(),rootSet);
+    for(const entry of confirmed)addEntryToConfirmed(set,entry);
+    for(const entry of pool){
+      if(confirmed.has(entry))continue;
+      if(ruleBReasons(entry,set).length){confirmed.add(entry);changed=true;}
+    }
+  }
+  return set;
+}
+
+function canHoldB(entry,allLinkedTo){
+  const details=entry.finding.account.details;
+  return details.websites.length||details.emails.length||details.usernames.length||(entry.ownUrl&&allLinkedTo.has(entry.ownUrl));
+}
+
+function judgeAccounts(entries,rootSet,searchedLoose){
+  const found=entries.filter(entry=>entry.presence==='found');
+  const corroborated=corroborations(found,searchedLoose);
+  const allLinkedTo=new Set(found.flatMap(entry=>entry.finding.account.details.websites.map(normalizeUrl)));
+  const verdicts=new Map();
+  for(const entry of found){
+    const reasons=[];
+    for(const email of entry.registeredWith)reasons.push({rule:'a',text:`Registered with ${email}.`});
+    if(canHoldB(entry,allLinkedTo)){
+      for(const text of ruleBReasons(entry,confirmedWithout(found,entry,rootSet,searchedLoose)))reasons.push({rule:'b',text});
+    }
+    for(const text of corroborated.get(entry)||[])reasons.push({rule:'c',text});
+    verdicts.set(entry,reasons);
+  }
+  return verdicts;
+}
+
+function accountResult(entry,reasons){
+  const finding=entry.finding;
+  const base={...finding,sources:entry.sources,presenceNotes:entry.presenceNotes};
+  if(entry.presence!=='found'){
+    const reason=entry.presence==='not-found'?'Not found.':entry.presenceNote?`Couldn't check (${entry.presenceNote}).`:'Couldn\'t check.';
+    return{...base,status:'dropped',confirmedBy:[],level:null,reasons:[],reason,trail:[]};
+  }
+  const confirmedBy=[...new Set(reasons.map(item=>item.rule))].sort();
+  if(!confirmedBy.length)return{...base,status:'possible',confirmedBy:[],level:null,reasons:[],reason:'Same username; nothing else links it.',trail:[]};
+  return{...base,status:'linked',confirmedBy,level:accountLevel(confirmedBy.length),reasons,reason:reasons.map(item=>item.text).join(' '),
+    trail:reasons.map(item=>({from:{...finding.subject},tool:finding.tool?.name||'Unknown tool',note:item.text}))};
+}
+
+function detailIdentifiers(details){
+  const out=[];
+  for(const value of details?.emails||[])out.push(normalizeIdentifier({type:'email',value}));
+  for(const value of details?.usernames||[])out.push(normalizeIdentifier({type:'username',value}));
+  for(const value of details?.phones||[])out.push(normalizeIdentifier({type:'phone',value}));
+  for(const value of details?.websites||[]){
+    if(isImage(value))continue;
+    const target=detectDeepTarget(value);
+    if(target?.type==='domain')out.push(target);
+  }
+  return out.filter(Boolean);
+}
+
+function findingIdentifiers(finding){
+  return finding.kind==='account'?detailIdentifiers(finding.account?.details):evidenceIdentifiers(finding);
+}
+
+// ---- Everything else: today's path ("Found while checking …") ----
+
+function classifyOthers(findings,known,trailsByIdentifier){
+  const classified=new Map();
+  for(const finding of findings){
+    const match=matchingIdentifier(finding,known);
+    classified.set(finding.id,match?linkedStep(finding,`Found while checking ${match.value}.`,trailsByIdentifier.get(idKey(match))||[]):dropped(finding));
+  }
+  let changed=true;
+  while(changed){
+    changed=false;
+    for(const finding of findings){
+      const current=classified.get(finding.id);
+      if(current.status!=='linked')continue;
+      for(const identifier of evidenceIdentifiers(finding)){
+        const key=idKey(identifier);
+        if(key&&!known.has(key)){known.set(key,identifier);trailsByIdentifier.set(key,current.trail||[]);changed=true;}
+      }
+    }
+    for(const finding of findings){
+      if(classified.get(finding.id).status==='linked')continue;
+      const match=matchingIdentifier(finding,known);
+      if(match){classified.set(finding.id,linkedStep(finding,`Found while checking ${match.value}.`,trailsByIdentifier.get(idKey(match))||[]));changed=true;}
+    }
+  }
+  return classified;
+}
+
 function nameSourceCounts(findings){
   const names=new Map();
   for(const finding of findings){
     if(finding.status!=='linked')continue;
-    for(const name of finding.evidence?.names||[]){
+    const values=finding.kind==='account'?finding.account?.details?.names||[]:finding.evidence?.names||[];
+    const sources=finding.kind==='account'?finding.sources||[]:[finding.tool];
+    for(const name of values){
       const key=String(name).trim().toLowerCase();if(!key)continue;
       if(!names.has(key))names.set(key,new Set());
-      names.get(key).add(sourceKey(finding.tool));
+      for(const entry of sources)names.get(key).add(sourceKey(entry));
     }
   }
   return names;
@@ -108,80 +341,75 @@ function nameSourceCounts(findings){
 export function linkFindings(input,seed,{searched=[]}={}){
   const normalizedSeed=normalizeIdentifier(seed);if(!normalizedSeed)return{findings:[],leads:[]};
   const raw=(input||[]).filter(Boolean);
-  const known=new Map();const trailsByIdentifier=new Map();
-  for(const identifier of [normalizedSeed,...searched.map(normalizeIdentifier).filter(Boolean)]){
-    known.set(idKey(identifier),identifier);trailsByIdentifier.set(idKey(identifier),[]);
-  }
-  const linkedUrls=new Map();
-  const classified=new Map();
+  const searchedIds=[normalizedSeed,...searched.map(normalizeIdentifier).filter(Boolean)];
+  const searchedKeys=new Set(searchedIds.map(idKey));
+  const searchedLoose=new Set(searchedIds.map(identifier=>looseKey(identifier.value)));
+  const isSearched=(value,field)=>searchedLoose.has(looseKey(value))||searchedLoose.has(nameKey(value))
+    ||(field==='phones'&&searchedKeys.has(idKey({type:'phone',value})));
   const siteSearch=!PERSON_TYPES.has(normalizedSeed.type);
+  const echoes=new Map();const accounts=[];const others=[];const sanctions=[];
 
   for(const finding of raw){
-    if(echoOnly(finding)){classified.set(finding.id,dropped(finding,'The answer only repeated the query or contained no finding.'));continue;}
-    if(siteSearch){classified.set(finding.id,linkedStep(finding,`Found for ${normalizedSeed.value}.`));continue;}
-    if(finding.tool?.name==='get_opensanctions')continue;
-    const subjectKnown=known.has(idKey(finding.subject));
-    if(finding.kind==='account'&&finding.account?.verified&&subjectKnown){
-      const reason=`Registered with ${finding.subject.value}.`;
-      classified.set(finding.id,linkedStep(finding,reason,trailsByIdentifier.get(idKey(finding.subject))||[]));
-      continue;
-    }
-    const match=matchingIdentifier(finding,known);
-    if(match){
-      const reason=finding.kind==='account'?`Profile shows ${match.value}.`:`Found while checking ${match.value}.`;
-      classified.set(finding.id,linkedStep(finding,reason,trailsByIdentifier.get(idKey(match))||[]));
-      continue;
-    }
-    if(finding.kind==='account')classified.set(finding.id,possible(finding));
-    else classified.set(finding.id,dropped(finding));
+    if(echoOnly(finding)){echoes.set(finding.id,dropped(finding,'The answer only repeated the query or contained no finding.'));continue;}
+    if(siteSearch){echoes.set(finding.id,linkedStep(finding,`Found for ${normalizedSeed.value}.`));continue;}
+    if(finding.tool?.name==='get_opensanctions')sanctions.push(finding);
+    else if(finding.kind==='account')accounts.push(finding);
+    else others.push(finding);
   }
 
-  let changed=true;
-  while(changed){
-    changed=false;
-    for(const finding of raw){
-      const current=classified.get(finding.id);
-      if(!current||current.status!=='linked')continue;
-      const trail=current.trail||[];
-      for(const identifier of evidenceIdentifiers(finding)){
+  const entries=mergeAccounts(accounts,isSearched,searchedKeys);
+  let accountResults=new Map();let otherResults=new Map();let previous='';
+  // Accounts and other findings feed each other (a confirmed detail can link a fact, a linked fact's email can
+  // confirm an account), so both are re-judged until the set of linked findings stops changing.
+  for(let pass=0;pass<10;pass++){
+    const known=new Map();const trailsByIdentifier=new Map();
+    for(const identifier of searchedIds){known.set(idKey(identifier),identifier);trailsByIdentifier.set(idKey(identifier),[]);}
+    for(const result of accountResults.values()){
+      if(result.status!=='linked')continue;
+      for(const identifier of detailIdentifiers(result.account.details)){
         const key=idKey(identifier);
-        if(key&&!known.has(key)){known.set(key,identifier);trailsByIdentifier.set(key,trail);changed=true;}
-      }
-      if(finding.kind==='account'&&finding.account?.url){
-        const key=normalizeUrl(finding.account.url);
-        if(key&&!linkedUrls.has(key)){linkedUrls.set(key,trail);changed=true;}
+        if(key&&!known.has(key)){known.set(key,identifier);trailsByIdentifier.set(key,result.trail);}
       }
     }
-    for(const finding of raw){
-      const current=classified.get(finding.id);
-      if(!current||current.status==='linked'||finding.tool?.name==='get_opensanctions')continue;
-      const match=matchingIdentifier(finding,known);
-      if(match){
-        const reason=finding.kind==='account'?`Profile shows ${match.value}.`:`Found while checking ${match.value}.`;
-        classified.set(finding.id,linkedStep(finding,reason,trailsByIdentifier.get(idKey(match))||[]));changed=true;continue;
-      }
-      if(finding.kind==='account'){
-        const linked=(finding.evidence?.urls||[]).map(url=>[normalizeUrl(url),url]).find(([key])=>linkedUrls.has(key));
-        if(linked){
-          const reason=`Links to ${linked[0]} (linked).`;
-          classified.set(finding.id,linkedStep(finding,reason,linkedUrls.get(linked[0])||[]));changed=true;
-        }
+    otherResults=classifyOthers(others,known,trailsByIdentifier);
+    const rootSet=emptyConfirmed();
+    for(const result of otherResults.values()){
+      if(result.status!=='linked')continue;
+      for(const identifier of evidenceIdentifiers(result)){
+        if(searchedKeys.has(idKey(identifier)))continue;
+        if(identifier.type==='email')rootSet.emails.add(looseKey(identifier.value));
+        else if(identifier.type==='username')rootSet.usernames.add(looseKey(identifier.value));
+        else if(identifier.type==='domain')rootSet.urls.add(normalizeUrl(identifier.value));
       }
     }
+    const verdicts=judgeAccounts(entries,rootSet,searchedLoose);
+    accountResults=new Map(entries.map(entry=>[entry,accountResult(entry,verdicts.get(entry)||[])]));
+    const signature=[...accountResults.values(),...otherResults.values()].filter(item=>item.status==='linked').map(item=>`${item.id}:${(item.confirmedBy||[]).join('')}`).sort().join('|');
+    if(signature===previous)break;
+    previous=signature;
   }
 
-  const names=nameSourceCounts([...classified.values()]);
-  for(const finding of raw.filter(item=>item.tool?.name==='get_opensanctions')){
+  const names=nameSourceCounts([...accountResults.values(),...otherResults.values()]);
+  const sanctionResults=new Map(sanctions.map(finding=>{
     const matched=(finding.evidence?.names||[]).find(name=>(names.get(String(name).toLowerCase())?.size||0)>=2);
-    classified.set(finding.id,matched?possible(finding,`Possible sanctions match for ${matched}: check.`):dropped(finding,'The name was not established by two linked sources.'));
+    return[finding.id,matched?possible(finding,`Possible sanctions match for ${matched}: check.`):dropped(finding,'The name was not established by two linked sources.')];
+  }));
+
+  const entryById=new Map(entries.flatMap(entry=>[...entry.ids].map(id=>[id,entry])));
+  const ordered=[];const emitted=new Set();
+  for(const finding of raw){
+    if(echoes.has(finding.id)){ordered.push(echoes.get(finding.id));continue;}
+    if(sanctionResults.has(finding.id)){ordered.push(sanctionResults.get(finding.id));continue;}
+    if(otherResults.has(finding.id)){ordered.push(otherResults.get(finding.id));continue;}
+    const entry=entryById.get(finding.id);
+    if(entry&&!emitted.has(entry)){emitted.add(entry);ordered.push(accountResults.get(entry));}
   }
 
-  const merged=mergeFindings([...classified.values()]);
-  const searchedKeys=new Set([idKey(normalizedSeed),...searched.map(idKey)].filter(Boolean));
+  const merged=mergeFindings(ordered);
   const leadMap=new Map();
   for(const finding of merged){
     if(finding.status!=='linked')continue;
-    for(const identifier of evidenceIdentifiers(finding)){
+    for(const identifier of findingIdentifiers(finding)){
       const key=idKey(identifier);
       if(key&&!searchedKeys.has(key)&&!leadMap.has(key))leadMap.set(key,identifier);
     }
