@@ -1,4 +1,5 @@
 import {explainSearchPlan,summarizePlanDiagnostics,toolUsage} from './search-planner.js?v=1';
+import {serverCard} from './servers-view.js?v=1';
 import {browserOnlyNotice,caseSummary,evidenceEmpty,findingCard} from './evidence-view.js?v=2';
 import {newsCard,newsMetrics,relativeTime} from './news-view.js?v=1';
 import {emptyState,escapeHtml,term} from './ui.js?v=4';
@@ -241,8 +242,10 @@ function renderSourcesStatus(){
   lastSourcesStatus=html;$('#sourcesStatus').innerHTML=html;
 }
 function renderServers(){
-  $('#serverList').innerHTML=state.servers.length?state.servers.map(s=>`<article class="server-card"><div class="server-card-top"><span class="badge">STREAMABLE HTTP</span><span class="server-dot ${s.status==='connected'?'connected':''}"></span></div><h3>${escapeHtml(s.name)}</h3><p class="endpoint">${escapeHtml(s.endpoint)}</p><p class="subtle">${s.status==='connected'?toolCountHtml(s):s.needsAuth?'Sign in is required to search academic research.':s.disconnected?'Disconnected':s.error?escapeHtml(s.error):'Not connected'}</p>${s.caution?`<p class="form-note">${escapeHtml(s.caution)}</p>`:''}<div class="server-actions"><button class="ghost" data-remove="${s.id}">${bundledServers.some(item=>item.endpoint===s.endpoint)?'Disable':'Remove'}</button>${s.needsAuth?`<button class="primary" data-consensus-sign-in>Sign in to Consensus</button>`:s.status==='connected'?`<button class="ghost" data-disconnect="${s.id}">Disconnect</button><button class="primary" data-connect="${s.id}">Refresh</button>`:`<button class="primary" data-connect="${s.id}">${s.status==='connecting'?'Connecting…':'Connect'}</button>`}</div></article>`).join(''):'<div class="empty-state">Add your first MCP server to begin.</div>';
+  $('#serverList').innerHTML=state.servers.length?state.servers.map(s=>serverCard(s,{bundled:bundledServers.some(item=>item.endpoint===s.endpoint),toolCountText:s.status==='connected'?toolCountLabel(s,state.toolHealth):''})).join(''):emptyState({title:'No MCP servers yet.',text:'Add one to start searching.'});
 }
+// After a server card is re-drawn, put focus back on that card's main button so keyboard users keep their place.
+function focusServerCard(id){document.querySelector(`[data-server-card="${CSS.escape(id)}"] .server-actions .primary, [data-server-card="${CSS.escape(id)}"] .server-actions button`)?.focus();}
 // Data sources: API keys for the services behind Open OSINT's tools, saved by the server in work/api-keys.env.
 // The server reports statuses and which fields are saved, never key values, and key inputs are cleared on close.
 const dataSources={list:[],loaded:false,error:'',editing:null};
@@ -670,9 +673,9 @@ document.addEventListener('click',async event=>{
   const link=event.target.closest('[data-view-link]'); if(link)switchView(link.dataset.viewLink);
   const rerun=event.target.closest('[data-rerun]');if(rerun){const query=rerun.dataset.rerun;switchView('workspace');$('#query').value=query;$('#query').focus();try{await smartInvestigate(query);}catch(error){toast(error.message);}return;}
   const prompt=event.target.closest('[data-prompt]'); if(prompt){switchView('workspace');$('#query').value=prompt.dataset.prompt;$('#query').focus();}
-  const connectButton=event.target.closest('[data-connect]'); if(connectButton){const server=state.servers.find(s=>s.id===connectButton.dataset.connect);if(server)connect(server);}
-  const disconnectButton=event.target.closest('[data-disconnect]'); if(disconnectButton){const server=state.servers.find(s=>s.id===disconnectButton.dataset.disconnect);if(server)disconnect(server);}
-  const remove=event.target.closest('[data-remove]'); if(remove){const server=state.servers.find(s=>s.id===remove.dataset.remove);if(server&&bundledServers.some(item=>item.endpoint===server.endpoint))removedBundledEndpoints.add(server.endpoint);state.servers=state.servers.filter(s=>s.id!==remove.dataset.remove);renderAll();}
+  const connectButton=event.target.closest('[data-connect]'); if(connectButton){const server=state.servers.find(s=>s.id===connectButton.dataset.connect);if(server)connect(server).then(()=>focusServerCard(server.id));}
+  const disconnectButton=event.target.closest('[data-disconnect]'); if(disconnectButton){const server=state.servers.find(s=>s.id===disconnectButton.dataset.disconnect);if(server)disconnect(server).then(()=>focusServerCard(server.id));}
+  const remove=event.target.closest('[data-remove]'); if(remove){const server=state.servers.find(s=>s.id===remove.dataset.remove);if(server&&bundledServers.some(item=>item.endpoint===server.endpoint))removedBundledEndpoints.add(server.endpoint);state.servers=state.servers.filter(s=>s.id!==remove.dataset.remove);renderAll();$('#addServer').focus();}
   const run=event.target.closest('[data-run]'); if(run){const [serverId,name]=run.dataset.run.split('::');const tool=allTools().find(t=>t.serverId===serverId&&t.name===name);if(tool)openTool(tool,serverId);}
   const del=event.target.closest('[data-delete-evidence]');if(del&&state.activeCaseId){const item=state.activeCase?.evidence.find(entry=>entry.id===del.dataset.deleteEvidence);if(await confirmAction({title:'Remove this finding?',message:`"${item?.title||'This finding'}" will be removed from this case. This can't be undone.`,confirmLabel:'Remove finding'}))api(`/api/cases/${state.activeCaseId}/evidence/${del.dataset.deleteEvidence}/delete`,{}).then(loadCases).then(()=>$('#caseSummary').focus()).catch(error=>toast(error.message));return;}
   const open=event.target.closest('[data-open-finding]');if(open){const item=state.activeCase?.evidence.find(entry=>entry.id===open.dataset.openFinding);if(item)showResult(item.title,item.result,{saved:true});return;}

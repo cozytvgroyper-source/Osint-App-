@@ -129,3 +129,9 @@ html .primary.danger,.danger{background:var(--danger);border-color:var(--danger)
 /* Finding cards read top to bottom (the older two-column card grid squeezed the status buttons). */
 .evidence-list .evidence-card{display:block}
 .evidence-list .evidence-card > *+*{margin-top:var(--space-2)}
+
+/* MCP server cards: name and status dot, what the server is for, its state in words, the address in small print. */
+.server-card .server-card-top h3{margin:0}
+.server-purpose{margin:var(--space-2) 0 var(--space-1)}
+.server-status{font-weight:650;margin:0 0 var(--space-1)}
+.server-card .endpoint{font-size:var(--text-xs);color:var(--muted)}
