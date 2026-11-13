@@ -50,11 +50,19 @@ b8eb0d2 docs: plan …   1de2941 docs: design …
 
 - `npm test` at `a68ccef`: **525 passed, 0 failed** (implementer's report; re-run it).
 - **Not pushed.** If you can't see the branch, ask the owner to push it.
-- **Task 3's re-check:** the original task review found two Critical issues, both fixed in `a68ccef`:
-  1. Rule b confirmed strangers through big shared hosts. A linked fact mentioning youtube.com confirmed any account linking anywhere on youtube.com.
-  2. Following a lead erased the confirmations it had produced.
+- **Task 3's re-check is done.** The original task review found two Critical issues, and fix round 1 (`a68ccef`) was re-reviewed:
+  1. **Shared hosts: ADDRESSED.** Rule b no longer confirms strangers through big shared hosts.
+  2. **Following a lead erased confirmations: STILL OPEN for leads that come from linked non-account findings.**
+     - It is fixed for leads that come from accounts.
+     - **Where:** `public/deep-linking.js`, `addNonAccountRoots`, lines ~319–324 (emails, usernames, the host value, and the finding's lead). These still drop **every searched identifier** instead of **only the seed**.
+     - **Effect:** a linked fact carries `alt@owner-site.example`, and an account showing that email gets `b` in round 1. Once the lead has been searched, that account falls back to `possible`. Domain leads are fine.
+     - **Fix:** in `addNonAccountRoots`, replace the searched-keys filter with a seed-only check. This is safe, because a non-account source can't confirm itself.
+     - **Add a two-round test** (same input, with and without the lead in `searched`) where the lead comes from a **linked fact**. The existing two-round tests only use account-sourced leads.
+     - The reviewer's reproduction probe: `probe2.mjs` cases P4 (email lead) and P6 (username lead from fact evidence).
+  3. **Multi-round tests: ADDRESSED.**
 
-  **First, verify `a68ccef` yourself** against the findings below (§5), using `tests/deep-linking.test.mjs`. Then continue to Task 4.
+  **Do this fix first, test-first, as Task 3 fix round 2.** Then continue to Task 4.
+- **New minor finding** (from the re-check, deferred): `accountHosts` marks every account's own host as a platform. If a tool reports an account on the owner's personal domain, that domain stops host-matching. This errs on the safe side.
 
 ## 5. Rulings made on the owner's behalf (keep them)
 
