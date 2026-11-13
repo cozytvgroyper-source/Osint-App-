@@ -172,3 +172,26 @@ test('website names with accented letters are read whole, in the form browsers s
   for(const query of ['münchen.de','bücher.de','Ñandú.com'])
     assert.ok(!/^(?:nchen|cher|and)/.test(extractTarget(query)?.value||''),query);
 });
+
+// ---- Minor review fixes: input recognition ----
+
+test('IPv6 addresses are IP targets, alone, with words, or inside a web address',()=>{
+  assert.deepEqual(extractTarget('2001:4860:4860::8888'),{type:'ip',value:'2001:4860:4860::8888'});
+  assert.deepEqual(extractTarget('2001:DB8::1 whois'),{type:'ip',value:'2001:db8::1'});
+  assert.deepEqual(extractTarget('https://[2001:db8::1]:8443/x'),{type:'ip',value:'2001:db8::1'});
+  assert.deepEqual(extractTarget('::ffff:192.0.2.10'),{type:'ip',value:'::ffff:c000:20a'});
+  assert.equal(searchIntent('2001:4860:4860::8888').id,searchIntent('8.8.8.8').id);
+  for(const notIp of ['12:30','a:b:c','::','1:2:3:4:5:6:7:8:9'])assert.notEqual(extractTarget(notIp)?.type,'ip',notIp);
+});
+
+test('dates, version numbers and invalid IPs are not phone numbers',()=>{
+  for(const query of ['2024-01-15','10.0.0.256','1.2.3.4.5','2024.01.15'])assert.notEqual(extractTarget(query)?.type,'phone',query);
+  assert.notEqual(searchIntent('2024-01-15').id,'phone');
+  assert.deepEqual(extractTarget('+44 20 7946 0958'),{type:'phone',value:'+44 20 7946 0958'});
+});
+
+test('an email right after a colon or equals sign is still found',()=>{
+  assert.deepEqual(extractTarget('email:owner@example.com'),{type:'email',value:'owner@example.com'});
+  assert.deepEqual(extractTarget('mailto:owner@example.com'),{type:'email',value:'owner@example.com'});
+  assert.deepEqual(extractTarget('user=owner@example.com'),{type:'email',value:'owner@example.com'});
+});

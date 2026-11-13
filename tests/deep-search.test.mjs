@@ -140,3 +140,16 @@ test('a website name with accented letters is the whole site, never part of it',
   assert.deepEqual(detectDeepTarget('www.bücher.de/katalog'),{type:'domain',value:'xn--bcher-kva.de'});
   assert.deepEqual(detectDeepTarget('owner@bücher.de'),{type:'email',value:'owner@xn--bcher-kva.de'});
 });
+
+test('Deep Search recognises IPv6 and an IP with a port',()=>{
+  assert.deepEqual(detectDeepTarget('2001:4860:4860::8888'),{type:'ip',value:'2001:4860:4860::8888'});
+  assert.deepEqual(detectDeepTarget('https://[2001:4860:4860::8888]/'),{type:'ip',value:'2001:4860:4860::8888'});
+  assert.deepEqual(detectDeepTarget('8.8.8.8:53'),{type:'ip',value:'8.8.8.8'});
+  assert.deepEqual(detectDeepTarget('[2001:db8::1]:443'),{type:'ip',value:'2001:db8::1'});
+});
+
+test('a phone number without a country code is never turned into another country',()=>{
+  for(const input of ['555-123-4567','(555) 123-4567','5551234567'])assert.equal(detectDeepTarget(input),null,input);
+  assert.deepEqual(detectDeepTarget('+1 555-123-4567'),{type:'phone',value:'+15551234567'});
+  assert.deepEqual(detectDeepTarget('0044 20 7946 0958'),{type:'phone',value:'+442079460958'});
+});

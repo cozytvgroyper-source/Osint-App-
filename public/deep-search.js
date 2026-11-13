@@ -58,8 +58,10 @@ export function normalizeIdentifier(identifier){
   if(type==='username')value=value.replace(/^@/,'');
   if(type==='domain')value=value.replace(/^www\./i,'').replace(/\.$/,'');
   if(type==='phone'){
+    // "00" is the international prefix most countries dial, so 0044… is +44….
     const digits=value.replace(/\D/g,'');
-    value=digits?`+${digits}`:'';
+    const international=value.startsWith('00')?digits.slice(2):digits;
+    value=international?`+${international}`:'';
   }
   if(type==='cve')value=value.toUpperCase();
   return value?{type,value}:null;
@@ -69,19 +71,41 @@ function exactExtractedTarget(text,found){
   if(!found)return false;
   const normal=normalizeIdentifier(found);
   if(!normal)return false;
-  if(found.type==='phone')return text.replace(/\D/g,'')===normal.value.slice(1);
+  if(found.type==='phone')return normalizeIdentifier({type:'phone',value:text})?.value===normal.value;
   const comparable=found.type==='username'?text.replace(/^@/,''):text;
   return comparable.toLowerCase()===normal.value.toLowerCase();
+}
+
+// A phone number typed without a country code ("555-123-4567"): Deep Search can't tell which country it is in.
+export function phoneNeedsCountryCode(input){
+  const text=String(input??'').trim();
+  return /^[\d\s().-]+$/.test(text)&&!/^00/.test(text)&&text.replace(/\D/g,'').length>=7&&extractTarget(text)?.type==='phone';
+}
+
+// An IP address on its own, optionally with a port: 8.8.8.8:53, 2001:db8::1, [2001:db8::1]:443.
+function bareIp(text){
+  const bracketed=text.match(/^\[([0-9a-f:.]+)\](?::\d{1,5})?$/i);
+  const v4=text.match(/^((?:\d{1,3}\.){3}\d{1,3})(?::\d{1,5})?$/);
+  const candidate=bracketed?bracketed[1]:v4?v4[1]:text;
+  // The whole input must be the address (plus an optional port), never an address inside other words.
+  if(!(bracketed||v4||/^[0-9a-f:.]+$/i.test(candidate)))return null;
+  const found=extractTarget(candidate);
+  if(found?.type!=='ip')return null;
+  if(v4&&found.value!==candidate)return null;
+  return normalizeIdentifier(found);
 }
 
 export function detectDeepTarget(input){
   const text=asciiHosts(String(input??'').trim());
   if(!text)return null;
+  const ip=bareIp(text);if(ip)return ip;
+  if(phoneNeedsCountryCode(text))return null;
   if(URL_PATTERN.test(text)){
     try{
       const url=new URL(text);
       if(!['http:','https:'].includes(url.protocol))return null;
       const host=url.hostname.replace(/^www\./i,'');
+      if(host.startsWith('['))return bareIp(host);
       const found=extractTarget(host);
       return found&&['domain','ip'].includes(found.type)?normalizeIdentifier(found):null;
     }catch{return null;}
