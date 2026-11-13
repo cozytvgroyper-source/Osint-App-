@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#07110f" />
   <title>Public Desk — OSINT workspace</title>
-  <link rel="stylesheet" href="/ui.css?v=9" />
+  <link rel="stylesheet" href="/ui.css?v=10" />
   <link rel="stylesheet" href="/styles.css?v=20" />
   <link rel="stylesheet" href="/results.css?v=14" />
   <link rel="stylesheet" href="/theme.css?v=19" />
@@ -95,10 +95,11 @@
       </section>
 
       <section id="news" class="view">
-        <div class="section-heading news-heading view-actions"><div class="header-actions"><button class="primary" id="refreshIntelNews">↻ Refresh</button></div></div>
-        <div class="news-toolbar"><label class="filter"><span>⌕</span><input id="intelNewsFilter" placeholder="Search title, source, country…" /></label><label class="news-category">Category<select id="intelNewsCategory"><option value="">All categories</option></select></label><span id="intelNewsFreshness" class="subtle">Not loaded</span></div>
+        <div class="section-heading news-heading view-actions"><div class="header-actions"><button class="primary" id="refreshIntelNews"><span aria-hidden="true">↻ </span>Refresh</button></div></div>
+        <div class="news-toolbar"><label class="filter"><span aria-hidden="true">⌕</span>Search news<input id="intelNewsFilter" placeholder="Title, source or country" /></label><label class="news-category">Category<select id="intelNewsCategory"><option value="">All categories</option></select></label><span id="intelNewsFreshness" class="subtle"></span></div>
         <div id="intelNewsMetrics" class="news-metrics"></div>
-        <div id="intelNewsList" class="news-grid"><div class="empty-state">Open News to load IntelMap's public feed.</div></div>
+        <p id="intelNewsStatus" class="news-status" role="status"></p>
+        <div id="intelNewsList" class="news-grid"></div>
       </section>
 
       <section id="evidence" class="view">
@@ -139,6 +140,6 @@
   <dialog id="resultDialog" class="result-dialog" aria-labelledby="resultTitle"><div class="dialog-head"><div><p class="eyebrow">INVESTIGATION RESULT</p><h2 id="resultTitle">Result</h2></div><button class="icon-button" data-close-result aria-label="Close">×</button></div><div id="resultBody" class="result-body"></div><div class="dialog-actions"><button class="ghost" data-close-result>Close</button><button class="primary" id="saveEvidence">Save to evidence</button></div></dialog>
 
   <div id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/app.js?v=39"></script>
+  <script type="module" src="/app.js?v=40"></script>
 </body>
 </html>

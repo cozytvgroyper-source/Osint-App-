@@ -1,4 +1,5 @@
 import {explainSearchPlan,summarizePlanDiagnostics,toolUsage} from './search-planner.js?v=1';
+import {newsCard,newsMetrics,relativeTime} from './news-view.js?v=1';
 import {emptyState,escapeHtml,term} from './ui.js?v=4';
 import {classifyToolResult,hasUsefulData,parseToolResult} from './result-classifier.js';
 import {buildSearchReport,reportHasFindings} from './search-report.js?v=4';
@@ -104,21 +105,19 @@ function switchView(id) {
 function safeExternalUrl(value=''){
   try{const url=new URL(value);return ['http:','https:'].includes(url.protocol)?url.href:'#';}catch{return'#';}
 }
-function relativeTime(value){
-  const seconds=Math.max(0,Math.floor((Date.now()-new Date(value).getTime())/1000));
-  if(seconds<60)return `${seconds}s ago`; if(seconds<3600)return `${Math.floor(seconds/60)}m ago`; if(seconds<86400)return `${Math.floor(seconds/3600)}h ago`; return `${Math.floor(seconds/86400)}d ago`;
-}
+// News: cards and metrics come from news-view.js; the status line (a live region) says what is happening in words.
 function renderIntelNews(){
   const list=$('#intelNewsList'); if(!list)return;
-  if(intelNews.loading){list.innerHTML='<div class="empty-state">Loading IntelMap JSON feed…</div>';return;}
-  if(intelNews.error){list.innerHTML=`<div class="empty-state">${escapeHtml(intelNews.error)} <button class="text-button" id="retryIntelNews">Try again</button></div>`;$('#retryIntelNews')?.addEventListener('click',()=>loadIntelNews(true));return;}
+  const status=$('#intelNewsStatus');
+  if(intelNews.loading){status.textContent='Loading news…';list.innerHTML='';return;}
+  if(intelNews.error){status.textContent="Couldn't reach IntelMap. Check your internet connection and try again.";list.innerHTML='<button class="ghost" id="retryIntelNews">Try again</button>';$('#retryIntelNews').addEventListener('click',()=>loadIntelNews(true));return;}
   const filter=$('#intelNewsFilter').value.trim().toLowerCase(); const category=$('#intelNewsCategory').value;
   const matching=intelNews.events.filter(event=>(!category||event.category===category)&&(!filter||[event.title,event.description,event.source,event.country,event.region,event.category].some(value=>String(value||'').toLowerCase().includes(filter))));
   const events=matching.slice(0,intelNews.visibleLimit);
-  const metrics=intelNews.metrics||{};
-  $('#intelNewsMetrics').innerHTML=[['Signal index',`${metrics.threatIndex??'—'} · ${metrics.threatLevel||'Unknown'}`],['Live signals',metrics.signals??intelNews.events.length],['High priority',metrics.highPriority??'—'],['Sources online',metrics.sourcesOnline!=null?`${metrics.sourcesOnline}/${metrics.sourcesTotal||metrics.sourcesOnline}`:'—']].map(([label,value])=>`<article><span>${escapeHtml(label)}</span><b>${escapeHtml(value)}</b></article>`).join('');
-  $('#intelNewsFreshness').textContent=intelNews.generatedAt?`Updated ${relativeTime(intelNews.generatedAt)} · showing ${events.length}`:`Showing ${events.length}`;
-  list.innerHTML=events.length?events.map(event=>`<article class="news-card"><div class="news-card-top"><span class="badge">${escapeHtml(event.category||event.kind||'signal')}</span><time title="${escapeHtml(event.timestamp||'')}">${escapeHtml(relativeTime(event.timestamp))}</time></div><h3>${escapeHtml(event.title||'Untitled signal')}</h3>${event.description?`<p>${escapeHtml(event.description)}</p>`:''}<div class="news-meta"><span>${escapeHtml(event.source||'Unknown source')}</span><span>${escapeHtml(event.country||event.region||'Global')}</span><span>P${escapeHtml(event.severity??'—')} · ${escapeHtml(event.confidence??'—')}% confidence</span></div><a class="text-button" href="${escapeHtml(safeExternalUrl(event.url))}" target="_blank" rel="noopener noreferrer">Open original source ↗</a></article>`).join('')+(matching.length>events.length?`<button class="ghost news-load-more" data-load-more-news>Show ${Math.min(30,matching.length-events.length)} more</button>`:''):'<div class="empty-state">No IntelMap signals match these filters.</div>';
+  $('#intelNewsMetrics').innerHTML=newsMetrics(intelNews.metrics,intelNews.events.length,{escapeHtml});
+  $('#intelNewsFreshness').textContent=intelNews.generatedAt?`Updated ${relativeTime(intelNews.generatedAt)}`:'';
+  if(intelNews.loaded)status.textContent=`${intelNews.events.length} news event${intelNews.events.length===1?'':'s'} loaded`;
+  list.innerHTML=events.length?events.map(event=>newsCard(event,{escapeHtml,safeExternalUrl})).join('')+(matching.length>events.length?'<button class="ghost news-load-more" data-load-more-news>Load more news</button>':''):emptyState({title:'No news matches these filters.',text:'Try a different word or category.'});
 }
 async function loadIntelNews(force=false){
   if(intelNews.loading||(!force&&intelNews.loaded))return; intelNews.loading=true;intelNews.error='';intelNews.visibleLimit=30;renderIntelNews();
@@ -126,7 +125,7 @@ async function loadIntelNews(force=false){
     const response=await fetch('https://intelmap.watch/api/feed/',{headers:{accept:'application/json'}}); if(!response.ok)throw new Error(`IntelMap returned ${response.status}`);
     const data=await response.json(); intelNews.events=Array.isArray(data.events)?data.events:[];intelNews.metrics=data.metrics||null;intelNews.categories=Array.isArray(data.categories)?data.categories:[];intelNews.generatedAt=data.generatedAt||data.cacheTimestamp||new Date().toISOString();intelNews.loaded=true;
     const select=$('#intelNewsCategory');const current=select.value;select.innerHTML='<option value="">All categories</option>'+intelNews.categories.map(item=>`<option value="${escapeHtml(item.name)}">${escapeHtml(humanize(item.name))} (${escapeHtml(item.count)})</option>`).join('');select.value=current;
-  }catch(error){intelNews.error=`Could not load IntelMap news: ${error.message}`;}finally{intelNews.loading=false;renderIntelNews();}
+  }catch(error){console.warn('IntelMap news failed to load:',error);intelNews.error=error.message||'failed';}finally{intelNews.loading=false;renderIntelNews();}
 }
 
 async function apiGet(path) {
@@ -636,7 +635,7 @@ document.addEventListener('click',async event=>{
   const del=event.target.closest('[data-delete-evidence]');if(del&&state.activeCaseId&&confirm('Remove this finding from the case? This cannot be undone.')){api(`/api/cases/${state.activeCaseId}/evidence/${del.dataset.deleteEvidence}/delete`,{}).then(loadCases).catch(error=>toast(error.message));}
   if(event.target.closest('#importBrowserEvidence'))importBrowserEvidence().catch(error=>toast(`Import stopped: ${error.message}. Your browser copy was kept.`));
   const tierChip=event.target.closest('[data-tier-filter]');if(tierChip){state.tierFilter=tierChip.dataset.tierFilter;renderTools();}
-  const moreNews=event.target.closest('[data-load-more-news]');if(moreNews){intelNews.visibleLimit+=30;renderIntelNews();}
+  const moreNews=event.target.closest('[data-load-more-news]');if(moreNews){const shown=intelNews.visibleLimit;intelNews.visibleLimit+=30;renderIntelNews();document.querySelectorAll('#intelNewsList .news-card')[shown]?.focus();}
   const sourceEdit=event.target.closest('[data-source-edit]');if(sourceEdit){const source=dataSources.list.find(s=>s.id===sourceEdit.dataset.sourceEdit);if(source)openKeyDialog(source);}
   const sourceConnect=event.target.closest('[data-source-connect]');if(sourceConnect)dataSourceAction('connect',sourceConnect.dataset.sourceConnect);
   const sourceDisconnect=event.target.closest('[data-source-disconnect]');if(sourceDisconnect)dataSourceAction('disconnect',sourceDisconnect.dataset.sourceDisconnect);

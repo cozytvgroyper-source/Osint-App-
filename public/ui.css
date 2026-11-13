@@ -99,3 +99,9 @@ button.history-item:hover{background:var(--surface-2)}
 dialog.result-dialog[open]{display:flex;flex-direction:column}
 dialog.result-dialog .result-body{flex:1;max-height:none;min-height:0}
 @media(max-width:720px){.hero-card::after{display:none}}
+
+/* News: a status line in words, metrics with a one-line explanation, cards that can take focus after Load more. */
+.news-status{color:var(--muted);font-size:var(--text-sm);margin:0 0 var(--space-3)}
+.news-metric-label{font-weight:650}
+.news-metric-explain{color:var(--muted);font-size:var(--text-xs);margin:var(--space-1) 0 0}
+.news-time{color:var(--muted);font-size:var(--text-xs)}
