@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
 import net from 'node:net';
 import {fileURLToPath} from 'node:url';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 const root=fileURLToPath(new URL('..',import.meta.url));
 
@@ -25,7 +28,9 @@ async function waitFor(url){
 test('serves the UI while refusing unauthenticated API calls end to end',async()=>{
   const port=await availablePort();
   const token='integration-access-token-that-is-at-least-thirty-two-bytes';
-  const child=spawn(process.execPath,['server.mjs'],{cwd:root,env:{...process.env,PORT:String(port),PUBLIC_DESK_TOKEN:token},stdio:['ignore','pipe','pipe']});
+  // A fresh working folder, so the test never reads or writes the owner's real work/ data.
+  const work=fs.mkdtempSync(path.join(os.tmpdir(),'public-desk-smoke-'));
+  const child=spawn(process.execPath,['server.mjs'],{cwd:root,env:{...process.env,PORT:String(port),PUBLIC_DESK_TOKEN:token,PUBLIC_DESK_WORK_DIR:work},stdio:['ignore','pipe','pipe']});
   const uploadIds=[];
   try{
     const base=`http://127.0.0.1:${port}`;
@@ -43,10 +48,36 @@ test('serves the UI while refusing unauthenticated API calls end to end',async()
       assert.equal(upload.status,200);
       uploadIds.push((await upload.json()).id);
     }
+    assert.equal(fs.readdirSync(path.join(work,'uploads')).length,8,'uploads land in the test folder, not the real work/');
     const overflow=await fetch(`${base}/api/upload`,{method:'POST',headers:{'content-type':'application/json','x-public-desk-token':token},body:JSON.stringify({name:'overflow.txt',type:'text/plain',data:'data:text/plain;base64,YQ=='})});
     assert.equal(overflow.status,429,'the ninth active upload is rejected before buffering another file');
   }finally{
     for(const id of uploadIds)await fetch(`http://127.0.0.1:${port}/api/upload/delete`,{method:'POST',headers:{'content-type':'application/json','x-public-desk-token':token},body:JSON.stringify({id})}).catch(()=>{});
     if(child.exitCode===null){child.kill('SIGTERM');await new Promise(resolve=>child.once('exit',resolve));}
+    fs.rmSync(work,{recursive:true,force:true});
+  }
+});
+
+// The page asks for a run grant before a Light touch or higher tool, but the server must refuse such a call on its
+// own when no grant comes with it, whatever the page does.
+test('the server refuses a target-contacting tool sent without a run grant',async()=>{
+  const port=await availablePort();
+  const token='integration-access-token-that-is-at-least-thirty-two-bytes';
+  const work=fs.mkdtempSync(path.join(os.tmpdir(),'public-desk-smoke-'));
+  const child=spawn(process.execPath,['server.mjs'],{cwd:root,env:{...process.env,PORT:String(port),PUBLIC_DESK_TOKEN:token,PUBLIC_DESK_WORK_DIR:work},stdio:['ignore','pipe','pipe']});
+  try{
+    const base=`http://127.0.0.1:${port}`;
+    await waitFor(`${base}/`);
+    const headers={'content-type':'application/json','x-public-desk-token':token};
+    for(const [name,args] of [['omega_headers',{target:'example.com'}],['omega_ports',{target:'example.com'}],['omega_vuln',{target:'example.com'}]]){
+      const response=await fetch(`${base}/api/mcp`,{method:'POST',headers,body:JSON.stringify({endpoint:'http://127.0.0.1:8894/mcp',method:'tools/call',params:{name,arguments:args}})});
+      assert.equal(response.status,403,name);
+      assert.match((await response.json()).error,/grant/i,name);
+    }
+    const forged=await fetch(`${base}/api/mcp`,{method:'POST',headers,body:JSON.stringify({endpoint:'http://127.0.0.1:8894/mcp',method:'tools/call',params:{name:'omega_ports',arguments:{target:'example.com'}},runGrant:'made-up-grant',runTarget:'example.com'})});
+    assert.equal(forged.status,403);
+  }finally{
+    if(child.exitCode===null){child.kill('SIGTERM');await new Promise(resolve=>child.once('exit',resolve));}
+    fs.rmSync(work,{recursive:true,force:true});
   }
 });
