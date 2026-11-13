@@ -1,157 +1,89 @@
-# Handoff: Deep Search redesign, merged (for Claude)
+# Handoff: Deep Search, current state
 
-Date: 2026-11-13  
-Repository: `cozytvgroyper-source/Osint-App-`  
-Branch: `main` (no feature branch is open for this work)  
-Pull requests, all merged into `main`:
+Updated 2026-11-13 · Repo: `cozytvgroyper-source/Osint-App-` · Branch: `main`
 
-| PR | What it did | Merge commit |
-|---|---|---|
-| [#88](https://github.com/cozytvgroyper-source/Osint-App-/pull/88) | Engine, answer reading, linking, server rules, run storage, recorded tool answers (plan Tasks 1–7) | `a7df4d2` |
-| [#89](https://github.com/cozytvgroyper-source/Osint-App-/pull/89) | Pages: search, progress, results, reopen, Pivot and evidence (plan Tasks 8–11); feature head `e3151b5` | `da8327a` |
-| [#90](https://github.com/cozytvgroyper-source/Osint-App-/pull/90) | This handoff | `e6853fa` |
+**Rule:** when this handoff goes stale, delete it rather than marking it historical. Git history keeps the old text.
 
-## Read this first
+## Where things stand
 
-The Deep Search redesign is implemented, tested, and merged into `main` through pull requests 88 and 89. Do not rebuild it or reopen the approved design decisions. Treat `main` as the completed product state. The `deep-search/redesign-pages` branch that first held this handoff was merged by pull request 90 and no longer exists on GitHub.
+The Deep Search redesign and the person-results refine are built, tested and merged into `main`. Don't rebuild them or reopen the approved decisions.
 
-The original design and implementation plan remain the authority for intended behavior:
+| PR | What it did |
+|---|---|
+| [#88](https://github.com/cozytvgroyper-source/Osint-App-/pull/88), [#89](https://github.com/cozytvgroyper-source/Osint-App-/pull/89) | Deep Search engine, then the search, progress and results pages |
+| [#92](https://github.com/cozytvgroyper-source/Osint-App-/pull/92) | Delete one search, or all searches, from the Run history |
+| [#93](https://github.com/cozytvgroyper-source/Osint-App-/pull/93) | Dropped the dead ASN tool; GreyNoise is skipped for private IPs |
+| [#94](https://github.com/cozytvgroyper-source/Osint-App-/pull/94) | Person-results refine: working profile links, the a/b/c confirmation rules with levels, Connected details, and folded unconfirmed or unavailable accounts |
 
-- [Deep Search design](../superpowers/specs/2026-11-13-deep-search-redesign-design.md)
-- [Deep Search implementation plan](../superpowers/plans/2026-11-13-deep-search-redesign.md)
-- [Original Codex handoff](2026-11-13-deep-search-codex-handoff.md)
+**Design and plan:** these are the authority for intended behaviour.
+- [Redesign design](../superpowers/specs/2026-11-13-deep-search-redesign-design.md)
+- [Results-refine design](../superpowers/specs/2026-11-13-deep-search-results-refine-design.md)
+- The matching plans are in `docs/superpowers/plans/`.
 
-## Current pull request state
+**Tests:** `npm test` passes, 534 tests.
 
-Pull requests 88, 89 and 90 were all merged into `main` on 2026-11-13. Pull request 89 contains four commits and 12 changed files, and its CodeQL review conversation is resolved. No Deep Search pull request is open.
+## Checks done after PR #94
 
-## What pull request 89 adds
+**axe-core 4.10.2** on the results page at 1280 px, with all folded sections opened:
+- **0 violations** in both light and dark.
+- With 200+ cards on the page, wait about 2 seconds after switching theme; 600 ms isn't enough while the buttons fade.
+- The ~97 "incomplete" contrast items are text over the page gradient. That's expected.
 
-Pull request 89 replaces the old multi-step Deep Search page with the approved non-technical flow:
+**The owner's real username run**, re-opened in a throwaway copy that was then deleted (counts only):
 
-- one target box with automatic target recognition;
-- optional tool choices and website or IP safety levels only where applicable;
-- a live progress view with stages, counts, time estimate, lead tracking, cancellation, and close-tab protection;
-- person results showing only linked, sourced identity facts and accounts, with possible matches folded away;
-- website results with an overview, ordered problems, other hosts, and source attribution;
-- stored-run reopening that re-adapts and relinks the saved raw answers;
-- Pivot actions, new-search actions, and saving results into the existing Evidence workflow;
-- desktop, mobile, light-theme, dark-theme, keyboard, and accessibility coverage.
+| What | Count |
+|---|---|
+| Confirmed accounts | 0 (correct: a username alone confirms nothing) |
+| Folded "same username, not confirmed" | 213 |
+| Folded "not found or couldn't check" | 21 |
+| Links checked | 210, all clean `http(s)` profile pages |
+| Links with a `\n` or a JSON/API address | 0 |
+| Accounts showing "No page address" | 3 |
 
-It changes 12 files: 578 insertions and 79 deletions.
+## Open items
 
-### Commits in pull request 89
+1. **GHunt:** the owner needs to run `ghunt login`. A throwaway Google account is recommended.
+2. **Live GreyNoise check:** run a Deep Search of `8.8.8.8` once the tool servers are running.
+3. **Website results** ("Things to fix") are parked until the owner has a site to test.
+4. **Minor findings, not urgent:**
+   - `node.js`-style usernames are treated as domains.
+   - `confirmedWithout` in `public/deep-linking.js` recomputes for each account (~280 ms worst case).
+   - The outer fixed point stops silently at 10 passes.
+   - The shared-platform host list in `deep-linking.js` is hand-picked.
+   - In theory, an account could back itself up through a non-account fact it caused.
+   - `tableEvidence` has an unused `subject` parameter.
 
-```text
-6c5b52e feat(deep): results pages that show only linked, sourced findings
-a18bb23 feat(deep): one-box search, live progress and results in the app
-7d8c3f6 feat(deep): reopen runs, pivot targets and save evidence
-e3151b5 test(deep): cover mixed-case hostile tags
-```
+## Practical notes
 
-### Files changed
+- **The checkout folder name ends with a space** (`Mac app `). Always quote paths.
+- **The owner's saved runs** are in this repo's git-ignored `work/deep-search-runs/`.
+  - Run history reads `work/deep-search-audit.jsonl`.
+  - A throwaway test copy needs both the run file and that run's audit line.
+- **Throwaway server:**
 
-```text
-public/app.js
-public/deep-progress.js
-public/deep-results-view.js
-public/index.html
-public/ui.css
-tests/a11y-structure.test.mjs
-tests/deep-adapters.test.mjs
-tests/deep-page.test.mjs
-tests/deep-progress.test.mjs
-tests/deep-results-view.test.mjs
-tests/fixtures/deep/run-person.json
-tests/fixtures/deep/run-site.json
-```
+  ```bash
+  PORT=4199 PUBLIC_DESK_TOKEN=<random> node server.mjs
+  ```
 
-## CodeQL finding and fix
+  Then open `http://127.0.0.1:4199/#access=<token>`.
+- **axe-core** is git-excluded as `public/__axe-test.js`.
+  - Load it with a `<script src>`, because the CSP is `script-src 'self'`.
+  - Rule sets: `wcag2a`, `wcag2aa`, `wcag21aa`, `wcag22aa`, `best-practice`.
 
-GitHub Advanced Security flagged the negative HTML-escaping assertion in `tests/deep-results-view.test.mjs`. The original expression was case-sensitive and would not detect an uppercase `<SCRIPT>` tag:
+## Working rules
 
-```js
-/<bad>|<script>/
-```
-
-Commit `e3151b5` replaced it with:
-
-```js
-/<(?:bad|script)\b/i
-```
-
-This is case-insensitive, accepts a real tag boundary, catches attributed or slash forms, and avoids false matches such as `<scripture>`. The underlying renderer was already escaping `<`, `>`, quotes, and ampersands through `escapeHtml`; the alert was a regression-test coverage gap, not a demonstrated rendering vulnerability. Existing positive assertions also prove the hostile fixture text remains visible in encoded form rather than being discarded.
-
-GitHub marked the old suggestion as outdated and resolved the review conversation after the corrected commit arrived.
-
-## Verification completed
-
-Focused verification:
-
-```bash
-node --test tests/deep-results-view.test.mjs tests/ui.test.mjs
-```
-
-Result: 16 passed, 0 failed.
-
-Full verification:
-
-```bash
-npm test
-```
-
-Result: 470 passed, 0 failed, 0 skipped.
-
-The first full-suite attempt was run in a restricted environment that blocked temporary local port binding and process inspection, producing unrelated `EPERM` failures. It was rerun with the required local permissions and passed all 470 tests in about four seconds. Do not treat the restricted-environment failures as product failures.
-
-The earlier page audit also passed:
-
-- desktop layout;
-- 375 px mobile layout;
-- light and dark themes;
-- automated accessibility audit with 0 violations.
-
-The feature implementation was clean and matched `origin/deep-search/redesign-pages` before pull request 89 was merged. `npm test` on `main` at `e6853fa` was rechecked on 2026-11-13: 470 passed, 0 failed, 0 skipped.
-
-## Important constraints
-
-- Do not include or repeat the owner's private identifiers in source, fixtures, logs, comments, or the pull request. The committed fixtures use stand-ins.
-- Never print or commit the launch token under `work/runtime/`.
-- Preserve the local-only security model and the existing run-grant enforcement.
-- Do not weaken result escaping, source attribution, linked-only display rules, or the distinction between linked and possible findings.
-- Do not spend credits, run additional live OSINT searches, contact targets, install tools, or connect accounts without explicit approval.
-- Do not revert or otherwise alter merged pull request 89 without the owner's explicit instruction.
-- Stage explicit paths only; do not use `git add -A` or `git add .`.
-
-## Exact next actions
-
-1. Fetch `main` and confirm merge commits `a7df4d2` and `da8327a` are present before starting any new implementation work.
-2. Read this handoff, the approved design, and the implementation plan only as needed for the owner's next request.
-3. Treat the merged Deep Search redesign as complete. Do not repeat its live searches, audits, or full test suite without a concrete reason.
-4. If a new regression is reported, reproduce it first, make only a focused fix with a regression test, run the closest tests, then run `npm test` when the change warrants it.
-5. Do new work on a fresh branch from `main`. Stop and ask before pushing, opening a pull request, merging, or reverting.
-
-## Useful commands
-
-Run these from the repository root. The path may contain spaces, so quote it when you `cd`.
-
-```bash
-git status --short --branch
-git log -5 --oneline --decorate
-git diff --check origin/main...HEAD
-node --test tests/deep-results-view.test.mjs tests/ui.test.mjs
-npm test
-```
-
-Expected state before any new work:
-
-```text
-## main...origin/main
-```
-
-Merged feature head recorded in pull request 89:
-
-```text
-e3151b5 test(deep): cover mixed-case hostile tags
-```
-
+- **Plain language** with the owner; they aren't a developer.
+- **Test first** for every change and fix.
+- **Commits:**
+  - Stage explicit paths only (never `git add -A` or `git add .`).
+  - Work on a fresh branch from `main`.
+  - Stop and ask before pushing, opening a PR, merging or reverting.
+- **Never commit** `work/`, `public/__*`, `.superpowers/` or `tests/fixtures/deep/raw/`.
+- **Fixtures** use stand-ins only: `ownername`, `owner@example.com`, `Owner Example`, `owner-site.example`, `Example City`.
+- **Never print or commit** the owner's identifiers or tokens. Report counts only from their real runs, and only with their OK.
+- **Don't spend credits,** run live OSINT searches, contact targets, install tools or connect accounts without explicit approval.
+- **Views:**
+  - Views are DOM-free and return escaped HTML.
+  - Heading order is h1 → h2 → h3.
+  - Pivot accessible names start with `Pivot:`.
+- **Main Search** (`search-query.js`, `search-planner.js`) stays unchanged unless the owner asks.
