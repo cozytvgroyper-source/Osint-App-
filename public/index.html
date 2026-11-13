@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#07110f" />
   <title>Public Desk — OSINT workspace</title>
-  <link rel="stylesheet" href="/ui.css?v=7" />
-  <link rel="stylesheet" href="/styles.css?v=19" />
+  <link rel="stylesheet" href="/ui.css?v=8" />
+  <link rel="stylesheet" href="/styles.css?v=20" />
   <link rel="stylesheet" href="/results.css?v=14" />
-  <link rel="stylesheet" href="/theme.css?v=18" />
+  <link rel="stylesheet" href="/theme.css?v=19" />
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -48,28 +48,26 @@
 
       <section id="workspace" class="view active-view">
         <div class="hero-card">
-          <div class="hero-copy"><span class="status-pill"><i></i><span id="serverStatus">Demo workspace ready</span></span><h2>What do you want to investigate?</h2><p>Start with a person, organization, domain, vessel, aircraft, place, or current event.</p></div>
           <form id="investigateForm" class="search-box">
-            <div class="search-row"><span class="search-icon">⌕</span><input id="query" autocomplete="off" aria-label="Search for a person, organization, domain, place or event" placeholder="e.g. Map recent infrastructure outages in the Baltic region" /><button type="submit">Investigate <span>→</span></button></div>
-            <div class="file-actions"><label class="upload-button">＋ Add file, picture, or video<input id="fileInput" type="file" accept="image/*,video/*,.pdf,.doc,.docx,.txt,.csv,.json,.rtf" /></label><div id="fileSelection" class="file-selection" hidden><span id="fileIcon">◇</span><div><b id="fileName"></b><small id="fileDetails"></small></div><button type="button" id="removeFile" aria-label="Remove selected file">×</button></div><small class="file-privacy">Analyzed locally · 50 MB maximum</small></div>
-            <div class="chips" role="group" aria-label="Suggested investigations">
-              <button type="button" data-prompt="Find recent cyber threats affecting healthcare">Cyber threats</button>
-              <button type="button" data-prompt="Review sanctions exposure for an organization">Sanctions check</button>
-              <button type="button" data-prompt="Map recent earthquakes and natural hazards">Natural events</button>
-              <button type="button" data-prompt="Create a geopolitical intelligence brief">Intel brief</button>
+            <label for="query" class="search-label">What do you want to look up?</label>
+            <div class="search-row"><span class="search-icon" aria-hidden="true">⌕</span><input id="query" autocomplete="off" placeholder="e.g. Rosneft, example.com, 8.8.8.8 or @jdoe" /><button type="submit">Search</button></div>
+            <p class="search-hint"><kbd>⌘</kbd><kbd>K</kbd> jumps here from any page.</p>
+            <div class="file-actions"><label class="upload-button">＋ Add a file (picture, video, PDF, Word, text, CSV or JSON)<input id="fileInput" type="file" accept="image/*,video/*,.pdf,.doc,.docx,.txt,.csv,.json,.rtf" /></label><div id="fileSelection" class="file-selection" hidden><span id="fileIcon">◇</span><div><b id="fileName"></b><small id="fileDetails"></small></div><button type="button" id="removeFile" aria-label="Remove selected file">×</button></div><small class="file-privacy">Analyzed locally · 50 MB maximum</small></div>
+            <div class="chips" role="group" aria-label="Example searches">
+              <button type="button" data-prompt="Rosneft">A company: Rosneft</button>
+              <button type="button" data-prompt="example.com">A website: example.com</button>
+              <button type="button" data-prompt="8.8.8.8">An IP address: 8.8.8.8</button>
+              <button type="button" data-prompt="@jdoe">A username: @jdoe</button>
+              <button type="button" data-prompt="earthquakes in Chile">An event: earthquakes in Chile</button>
             </div>
           </form>
+          <p id="sourcesStatus" class="sources-status" role="status"></p>
         </div>
 
-        <div class="section-heading"><div><p class="eyebrow">CONNECTIONS</p><h3>Available servers</h3></div><button class="text-button" data-view-link="servers">Manage servers →</button></div>
-        <div class="workflow-grid" id="workflowGrid"></div>
 
-        <div class="section-heading"><div><p class="eyebrow">CONNECTIONS</p><h3>Data sources</h3><p class="subtle" id="dataSourceSummary"></p></div><button class="text-button" data-view-link="servers">Manage data sources →</button></div>
-        <div class="source-strip" id="dataSourceStrip"></div>
 
         <div class="lower-grid">
-          <section class="panel"><div class="panel-head"><div><p class="eyebrow">RECENT ACTIVITY</p><h3>Investigation history</h3></div><button class="icon-button" id="clearHistory" aria-label="Clear history"><span aria-hidden="true">⌫</span></button></div><div id="history" class="history"></div></section>
-          <section class="panel connection-panel"><div class="panel-head"><div><p class="eyebrow">CONNECTIONS</p><h3>MCP server health</h3><p class="subtle" id="connectionCount"></p></div><button class="text-button" data-view-link="servers">Manage →</button></div><div id="connectionSummary"></div></section>
+          <section class="panel"><div class="panel-head"><div><h2>Recent searches</h2></div><button class="icon-button" id="clearHistory" aria-label="Clear history"><span aria-hidden="true">⌫</span></button></div><div id="history" class="history"></div></section>
         </div>
       </section>
 
@@ -141,6 +139,6 @@
   <dialog id="resultDialog" class="result-dialog" aria-labelledby="resultTitle"><div class="dialog-head"><div><p class="eyebrow">INVESTIGATION RESULT</p><h2 id="resultTitle">Result</h2></div><button class="icon-button" data-close-result aria-label="Close">×</button></div><div id="resultBody" class="result-body"></div><div class="dialog-actions"><button class="ghost" data-close-result>Close</button><button class="primary" id="saveEvidence">Save to evidence</button></div></dialog>
 
   <div id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/app.js?v=36"></script>
+  <script type="module" src="/app.js?v=37"></script>
 </body>
 </html>

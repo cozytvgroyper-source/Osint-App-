@@ -41,7 +41,9 @@ test('every form control has a label',()=>{
   for(const m of html.matchAll(/<(input|select|textarea)\b([^>]*)>/g)){
     const before=html.slice(0,m.index);
     const inLabel=before.lastIndexOf('<label')>before.lastIndexOf('</label>');
-    assert.ok(inLabel||/aria-label="[^"]+"/.test(m[2]),`unlabeled ${m[1]}: ${m[0].slice(0,80)}`);
+    const id=(m[2].match(/\bid="([^"]+)"/)||[])[1];
+    const labelFor=id&&html.includes(`<label for="${id}"`);
+    assert.ok(inLabel||labelFor||/aria-label="[^"]+"/.test(m[2]),`unlabeled ${m[1]}: ${m[0].slice(0,80)}`);
   }
 });
 

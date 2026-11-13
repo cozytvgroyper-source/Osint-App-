@@ -30,8 +30,8 @@ test('long tool descriptions are clamped in Tool Library cards, with the full te
   assert.match(app,/<p class="tool-desc" title="\$\{escapeHtml\(t\.description/);
 });
 
-test('the main search box has an accessible name',()=>{
-  assert.match(html.match(/<input[^>]*id="query"[^>]*>/)[0],/aria-label="[^"]{10,}"/);
+test('the main search box has a visible label',()=>{
+  assert.match(html,/<label for="query"[^>]*>[^<]{10,}<\/label>/);
 });
 
 test('the ⌘K button is named for what it does: it focuses the search box',()=>{
