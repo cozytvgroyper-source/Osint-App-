@@ -38,11 +38,11 @@ export function card({title,body='',actions='',headingLevel=3}){
 }
 
 export function badge({text,tone='neutral',icon=''}){
-  return `<span class="badge badge-${escapeHtml(tone)}">${decorative(icon)}${escapeHtml(text)}</span>`;
+  return `<span class="ui-badge ui-badge-${escapeHtml(tone)}">${decorative(icon)}${escapeHtml(text)}</span>`;
 }
 
 export function emptyState({title,text,action=''}){
-  return `<div class="empty-state"><p class="empty-state-title">${escapeHtml(title)}</p><p>${escapeHtml(text)}</p>${action}</div>`;
+  return `<div class="ui-empty"><p class="ui-empty-title">${escapeHtml(title)}</p><p>${escapeHtml(text)}</p>${action}</div>`;
 }
 
 export function term(key){

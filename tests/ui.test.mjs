@@ -62,3 +62,10 @@ test('glossary terms carry their explanation for screen readers',()=>{
   assert.match(term('pivot'),/visually-hidden">: Search this value next\./);
   assert.throws(()=>term('nope'),/Unknown glossary term: nope/);
 });
+
+// Older stylesheets load after ui.css and style .badge/.empty-state, so the building blocks use names of their own.
+test('building blocks use class names no older stylesheet defines',()=>{
+  assert.match(badge({text:'Passive',tone:'safe'}),/class="ui-badge ui-badge-safe"/);
+  assert.match(emptyState({title:'t',text:'x'}),/class="ui-empty"/);
+  assert.match(emptyState({title:'t',text:'x'}),/class="ui-empty-title"/);
+});

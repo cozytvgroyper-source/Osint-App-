@@ -104,3 +104,19 @@ test('field borders reach every select and textarea',()=>{
         assert.ok(mine.some(own=>beats(specificity(own),specificity(selector))),`${file}: "${selector}" overrides the ${tag} field border`);
   }
 });
+
+test('older stylesheets never style the building blocks',()=>{
+  for(const file of ['styles.css','results.css','theme.css'])assert.doesNotMatch(read(file),/\.ui-(?:badge|empty)\b/,file);
+  for(const name of ['ui-badge','ui-badge-neutral','ui-badge-safe','ui-badge-warn','ui-badge-danger','ui-empty'])assert.match(css,new RegExp(`\\.${name}\\b`),name);
+});
+
+// Badge tones: --ink text on a hue mixed into the surface, readable in both themes.
+test('badge tones are readable in both themes',()=>{
+  const mix=(hex,alpha,base)=>'#'+[1,3,5].map(i=>Math.round(alpha*parseInt(hex.slice(i,i+2),16)+(1-alpha)*parseInt(base.slice(i,i+2),16)).toString(16).padStart(2,'0')).join('');
+  for(const m of css.matchAll(/\.ui-badge-(\w+)\{color:var\(--ink\);background:color-mix\(in srgb,(#[0-9a-f]{6}) (\d+)%,var\(--surface\)\)\}/gi))
+    for(const theme of ['light','dark']){
+      const value=ratio(token(theme,'ink'),mix(m[2],Number(m[3])/100,token(theme,'surface')));
+      assert.ok(value>=4.5,`${theme} ui-badge-${m[1]} is ${value.toFixed(2)}:1`);
+    }
+  assert.equal([...css.matchAll(/\.ui-badge-\w+\{color:var\(--ink\)/g)].length,4,'four tones, each with --ink text');
+});
