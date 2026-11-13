@@ -1,4 +1,5 @@
 import {explainSearchPlan,summarizePlanDiagnostics,toolUsage} from './search-planner.js?v=1';
+import {browserOnlyNotice,caseSummary,evidenceEmpty,findingCard} from './evidence-view.js?v=1';
 import {newsCard,newsMetrics,relativeTime} from './news-view.js?v=1';
 import {emptyState,escapeHtml,term} from './ui.js?v=4';
 import {classifyToolResult,hasUsefulData,parseToolResult} from './result-classifier.js';
@@ -74,6 +75,20 @@ function openDialog(dialog,trigger=document.activeElement){
   first?.focus();
   // Only when nothing else took focus meanwhile (a Pivot closes the results and focuses the search box).
   dialog.addEventListener('close',()=>{const stranded=document.activeElement===document.body||dialog.contains(document.activeElement);if(stranded&&trigger?.isConnected&&typeof trigger.focus==='function')trigger.focus();},{once:true});
+}
+// Asks before something that cannot be undone, in a real dialog that starts on Cancel. Resolves true only when the
+// user presses the confirm button; Cancel, Escape and the backdrop all resolve false. Text is set as text, never HTML.
+function confirmAction({title,message,confirmLabel}){
+  const dialog=$('#confirmDialog');
+  $('#confirmTitle').textContent=title;$('#confirmMessage').textContent=message;dialog.querySelector('[data-confirm="yes"]').textContent=confirmLabel;
+  return new Promise(resolve=>{
+    let answer=false;
+    const choose=event=>{const button=event.target.closest('[data-confirm]');if(button){answer=button.dataset.confirm==='yes';dialog.close();}else if(event.target===dialog)dialog.close();};
+    dialog.addEventListener('click',choose);
+    dialog.addEventListener('close',()=>{dialog.removeEventListener('click',choose);resolve(answer);},{once:true});
+    openDialog(dialog);
+    dialog.querySelector('[data-confirm="no"]').focus();
+  });
 }
 function toast(message) { const el=$('#toast'); el.textContent=message; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2400); }
 function iconFor(name='') { if(/cyber|cve|threat|domain|ip/i.test(name))return'⌁'; if(/geo|satellite|place|flight|vessel/i.test(name))return'◈'; if(/sanction|entity|company/i.test(name))return'◎'; return'▤'; }
@@ -266,11 +281,10 @@ function renderEvidence(){
   $('#renameCase').disabled=$('#deleteCase').disabled=$('#exportEvidence').disabled=$('#reportMarkdown').disabled=$('#reportHtml').disabled=!state.activeCase;
   const legacy=state.evidence.length;
   $('#caseImport').hidden=!legacy;
-  $('#caseImport').innerHTML=legacy?`<p>${legacy} finding${legacy===1?' is':'s are'} saved only in this browser. Import ${legacy===1?'it':'them'} into a case on this Mac so ${legacy===1?'it survives':'they survive'} a browser change.</p><button class="primary" id="importBrowserEvidence">Import into a new case</button>`:'';
+  $('#caseImport').innerHTML=legacy?browserOnlyNotice(legacy):'';
   const current=state.activeCase;
-  const byStatus=status=>current.evidence.filter(item=>(item.status||'unverified')===status).length;
-  $('#caseSummary').textContent=current?`${current.evidence.length} finding${current.evidence.length===1?'':'s'} (${byStatus('confirmed')} confirmed, ${byStatus('unverified')} unverified, ${byStatus('ruled out')} ruled out) · ${current.searches.length} search${current.searches.length===1?'':'es'} logged · created ${new Date(current.createdAt).toLocaleDateString()}`:'';
-  $('#evidenceList').innerHTML=!current?'<div class="empty-state">Create or choose a case to save findings. Results you save while a case is open go into it.</div>':current.evidence.length?newestFirst(current.evidence).map(item=>`<article class="evidence-card"><div><p class="eyebrow">${new Date(item.time).toLocaleString()}${item.server?` · ${escapeHtml(item.server)}`:''}</p><h3>${escapeHtml(item.title)}</h3><p class="subtle" title="SHA-256 of the saved result">Fingerprint ${escapeHtml(shortFingerprint(item.sha256))}</p><div class="evidence-review"><label>Status<select data-evidence-status="${escapeHtml(item.id)}" class="status-${escapeHtml((item.status||'unverified').replace(' ','-'))}">${['unverified','confirmed','ruled out'].map(status=>`<option value="${status}"${(item.status||'unverified')===status?' selected':''}>${status[0].toUpperCase()+status.slice(1)}</option>`).join('')}</select></label><label class="evidence-note">Note<textarea data-evidence-note="${escapeHtml(item.id)}" maxlength="4000" rows="2" placeholder="Why you trust or doubt this finding">${escapeHtml(item.note||'')}</textarea></label><button class="ghost" data-save-note="${escapeHtml(item.id)}">Save note</button></div><pre>${escapeHtml(JSON.stringify(item.result,null,2))}</pre></div><button class="icon-button" data-delete-evidence="${escapeHtml(item.id)}" title="Remove">×</button></article>`).join(''):'<div class="empty-state">This case has no findings yet. Open a result and choose Save to evidence.</div>';
+  $('#caseSummary').textContent=caseSummary(current);
+  $('#evidenceList').innerHTML=!current?evidenceEmpty('no-case'):current.evidence.length?newestFirst(current.evidence).map(item=>findingCard(item)).join(''):evidenceEmpty('empty-case');
 }
 async function loadDeepHistory(){
   const box=$('#deepHistory');
@@ -632,14 +646,16 @@ document.addEventListener('click',async event=>{
   const disconnectButton=event.target.closest('[data-disconnect]'); if(disconnectButton){const server=state.servers.find(s=>s.id===disconnectButton.dataset.disconnect);if(server)disconnect(server);}
   const remove=event.target.closest('[data-remove]'); if(remove){const server=state.servers.find(s=>s.id===remove.dataset.remove);if(server&&bundledServers.some(item=>item.endpoint===server.endpoint))removedBundledEndpoints.add(server.endpoint);state.servers=state.servers.filter(s=>s.id!==remove.dataset.remove);renderAll();}
   const run=event.target.closest('[data-run]'); if(run){const [serverId,name]=run.dataset.run.split('::');const tool=allTools().find(t=>t.serverId===serverId&&t.name===name);if(tool)openTool(tool,serverId);}
-  const del=event.target.closest('[data-delete-evidence]');if(del&&state.activeCaseId&&confirm('Remove this finding from the case? This cannot be undone.')){api(`/api/cases/${state.activeCaseId}/evidence/${del.dataset.deleteEvidence}/delete`,{}).then(loadCases).catch(error=>toast(error.message));}
+  const del=event.target.closest('[data-delete-evidence]');if(del&&state.activeCaseId){const item=state.activeCase?.evidence.find(entry=>entry.id===del.dataset.deleteEvidence);if(await confirmAction({title:'Remove this finding?',message:`"${item?.title||'This finding'}" will be removed from this case. This can't be undone.`,confirmLabel:'Remove finding'}))api(`/api/cases/${state.activeCaseId}/evidence/${del.dataset.deleteEvidence}/delete`,{}).then(loadCases).catch(error=>toast(error.message));return;}
+  const open=event.target.closest('[data-open-finding]');if(open){const item=state.activeCase?.evidence.find(entry=>entry.id===open.dataset.openFinding);if(item)showResult(item.title,item.result);return;}
+  if(event.target.closest('[data-new-case]')){createCase().catch(error=>toast(error.message));return;}
   if(event.target.closest('#importBrowserEvidence'))importBrowserEvidence().catch(error=>toast(`Import stopped: ${error.message}. Your browser copy was kept.`));
   const tierChip=event.target.closest('[data-tier-filter]');if(tierChip){state.tierFilter=tierChip.dataset.tierFilter;renderTools();}
   const moreNews=event.target.closest('[data-load-more-news]');if(moreNews){const shown=intelNews.visibleLimit;intelNews.visibleLimit+=30;renderIntelNews();document.querySelectorAll('#intelNewsList .news-card')[shown]?.focus();}
   const sourceEdit=event.target.closest('[data-source-edit]');if(sourceEdit){const source=dataSources.list.find(s=>s.id===sourceEdit.dataset.sourceEdit);if(source)openKeyDialog(source);}
   const sourceConnect=event.target.closest('[data-source-connect]');if(sourceConnect)dataSourceAction('connect',sourceConnect.dataset.sourceConnect);
   const sourceDisconnect=event.target.closest('[data-source-disconnect]');if(sourceDisconnect)dataSourceAction('disconnect',sourceDisconnect.dataset.sourceDisconnect);
-  const sourceRemove=event.target.closest('[data-source-remove]');if(sourceRemove){const source=dataSources.list.find(s=>s.id===sourceRemove.dataset.sourceRemove);if(source&&confirm(`Remove the saved key for ${source.name}? You will need to paste it again to reconnect.`))dataSourceAction('remove',source.id);}
+  const sourceRemove=event.target.closest('[data-source-remove]');if(sourceRemove){const source=dataSources.list.find(s=>s.id===sourceRemove.dataset.sourceRemove);if(source&&await confirmAction({title:'Remove this key?',message:`The saved key for ${source.name} will be removed from this Mac. You'll need to paste it again to reconnect.`,confirmLabel:'Remove key'}))dataSourceAction('remove',source.id);}
 });
 
 $('#investigateForm').addEventListener('submit',async e=>{e.preventDefault();const q=$('#query').value.trim();if(!q&&!state.pendingFile)return;try{if(state.pendingFile)await analyzeSelectedFile(state.pendingFile,q);else await smartInvestigate(q);}catch(error){toast(error.message);}});
@@ -660,7 +676,9 @@ $$('[data-close-dialog]').forEach(button=>button.onclick=()=>button.closest('dia
 $('#saveEvidence').onclick=()=>saveLastResultToCase().catch(error=>toast(`Could not save: ${error.message}`));
 $('#caseSelect').onchange=event=>selectCase(event.target.value);
 const updateFinding=(itemId,changes,message)=>api(`/api/cases/${state.activeCaseId}/evidence/${itemId}/update`,changes).then(()=>{toast(message);return loadCases();}).catch(error=>toast(`Could not update: ${error.message}`));
-$('#evidenceList').addEventListener('change',event=>{const select=event.target.closest('[data-evidence-status]');if(select&&state.activeCaseId)updateFinding(select.dataset.evidenceStatus,{status:select.value},`Marked ${select.value}`);});
+// Status buttons: set the stored value, then put focus back on the same button after the list re-renders.
+$('#evidenceList').addEventListener('click',event=>{const option=event.target.closest('[data-set-status]');if(!option||!state.activeCaseId)return;const finding=option.dataset.finding,status=option.dataset.setStatus;updateFinding(finding,{status},`Marked ${option.textContent.trim()}`).then(()=>document.querySelector(`[data-finding="${CSS.escape(finding)}"][data-set-status="${CSS.escape(status)}"]`)?.focus());});
+$('#evidenceList').addEventListener('input',event=>{const note=event.target.closest('[data-evidence-note]');if(note)$(`#note-count-${CSS.escape(note.dataset.evidenceNote)}`).textContent=`${note.value.length} of 4000 characters`;});
 $('#evidenceList').addEventListener('click',event=>{const button=event.target.closest('[data-save-note]');if(!button||!state.activeCaseId)return;const note=$(`[data-evidence-note="${button.dataset.saveNote}"]`).value;updateFinding(button.dataset.saveNote,{note},'Note saved');});
 $('#refreshDeepHistory').onclick=()=>loadDeepHistory();
 $('#runSelfCheck').onclick=()=>runSelfCheck();
@@ -677,8 +695,8 @@ $('#reportMarkdown').onclick=()=>downloadReport('md');
 $('#reportHtml').onclick=()=>downloadReport('html');
 $('#newCase').onclick=()=>createCase().catch(error=>toast(error.message));
 $('#renameCase').onclick=async()=>{if(!state.activeCase)return;const name=prompt('New name for this case',state.activeCase.name);if(name&&name.trim())await api(`/api/cases/${state.activeCaseId}/rename`,{name}).then(loadCases).catch(error=>toast(error.message));};
-$('#deleteCase').onclick=async()=>{const c=state.activeCase;if(!c||!confirm(`Delete the case "${c.name}" and its ${c.evidence.length} finding${c.evidence.length===1?'':'s'} from this Mac? This cannot be undone.`))return;await api(`/api/cases/${c.id}/delete`,{}).catch(error=>toast(error.message));state.activeCaseId=null;await loadCases();};
-$('#clearHistory').onclick=()=>{if(confirm('Clear all investigation history?')){state.history=[];renderAll();}};
+$('#deleteCase').onclick=async()=>{const c=state.activeCase;if(!c||!await confirmAction({title:'Delete this case?',message:`"${c.name}" and its ${c.evidence.length} finding${c.evidence.length===1?'':'s'} will be deleted from this Mac. This can't be undone.`,confirmLabel:'Delete case'}))return;await api(`/api/cases/${c.id}/delete`,{}).catch(error=>toast(error.message));state.activeCaseId=null;await loadCases();};
+$('#clearHistory').onclick=async()=>{if(await confirmAction({title:'Clear recent searches?',message:'Your recent searches will be removed from this browser. Saved cases are not affected.',confirmLabel:'Clear searches'})){state.history=[];renderAll();}};
 $('#toolFilter').oninput=renderTools;
 $('#intelNewsFilter').oninput=()=>{intelNews.visibleLimit=30;renderIntelNews();};
 $('#intelNewsCategory').onchange=()=>{intelNews.visibleLimit=30;renderIntelNews();};

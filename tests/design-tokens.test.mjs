@@ -120,3 +120,11 @@ test('badge tones are readable in both themes',()=>{
     }
   assert.equal([...css.matchAll(/\.ui-badge-\w+\{color:var\(--ink\)/g)].length,4,'four tones, each with --ink text');
 });
+
+// The danger action (Delete case, Remove finding) is readable in both themes.
+test('the danger button meets 4.5:1 in both themes',()=>{
+  for(const theme of ['light','dark']){
+    const value=ratio(token(theme,'on-danger'),token(theme,'danger'));
+    assert.ok(value>=4.5,`${theme} --on-danger on --danger is ${value.toFixed(2)}:1`);
+  }
+});
