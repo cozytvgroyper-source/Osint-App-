@@ -109,4 +109,4 @@ test('after a delete, focus and status move sensibly',()=>{
   assert.match(app,/\$\('#deepHistoryHeading'\)\.focus\(\)/);
 });
 
-test('index.html loads app.js?v=59',()=>assert.match(html,/src="\/app\.js\?v=59"/));
+test('index.html loads app.js?v=60',()=>assert.match(html,/src="\/app\.js\?v=60"/));

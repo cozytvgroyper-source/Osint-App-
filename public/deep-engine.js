@@ -1,12 +1,13 @@
 import {classifyToolResult} from './result-classifier.js';
 import {adaptToolResult,trimRaw} from './deep-adapters.js';
 import {linkFindings} from './deep-linking.js';
-import {deepArgs,deepToolsFor,isPersonType,normalizeIdentifier} from './deep-search.js';
+import {deepArgs,deepToolsFor,isPersonType,isReservedIp,normalizeIdentifier} from './deep-search.js';
 
 export const MAX_ROUNDS=3;
 export const MAX_IDENTIFIERS=25;
 export const PASSIVE_CONCURRENCY=4;
 export const MAX_RUN_RAW_BYTES=20_000_000;
+export const SKIPPED_PUBLIC_ONLY='Only covers public internet addresses.';
 
 const identifierKey=identifier=>`${identifier.type}:${identifier.value}`;
 const callKey=task=>`${task.tool.serverName}::${task.tool.name}::${identifierKey(task.identifier)}`;
@@ -103,16 +104,25 @@ export async function runDeepSearch(options={}){
         searchedKeys.add(key);searched.push(normalized);current.push(normalized);
       }
       pending=[];
-      const tasks=[];
+      const tasks=[];const skipped=[];
       for(const identifier of current){
         const taskLevel=person&&identifier.type==='domain'?1:isPersonType(identifier.type)?0:level;
         const taskConfirmation=person&&identifier.type==='domain'?{acknowledged:true}:confirmation;
         for(const picked of deepToolsFor(tools,{type:identifier.type,level:taskLevel,excluded})){
           const task={...picked,identifier,args:deepArgs(picked.tool,identifier),confirmation:taskConfirmation};
-          const key=callKey(task);if(madeCalls.has(key))continue;madeCalls.add(key);tasks.push(task);
+          const key=callKey(task);if(madeCalls.has(key))continue;madeCalls.add(key);
+          // A tool that only knows public internet addresses can't answer for a private or reserved IP: record it
+          // as skipped, with the reason, rather than calling it and showing a failure.
+          if(picked.publicIpOnly&&identifier.type==='ip'&&isReservedIp(identifier.value))skipped.push(task);
+          else tasks.push(task);
         }
       }
-      total+=tasks.length;countsEvent();
+      total+=tasks.length+skipped.length;
+      for(const task of skipped){
+        calls.push({tool:task.tool.name,serverName:task.tool.serverName,identifier:task.identifier,outcome:'skipped',error:SKIPPED_PUBLIC_ONLY,ms:0});
+        onEvent({type:'tool-end',tool:task.tool,identifier:task.identifier,outcome:'skipped',ms:0});
+      }
+      countsEvent();
       const passive=tasks.filter(task=>task.risk.level===0);
       const controlled=tasks.filter(task=>task.risk.level>0);
       const controlledRun=async()=>{

@@ -113,3 +113,25 @@ test('website searches have one round',async()=>{
   const run=await runDeepSearch({id:'site',target:{type:'domain',value:'example.com'},level:0,tools:[toolbox('whois_lookup','domain')],excluded:new Set(),confirmation:{acknowledged:true},callTool:async()=>({result:textResult('{}')})});
   assert.equal(run.rounds,1);
 });
+
+test('public-only tools are skipped for a private IP and shown as skipped',async()=>{
+  const openOsint=name=>tool(name,'Open OSINT','query');
+  const tools=[openOsint('get_greynoise'),openOsint('get_bgp')];
+  const runFor=async value=>{
+    const seen=[];const events=[];
+    const run=await runDeepSearch({id:`ip-${value}`,target:{type:'ip',value},level:0,tools,excluded:new Set(),confirmation:{acknowledged:true},
+      callTool:async current=>{seen.push(current.name);return{result:textResult('{"ok":true}')};},
+      onEvent:event=>events.push(event)});
+    return {run,seen,events};
+  };
+  const privateRun=await runFor('192.168.1.10');
+  assert.deepEqual(privateRun.seen,['get_bgp']);
+  const skipped=privateRun.run.calls.find(call=>call.tool==='get_greynoise');
+  assert.deepEqual({outcome:skipped.outcome,error:skipped.error,ms:skipped.ms},{outcome:'skipped',error:'Only covers public internet addresses.',ms:0});
+  const lastCounts=privateRun.events.filter(event=>event.type==='counts').at(-1);
+  assert.equal(lastCounts.total,2);assert.equal(lastCounts.done,2);
+  assert.ok(privateRun.events.some(event=>event.type==='tool-end'&&event.tool.name==='get_greynoise'&&event.outcome==='skipped'));
+  const publicRun=await runFor('8.8.8.8');
+  assert.deepEqual(publicRun.seen.sort(),['get_bgp','get_greynoise']);
+  assert.equal(publicRun.run.calls.some(call=>call.outcome==='skipped'),false);
+});

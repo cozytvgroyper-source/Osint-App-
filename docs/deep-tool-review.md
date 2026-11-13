@@ -19,7 +19,7 @@ Tools are listed in run order. Every people tool is Passive. Website and IP tool
 | Website | Light touch | `omega_headers`, `omega_ssl`, `omega_tech`, `omega_cors`, `omega_mailsec`, `omega_certhunt`, `omega_cvemap`, `omega_deepweb`, `omega_docosint`, `omega_harvester`, `omega_infra`, `omega_opsec`, `omega_phishcheck`, `omega_screenshot`, `omega_typosquat` |
 | Website | Active | `omega_ports`, `omega_crawl`, `omega_dnsbrute`, `omega_subdomains`, `dnsrecon_domain_scan`, `spiderfoot_scan`, `omega_recon`, `omega_apiosint`, `omega_assetmap`, `omega_attackmap`, `omega_buckets`, `omega_cloud`, `omega_cloud2`, `omega_creds`, `omega_jscan`, `omega_secrets`, `omega_spider`, `omega_webcrawl`, `omega_dossier` |
 | Website | Intrusive | `omega_vuln`, `omega_fuzzer`, `omega_exfil` |
-| IP | Passive | `get_bgp`, `get_greynoise`, `get_whois`, `omega_ipinfo`, `omega_ipdossier`, `omega_intel`, `omega_asn`, `omega_reverseip` |
+| IP | Passive | `get_bgp`, `get_greynoise`, `get_whois`, `omega_ipinfo`, `omega_ipdossier`, `omega_intel`, `omega_reverseip` |
 | IP | Light touch | `omega_ssl`, `omega_headers`, `omega_infra`, `omega_network`, `omega_torcheck`, `omega_cvemap` |
 | IP | Active | `omega_ports`, `spiderfoot_scan`, `omega_recon`, `omega_assetmap`, `omega_attackmap`, `omega_c2` |
 | IP | Intrusive | `omega_vuln`, `omega_pivot`, `omega_exfil` |
@@ -38,6 +38,9 @@ Tools are listed in run order. Every people tool is Passive. Website and IP tool
 | Remove `omega_deception` from IPs | It returned `Unknown action` for the target instead of a check. |
 | Remove `omega_redteam` from websites and IPs | It required an opaque `omega auto` report and produced no independently sourced findings. |
 | Change Sherlock to text output | The installed CLI rejected the wrapper's CSV flags; text mode returned profile URLs successfully. |
+| Remove `omega_asn` | Its data source, api.bgpview.io, no longer exists (DNS NXDOMAIN on 2026-11-13); `get_bgp` covers network owner and routing. |
+
+`get_greynoise` is skipped for private and reserved IPs; it only covers public internet addresses. Its recorded HTTP 400 came from the private test IP, not from a fault in the tool.
 
 GHunt remains listed because its target and output fit the design, but this recording reported that GHunt needs a valid local login.
 
@@ -68,12 +71,12 @@ GHunt remains listed because its target and output fit the design, but this reco
 | `omega_intel` | Website | `target` | Text from threat-intelligence sources | Keep sourced reputation facts; warnings and missing-key text are details only. |
 | `omega_spoofcheck` | Website | `target` | Object with SPF, DMARC and DKIM results | Produces mail-security problems from explicit failures or missing policy. |
 | `get_bgp` | IP | `query` | Data object with routing context | Direct fact; private/reserved answers may be empty or explanatory. |
-| `get_greynoise` | IP | `query` | Error object | Keep as a failed call only. |
+| `get_greynoise` | IP | `query` | Error object (HTTP 400 for the private test IP) | Skipped for private and reserved IPs; on a public IP an error stays a failed call only. |
 | `get_whois` | IP | `query` | Data object with registry information | Direct network-owner and allocation facts. |
 | `omega_ipinfo` | IP | `target` | Text with geolocation and WHOIS status | Direct facts; failure fields are not findings. |
 | `omega_ipdossier` | IP | `target` | Text with PTR, ASN, hosting and reputation checks | Direct IP facts with source labels. |
 | `omega_intel` | IP | `target` | Text threat-intelligence response | Keep sourced reputation facts; missing-key text is not a finding. |
-| `omega_asn` | IP | `target` | Error envelope | DNS failure in this recording; keep as a failed call only. |
+| `omega_asn` | IP | `target` | Error envelope | Removed: its data source no longer exists (see changes above). |
 | `omega_reverseip` | IP | `target` | Array of related domains | Empty in this recording; non-empty domains are other-host leads. |
 | `omega_ssl` | IP | `target` | Object or object-shaped error | TLS facts/problems only when a service answers. |
 | `omega_headers` | IP | `target` | Object or object-shaped error | Header problems only when an HTTP service answers. |
