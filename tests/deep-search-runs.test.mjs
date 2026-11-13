@@ -52,3 +52,13 @@ test('removeAll clears saved, temporary and orphaned files and tolerates a missi
   assert.deepEqual(await readdir(dir),[]);
   assert.equal(await new DeepRunStore(join(root,'never-made')).removeAll(),0);
 });
+
+test('removeAll treats a file that vanishes mid-delete as already gone',async()=>{
+  const root=await mkdtemp(join(tmpdir(),'pd-deep-runs-'));const dir=join(root,'runs');const store=new DeepRunStore(dir);
+  for(let index=0;index<20;index++)await store.save(sample(`run-${String(index).padStart(8,'0')}`));
+  // Both must succeed and leave nothing behind. The two counts are not asserted: on macOS two unlinks racing on the
+  // same path can both report success, so a racing pair may count a file twice.
+  const counts=await Promise.all([store.removeAll(),new DeepRunStore(dir).removeAll()]);
+  assert.ok(counts.every(count=>Number.isInteger(count)&&count>=0));
+  assert.deepEqual(await readdir(dir),[]);
+});

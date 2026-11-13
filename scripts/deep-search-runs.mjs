@@ -46,8 +46,12 @@ export class DeepRunStore{
     for(const name of names){
       if(!/\.(?:json|tmp)$/.test(name))continue;
       const path=join(this.dir,name);
-      if(!(await lstat(path)).isFile())continue;
-      await unlink(path);removed++;
+      // A file can vanish between readdir and here (another Delete all, or a save renaming its temp file):
+      // that is "already gone", not a failure.
+      try{
+        if(!(await lstat(path)).isFile())continue;
+        await unlink(path);removed++;
+      }catch(error){if(error.code!=='ENOENT')throw error;}
     }
     return removed;
   }

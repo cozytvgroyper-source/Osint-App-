@@ -125,3 +125,16 @@ test('an append queued during a delete is never lost',async()=>{
   const {entries}=await readDeepSearchAudit(file);
   assert.deepEqual(entries.map(entry=>entry.runId),['run-cccccccc']);
 });
+
+test('delete and clear remove leftover temporary copies of the log',async()=>{
+  const {deleteDeepSearchAudit,clearDeepSearchAudit}=await import('../scripts/deep-search-audit.mjs');
+  const keep=lineFor({runId:'run-bbbbbbbb'});
+  for(const action of [file=>deleteDeepSearchAudit(file,{runId:'run-aaaaaaaa'}),file=>clearDeepSearchAudit(file)]){
+    const file=await logWith([lineFor({runId:'run-aaaaaaaa'}),keep]);
+    const dir=path.dirname(file);
+    await fs.promises.writeFile(path.join(dir,'audit.jsonl.4242.ab12cd34.tmp'),'stale copy of the old log',{mode:0o600});
+    await fs.promises.writeFile(path.join(dir,'unrelated.tmp'),'not ours');
+    await action(file);
+    assert.deepEqual((await fs.promises.readdir(dir)).sort(),['audit.jsonl','unrelated.tmp']);
+  }
+});
