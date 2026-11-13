@@ -19,6 +19,8 @@ import {deepRunBlocked,deepToolsFor,detectDeepTarget,isPersonType} from './deep-
 import {runDeepSearch as runDeepEngine} from './deep-engine.js?v=1';
 import {deepStatusLine,initialProgress,reduceProgress,renderProgress} from './deep-progress.js?v=1';
 import {deepEvidenceRecord,renderDeepResults} from './deep-results-view.js?v=1';
+import {adaptToolResult} from './deep-adapters.js?v=1';
+import {linkFindings} from './deep-linking.js?v=1';
 
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
@@ -734,9 +736,28 @@ function resetDeepSearch(value=''){
   $('#deepSetup').hidden=false;$('#deepProgress').hidden=true;$('#deepResults').hidden=true;$('#deepTarget').value=value;$('#deepAuthorize').checked=false;$('#deepTypedTarget').value='';updateDeepSetup();window.scrollTo({top:0,behavior:'smooth'});$('#deepTarget').focus();
 }
 
+function rebuildDeepFindings(run){
+  const adapted=[];
+  for(const call of run.calls||[]){
+    const identifier=call.identifier;if(!identifier)continue;
+    const key=`${call.serverName}::${call.tool}::${identifier.type}:${identifier.value}`;const raw=run.raw?.[key];if(!raw)continue;
+    try{adapted.push(...adaptToolResult({name:call.tool,serverName:call.serverName},JSON.parse(raw),identifier));}catch{}
+  }
+  if(!adapted.length)return run;
+  const linked=linkFindings(adapted,run.target,{searched:(run.calls||[]).map(call=>call.identifier).filter(Boolean)});
+  return{...run,findings:linked.findings};
+}
+
+async function openDeepResults(runId){
+  const stored=await apiGet(`/api/deep-search/runs/${encodeURIComponent(runId)}`);const run=rebuildDeepFindings(stored);
+  state.deepCurrent=run;switchView('deep');$('#deepSetup').hidden=true;$('#deepProgress').hidden=true;$('#deepResults').hidden=false;$('#deepResults').innerHTML=renderDeepResults(run);document.getElementById('deepResultsHeading')?.focus();
+}
+
 document.addEventListener('click',async event=>{
   if(event.target.closest('[data-deep-cancel]')){cancelDeepSearch();return;}
   if(event.target.closest('[data-deep-new]')){resetDeepSearch();return;}
+  if(event.target.closest('[data-deep-save]')){if(!state.deepCurrent)return;state.lastResult=deepEvidenceRecord(state.deepCurrent);saveLastResultToCase().catch(error=>toast(`Could not save: ${error.message}`));return;}
+  const openDeep=event.target.closest('[data-open-deep]');if(openDeep){openDeepResults(openDeep.dataset.openDeep).catch(error=>toast(`Could not open results: ${error.message}`));return;}
   const deepTarget=event.target.closest('[data-deep-target]');if(deepTarget){switchView('deep');resetDeepSearch(deepTarget.dataset.deepTarget);return;}
   const consensusSignIn=event.target.closest('[data-consensus-sign-in]');if(consensusSignIn){try{const {authorize}=await api('/api/oauth/consensus/start',{});location.assign(authorize);}catch(error){toast(`Could not start sign-in: ${error.message}`);}return;}
   const pivot=event.target.closest('[data-pivot]');if(pivot){event.preventDefault();const target=pivot.dataset.pivot;$('#resultDialog').close();switchView('workspace');$('#query').value=target;$('#query').focus();try{await smartInvestigate(target);}catch(error){toast(error.message);}return;}

@@ -42,4 +42,25 @@ test('audit starts before the engine and completed runs are always stored',()=>{
 test('history offers stored results',()=>{
   assert.match(app,/entry\.runId[\s\S]{0,180}Open results/);
   assert.match(app,/data-open-deep/);
+  assert.match(app,/Results weren\\'t kept for this run/);
+});
+
+test('opening stored results re-adapts raw answers and links them again',()=>{
+  assert.match(app,/adaptToolResult/);
+  assert.match(app,/linkFindings/);
+  assert.match(app,/\/api\/deep-search\/runs\/\$\{encodeURIComponent\(runId\)\}/);
+  assert.match(app,/JSON\.parse\(raw\)/);
+});
+
+test('Deep Search targets reopen the setup with site controls visible',()=>{
+  assert.match(app,/data-deep-target/);
+  assert.match(app,/resetDeepSearch\(deepTarget\.dataset\.deepTarget\)/);
+  assert.match(app,/deepLevelWrap[^\n]*hidden=!target\|\|person/);
+  assert.match(app,/scrollTo\(\{top:0/);
+});
+
+test('saving Deep Search results uses the evidence record and existing case workflow',()=>{
+  assert.match(app,/data-deep-save/);
+  assert.match(app,/state\.lastResult=deepEvidenceRecord\(state\.deepCurrent\)/);
+  assert.match(app,/saveLastResultToCase\(\)/);
 });
