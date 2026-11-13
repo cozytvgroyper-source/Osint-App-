@@ -252,3 +252,80 @@ test('leads come from confirmed details only',()=>{
   const keys=result.leads.map(item=>`${item.type}:${item.value}`).sort();
   assert.deepEqual(keys,['domain:owner-site.example','email:contact@owner-site.example','username:owner-alt']);
 });
+
+// ---- Fix round 1: shared hosts, searched leads, and the multi-round contract ----
+
+const linkedFact=urls=>({id:'ghunt-youtube',kind:'fact',subject:E,tool:{name:'ghunt',serverName:'Test MCP'},
+  evidence:evidence({emails:[E.value],urls}),fact:{label:'YouTube',value:'channel abc',group:'owner'}});
+const statusesOf=result=>result.findings.filter(item=>item.kind==='account')
+  .map(item=>[normalizeUrl(item.account.url||item.account.rawUrl),item.status,item.confirmedBy.join('')]).sort();
+
+test('a URL on a big shared site in a linked fact never confirms a stranger on that site',()=>{
+  const stranger=account('Tumblr','https://tumblr.com/ownername',{details:{websites:['https://youtube.com/@someoneelse']}});
+  const result=linkFindings([linkedFact(['https://www.youtube.com/channel/abc']),stranger],U,{searched:[U,E]});
+  assert.equal(result.findings.find(item=>item.id==='ghunt-youtube').status,'linked');
+  assert.equal(byUrl(result,'tumblr.com/ownername').status,'possible');
+  assert.ok(!result.leads.some(item=>item.type==='domain'&&item.value==='youtube.com'));
+});
+
+test('the exact URL from a linked fact still confirms a profile that links to it',()=>{
+  const linker=account('Tumblr','https://tumblr.com/ownername',{details:{websites:['https://youtube.com/channel/abc/']}});
+  const result=linkFindings([linkedFact(['https://www.youtube.com/channel/abc']),linker],U,{searched:[U,E]});
+  assert.deepEqual(byUrl(result,'tumblr.com/ownername').confirmedBy,['b']);
+});
+
+test('a platform host is never a domain lead and never confirms other profiles on it',()=>{
+  const confirmed=account('GitHub','https://github.com/ownername',{verified:true,subject:E,tool:'holehe',details:{websites:['https://github.com/someproject','https://youtube.com']}});
+  const round1=linkFindings([confirmed],U,{searched:[U,E]});
+  assert.ok(!round1.leads.some(item=>item.type==='domain'&&['github.com','youtube.com'].includes(item.value)));
+  const github={type:'domain',value:'github.com'};
+  const hostFinding={id:'host-github',kind:'host',subject:github,tool:{name:'whois_lookup',serverName:'Test MCP'},evidence:evidence({urls:['https://github.com']}),host:{value:'github.com',relation:'related'}};
+  const elsewhere=account('Codeberg','https://codeberg.org/ownername',{details:{websites:['https://github.com/someoneelse']}});
+  const video=account('Vimeo','https://vimeo.example/ownername',{details:{websites:['https://youtube.com/@someoneelse']}});
+  const result=linkFindings([confirmed,hostFinding,elsewhere,video],U,{searched:[U,E,github]});
+  assert.equal(byUrl(result,'codeberg.org/ownername').status,'possible');
+  assert.equal(byUrl(result,'vimeo.example/ownername').status,'possible');
+});
+
+test('a bare personal site from a confirmed profile still confirms pages on that site',()=>{
+  const confirmed=account('GitHub','https://github.com/ownername',{verified:true,subject:E,tool:'holehe',details:{websites:['https://owner-site.example']}});
+  const blog=account('Blog','https://blog.example/ownername',{details:{websites:['https://owner-site.example/blog']}});
+  const result=linkFindings([confirmed,blog],U,{searched:[U,E]});
+  assert.deepEqual(byUrl(result,'blog.example/ownername').confirmedBy,['b']);
+});
+
+test('following a lead never changes the confirmations it came from',()=>{
+  const alt={type:'email',value:'alt@owner-site.example'};const altUser={type:'username',value:'owner-alt'};
+  const input=[
+    account('GitHub','https://github.com/ownername',{verified:true,subject:E,tool:'holehe',details:{emails:['alt@owner-site.example'],usernames:['owner-alt']}}),
+    account('GitLab','https://gitlab.com/ownername',{details:{emails:['alt@owner-site.example']}}),
+    account('Codeberg','https://codeberg.org/ownername',{details:{usernames:['owner-alt']}})
+  ];
+  const without=linkFindings(input,U,{searched:[U,E]});
+  const withLeads=linkFindings(input,U,{searched:[U,E,alt,altUser]});
+  assert.deepEqual(statusesOf(withLeads),statusesOf(without));
+  assert.deepEqual(byUrl(without,'gitlab.com/ownername').confirmedBy,['b','c']);
+  assert.deepEqual(byUrl(without,'codeberg.org/ownername').confirmedBy,['b']);
+  assert.deepEqual(byUrl(withLeads,'github.com/ownername').account.details.emails,['alt@owner-site.example']);
+  assert.deepEqual(byUrl(withLeads,'github.com/ownername').account.details.usernames,['owner-alt']);
+});
+
+test('two rounds the way the engine runs them: leads are followed and round-one confirmations hold',()=>{
+  const round1Input=[
+    account('GitHub','https://github.com/ownername',{verified:true,subject:E,tool:'holehe',details:{usernames:['owner-alt'],names:['Owner Example']}}),
+    account('GitLab','https://gitlab.com/ownername',{details:{names:['Owner Example']}}),
+    account('Codeberg','https://codeberg.org/ownername',{details:{usernames:['owner-alt']}})
+  ];
+  const searched=[U,E];
+  const round1=linkFindings(round1Input,U,{searched});
+  assert.ok(round1.leads.some(item=>item.type==='username'&&item.value==='owner-alt'));
+  searched.push(...round1.leads);
+  const altUser={type:'username',value:'owner-alt'};
+  const echo=account('Example','https://social.example/owner-alt',{subject:altUser,details:{usernames:['owner-alt','ownername']}});
+  const round2=linkFindings([...round1Input,echo],U,{searched});
+  for(const key of ['github.com/ownername','gitlab.com/ownername','codeberg.org/ownername'])
+    assert.deepEqual(byUrl(round2,key).confirmedBy,byUrl(round1,key).confirmedBy,key);
+  const echoed=byUrl(round2,'social.example/owner-alt');
+  assert.equal(echoed.status,'possible');
+  assert.deepEqual(echoed.account.details.usernames,[]);
+});
