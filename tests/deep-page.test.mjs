@@ -5,6 +5,8 @@ import fs from 'node:fs';
 const read=file=>fs.readFileSync(new URL(`../public/${file}`,import.meta.url),'utf8');
 const html=read('index.html'),app=read('app.js'),progress=read('deep-progress.js'),styles=read('ui.css');
 const deep=html.match(/<section id="deep"[\s\S]*?<section id="news"/)[0];
+// One named function's source, so a check can't be satisfied by unrelated code elsewhere in app.js.
+const fn=name=>{const start=app.indexOf(`async function ${name}(`);assert.ok(start>=0,name);const end=app.indexOf('\nasync function ',start+1);return app.slice(start,end<0?undefined:end);};
 
 test('Deep Search is one clear box with one start button and optional tool choices',()=>{
   assert.match(deep,/Find everything about one email, username, website or IP/);
@@ -24,19 +26,20 @@ test('unsupported input explains the limit, links to Search and disables Start',
 
 test('the run guard, unload warning, focus and cancel confirmation are wired',()=>{
   assert.match(app,/if\(state\.deepRun\)[\s\S]{0,180}deepProgressHeading/);
-  assert.match(app,/beforeunload/);
+  assert.match(fn('startDeepSearch'),/window\.addEventListener\('beforeunload',warnDeepUnload\)/);
   assert.match(app,/deepProgressHeading[^\n]*focus/);
   assert.match(app,/deepResultsHeading[^\n]*focus/);
   assert.match(app,/deepTarget[^\n]*focus/);
   assert.match(app,/Stop the search\? What&#39;s been found so far will be kept\.|Stop the search\? What's been found so far will be kept\./);
-  assert.match(app,/confirmAction/);
+  assert.match(fn('cancelDeepSearch'),/await confirmAction\(\{title:'Stop the search\?'/);
 });
 
 test('audit starts before the engine and completed runs are always stored',()=>{
   const started=app.indexOf("outcome:'started'");
   const engine=app.indexOf('runDeepEngine({');
   assert.ok(started>0&&engine>started);
-  assert.match(app,/finally\{[\s\S]*\/api\/deep-search\/runs/);
+  const run=fn('startDeepSearch');
+  assert.match(run.slice(run.lastIndexOf('}finally{')),/^\}finally\{\s*await api\('\/api\/deep-search\/runs',run\)/);
 });
 
 test('history offers stored results',()=>{
