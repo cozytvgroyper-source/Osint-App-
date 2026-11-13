@@ -144,7 +144,7 @@ Other terms:
   - Report (Markdown)
   - Report (printable page / PDF)
   - Raw data (JSON)
-- **Browser-only findings:** the import notice keeps its behavior, worded as "<n> findings are saved only in this browser. Move them into this case so they're kept on this Mac."
+- **Browser-only findings:** the import notice keeps its behavior, worded as "<n> findings are saved only in this browser. Import them into a new case so they're kept on this Mac." (Revised in phase 3: the button creates a new case, so "Move them into this case" contradicted it.)
 - **Empty states:**
   - **No case:** "You don't have a case yet. Create one, then use 'Save to evidence' on any search result." with the button "New case".
   - **Empty case:** "This case has no findings yet. Run a search and save results here."
