@@ -67,3 +67,35 @@ test('Start never hard-codes one uv location', async () => {
   const launcher = await readFile(new URL('../Start Public Desk.command', import.meta.url), 'utf8');
   assert.doesNotMatch(launcher, /"\$HOME\/\.local\/bin\/uvx?"/);
 });
+
+test('Start and Stop never fall back to an unmanaged Open OSINT folder', async () => {
+  for (const name of ['Start Public Desk.command', 'Stop Public Desk.command']) {
+    const script = await readFile(new URL(`../${name}`, import.meta.url), 'utf8');
+    assert.doesNotMatch(script, /LEGACY_OSINT_ROOT|omprehensive-osint/, name);
+    assert.match(script, /OSINT_ROOT="\$\{PUBLIC_DESK_OSINT_ROOT:-\$MANAGED_OSINT_ROOT\}"/, name);
+  }
+});
+
+// The launch token must never be on curl's command line, where any program listing processes could read it.
+test('Start health checks send the token without putting it on the command line', { skip: !existsSync('/bin/zsh') || !existsSync('/usr/bin/curl') }, async () => {
+  const launcher = await readFile(new URL('../Start Public Desk.command', import.meta.url), 'utf8');
+  const functions = ['service_ready', 'mcp_ready'].map(name => launcher.match(new RegExp(`${name}\\(\\) \\{[\\s\\S]*?\\n\\}`))[0]).join('\n');
+  // The only place the token may appear is the shell's own print (a builtin, so never a separate process) piped to curl.
+  const piped = /print -r -- "Authorization: Bearer \$PUBLIC_DESK_TOKEN" \| \/usr\/bin\/curl /g;
+  assert.equal((functions.match(piped) || []).length, 2);
+  assert.doesNotMatch(functions.replace(piped, ''), /PUBLIC_DESK_TOKEN/);
+  assert.doesNotMatch(launcher.replace(piped, '').split('\n').filter(line => /curl|-H /.test(line)).join('\n'), /PUBLIC_DESK_TOKEN/);
+  const http = await import('node:http');
+  const seen = [];
+  const server = http.createServer((req, res) => { seen.push(req.headers.authorization); req.resume(); res.end('{}'); });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  try {
+    const url = `http://127.0.0.1:${server.address().port}/check`;
+    const run = name => new Promise(resolve => {
+      import('node:child_process').then(({ execFile }) => execFile('/bin/zsh', ['-c', `${functions}\n${name} ${url}`], { env: { PATH: '/usr/bin:/bin', PUBLIC_DESK_TOKEN: 'launch-token-for-test' } }, error => resolve(error ? error.code : 0)));
+    });
+    assert.equal(await run('service_ready'), 0);
+    assert.equal(await run('mcp_ready'), 0);
+    assert.deepEqual(seen, ['Bearer launch-token-for-test', 'Bearer launch-token-for-test']);
+  } finally { server.close(); }
+});

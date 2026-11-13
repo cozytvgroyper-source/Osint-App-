@@ -4,9 +4,7 @@ set -u
 APP_DIR="${0:A:h}"
 RUNTIME_DIR="$APP_DIR/work/runtime"
 MANAGED_OSINT_ROOT="$APP_DIR/work/dependencies/osint-mcp"
-LEGACY_OSINT_ROOT="${APP_DIR:h}/omprehensive-osint-toolboxes-osint-mcp-by/downloads/osint-mcp"
 OSINT_ROOT="${PUBLIC_DESK_OSINT_ROOT:-$MANAGED_OSINT_ROOT}"
-[[ -d "$OSINT_ROOT/.git" ]] || OSINT_ROOT="$LEGACY_OSINT_ROOT"
 
 source "$APP_DIR/scripts/service-ownership.zsh"
 
