@@ -1,7 +1,7 @@
 import http from 'node:http';
 import { chmod, lstat, mkdir, readFile, readdir, rename, unlink, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import { extname, join, normalize } from 'node:path';
+import { extname, join, normalize, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pathToFileURL } from 'node:url';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
@@ -15,10 +15,12 @@ import {DeepRunStore,MAX_DEEP_RUN_BYTES} from './scripts/deep-search-runs.mjs';
 import {handleDeepHistoryRequest} from './scripts/deep-history-routes.mjs';
 
 const ROOT = fileURLToPath(new URL('./public/', import.meta.url));
-const UPLOAD_ROOT = fileURLToPath(new URL('./work/uploads/', import.meta.url));
-const DEEP_SEARCH_AUDIT_FILE = fileURLToPath(new URL('./work/deep-search-audit.jsonl', import.meta.url));
-const cases = new CaseStore(fileURLToPath(new URL('./work/cases/', import.meta.url)));
-const deepRuns = new DeepRunStore(fileURLToPath(new URL('./work/deep-search-runs/', import.meta.url)));
+// Private working data (cases, uploads, runs, keys). PUBLIC_DESK_WORK_DIR points it elsewhere, so tests never touch the real work/.
+const WORK_DIR = process.env.PUBLIC_DESK_WORK_DIR ? resolve(process.env.PUBLIC_DESK_WORK_DIR) : fileURLToPath(new URL('./work/', import.meta.url));
+const UPLOAD_ROOT = join(WORK_DIR, 'uploads/');
+const DEEP_SEARCH_AUDIT_FILE = join(WORK_DIR, 'deep-search-audit.jsonl');
+const cases = new CaseStore(join(WORK_DIR, 'cases/'));
+const deepRuns = new DeepRunStore(join(WORK_DIR, 'deep-search-runs/'));
 const PORT = Number(process.env.PORT || 4173);
 const MAX_MCP_RESPONSE_BYTES = 5_000_000;
 const MAX_MCP_SSE_EVENTS = 1_000;
@@ -42,10 +44,10 @@ const CONFIGURED_PUBLIC_DESK_TOKEN = process.env.PUBLIC_DESK_TOKEN || '';
 const PUBLIC_DESK_TOKEN = CONFIGURED_PUBLIC_DESK_TOKEN || randomBytes(32).toString('base64url');
 const LOCAL_MCP_ENDPOINTS = new Set(['http://127.0.0.1:8892/mcp','http://127.0.0.1:8893/mcp','http://127.0.0.1:8894/mcp']);
 // Keeps the Consensus sign-in across restarts. work/ is git-ignored; the file is readable only by this user.
-const CONSENSUS_AUTH_FILE = fileURLToPath(new URL('./work/consensus-auth.json', import.meta.url));
+const CONSENSUS_AUTH_FILE = join(WORK_DIR, 'consensus-auth.json');
 // Data-source API keys for the Open OSINT data service, which reads this file live (scripts/live-api-keys.mjs).
 const API_KEYS = {
-  file: fileURLToPath(new URL('./work/api-keys.env', import.meta.url)),
+  file: join(WORK_DIR, 'api-keys.env'),
   template: fileURLToPath(new URL('./config/api-keys.env.example', import.meta.url))
 };
 

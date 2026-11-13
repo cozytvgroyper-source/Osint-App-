@@ -96,3 +96,15 @@ test('custom endpoints cannot claim a trusted passive server identity', () => {
   assert.equal(stableArguments({b:2,a:{d:4,c:3}}),'{"a":{"c":3,"d":4},"b":2}');
   assert.throws(()=>authorizeMcpToolCall({endpoint:'https://tools.example/mcp',method:'tools/call',params:{name:'brand_new_tool',arguments:{}}},new Map()),/confirmed run grant/);
 });
+
+// A grant names the server it was given for; the same tool and arguments on any other server are refused.
+test('a grant is refused on any other server, even for the same tool and arguments', () => {
+  for (const endpoint of [toolbox, 'https://mcp.example/mcp', 'http://127.0.0.1:8892/mcp']) {
+    const grants=new Map();
+    createRunGrant(toolLibraryGrant,grants,{token:'bound'});
+    assert.throws(()=>authorizeMcpToolCall({endpoint,method:'tools/call',params:{name:'omega_headers',arguments:{target:'blog.example'}},runGrant:'bound',runTarget:'blog.example'},grants),error=>error instanceof RunGrantError&&error.status===403,endpoint);
+  }
+  const grants=new Map();
+  createRunGrant(toolLibraryGrant,grants,{token:'bound'});
+  assert.equal(authorizeMcpToolCall(call('omega_headers',{target:'blog.example'},{runGrant:'bound',runTarget:'blog.example'}),grants).required,true);
+});

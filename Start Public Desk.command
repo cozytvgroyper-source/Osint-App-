@@ -56,6 +56,20 @@ if [[ ! -d "$OSINT_ROOT/server/node_modules" || ! -x "$OSINT_ROOT/mcp/.venv/bin/
   exit 1
 fi
 
+# --- find uv ---
+# uv may come from its own installer (~/.local/bin, tried first) or from Homebrew; a window opened from Finder
+# can start with a short PATH, so the usual places are added before looking.
+path=("$HOME/.local/bin" $path /opt/homebrew/bin /usr/local/bin)
+UV_BIN="$(command -v uv || true)"
+UVX_BIN="$(command -v uvx || true)"
+if [[ -z "$UV_BIN" || -z "$UVX_BIN" ]]; then
+  echo "uv is not installed, so the tool servers can't start."
+  echo "Install uv (https://docs.astral.sh/uv/), then run: npm run setup"
+  read -k 1 "?Press any key to close."
+  exit 1
+fi
+# --- end find uv ---
+
 is_ready() {
   /usr/bin/curl -fsS --max-time 2 "$1" >/dev/null 2>&1
 }
@@ -90,7 +104,7 @@ start_bridge() {
     # FastMCP's Host/Origin check is off by default; it rejects DNS-rebinding requests with HTTP 421.
     # The version is pinned because that setting's name is version-specific: an unpinned upgrade that
     # renamed it would switch the protection off without any error. Recheck the 421 before raising it.
-    FASTMCP_HTTP_HOST_ORIGIN_PROTECTION=true PATH="$HOME/.local/bin:$PATH" "$HOME/.local/bin/uvx" --from 'fastmcp-slim[server]==4.1.8' \
+    FASTMCP_HTTP_HOST_ORIGIN_PROTECTION=true "$UVX_BIN" --from 'fastmcp-slim[server]==4.1.8' \
       python "$APP_DIR/scripts/run-fastmcp-bridge-authenticated.py" run \
       "$config" --transport http \
       --host 127.0.0.1 --port "$port" --path /mcp --no-banner \
@@ -171,7 +185,7 @@ if ! mcp_ready "http://127.0.0.1:8892/mcp" && [[ -z "$(listener_pid 8892)" ]]; t
   (
     cd "$OSINT_ROOT/mcp"
     # The wrapper rejects requests whose Host is not this Mac (DNS-rebinding protection).
-    OSINT_MCP_API_KEY="$PUBLIC_DESK_TOKEN" HEADLESS_BASE_URL="http://127.0.0.1:8080" PYTHONPATH="$OSINT_ROOT/mcp/src" "$HOME/.local/bin/uv" run python "$APP_DIR/scripts/run-osint-mcp-guarded.py" \
+    OSINT_MCP_API_KEY="$PUBLIC_DESK_TOKEN" HEADLESS_BASE_URL="http://127.0.0.1:8080" PYTHONPATH="$OSINT_ROOT/mcp/src" "$UV_BIN" run python "$APP_DIR/scripts/run-osint-mcp-guarded.py" \
       --transport http --host 127.0.0.1 --port 8892 >"$LOG_DIR/mcp.log" 2>&1 &
     echo $! >"$RUNTIME_DIR/mcp.pid"
   )

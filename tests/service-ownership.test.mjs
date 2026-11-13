@@ -65,8 +65,34 @@ test('refuses to reuse a listening process with the wrong identity', async () =>
   }
 });
 
-test('stop launcher verifies ownership before every kill', async () => {
-  const stop = await (await import('node:fs/promises')).readFile(new URL('../Stop Public Desk.command', import.meta.url), 'utf8');
-  assert.match(stop, /process_belongs_to_service/);
-  assert.match(stop, /does not belong to this Public Desk folder/);
+// Runs the real Stop script on a throwaway copy of the app folder: a process that belongs to that folder is stopped,
+// while an unrelated process whose number sits in a pid file is left running.
+test('stop launcher stops its own process and leaves an unrelated one running', { skip: !spawnSync('/bin/zsh', ['-c', 'command -v lsof']).stdout?.toString().trim() }, async () => {
+  const fs = await import('node:fs/promises');
+  const app = await realpath(await mkdtemp(join(tmpdir(), 'public-desk-stop-')));
+  const elsewhere = await realpath(await mkdtemp(join(tmpdir(), 'public-desk-other-')));
+  const alive = pid => { try { process.kill(pid, 0); return true; } catch { return false; } };
+  const idle = 'setInterval(()=>{},1000)';
+  const owned = spawn(process.execPath, ['-e', idle, 'server.mjs'], { cwd: app, stdio: 'ignore' });
+  const foreign = spawn(process.execPath, ['-e', idle, 'server.mjs'], { cwd: elsewhere, stdio: 'ignore' });
+  try {
+    await fs.mkdir(join(app, 'scripts'), { recursive: true });
+    await fs.mkdir(join(app, 'work', 'runtime'), { recursive: true });
+    await fs.copyFile(fileURLToPath(new URL('../Stop Public Desk.command', import.meta.url)), join(app, 'Stop Public Desk.command'));
+    await fs.copyFile(script, join(app, 'scripts', 'service-ownership.zsh'));
+    await writeFile(join(app, 'work', 'runtime', 'signaldesk.pid'), String(owned.pid));
+    await writeFile(join(app, 'work', 'runtime', 'omega.pid'), String(foreign.pid));
+    await new Promise(resolve => setTimeout(resolve, 300));
+    const result = spawnSync('/bin/zsh', [join(app, 'Stop Public Desk.command')], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /Stopped signaldesk\./);
+    assert.match(result.stdout, new RegExp(`Did not stop PID ${foreign.pid} for omega`));
+    await new Promise(resolve => setTimeout(resolve, 300));
+    assert.equal(alive(owned.pid), false, 'its own process was stopped');
+    assert.equal(alive(foreign.pid), true, 'the unrelated process is still running');
+  } finally {
+    owned.kill(); foreign.kill();
+    await rm(app, { recursive: true, force: true });
+    await rm(elsewhere, { recursive: true, force: true });
+  }
 });

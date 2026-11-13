@@ -3,7 +3,7 @@ import {tierChips,toolCard} from './tools-view.js?v=2';
 import {normalizeEndpoint,serverCard,serverFocusTarget,validateServerForm} from './servers-view.js?v=4';
 import {browserOnlyNotice,caseSummary,evidenceEmpty,findingCard} from './evidence-view.js?v=3';
 import {newsCard,newsMetrics,relativeTime} from './news-view.js?v=2';
-import {emptyState,escapeHtml,term} from './ui.js?v=5';
+import {emptyState,escapeHtml,safeHttpUrl,term} from './ui.js?v=6';
 import {classifyToolResult,hasUsefulData,parseToolResult} from './result-classifier.js';
 import {buildSearchReport,reportHasFindings} from './search-report.js?v=4';
 import {recordToolHealth,toolCountLabel} from './tool-health.js';
@@ -157,9 +157,7 @@ function switchView(id) {
   if(id==='deep')loadDeepHistory();
 }
 
-function safeExternalUrl(value=''){
-  try{const url=new URL(value);return ['http:','https:'].includes(url.protocol)?url.href:'#';}catch{return'#';}
-}
+const safeExternalUrl=value=>safeHttpUrl(value)||'#';
 // News: cards and metrics come from news-view.js; the status line (a live region) says what is happening in words.
 function renderIntelNews(){
   const list=$('#intelNewsList'); if(!list)return;

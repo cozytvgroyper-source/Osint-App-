@@ -5,6 +5,12 @@ import {GLOSSARY} from './glossary.js';
 
 export function escapeHtml(value=''){return String(value).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
 
+// Links in tool answers are untrusted: only a web (http/https) address may become a link; anything else
+// (javascript:, data:, file:, …) gives '' so it is shown as plain text.
+export function safeHttpUrl(value=''){
+  try{const url=new URL(String(value));return['http:','https:'].includes(url.protocol)?url.href:'';}catch{return'';}
+}
+
 const attributes=attrs=>Object.entries(attrs).filter(([,value])=>value!==undefined&&value!==null&&value!==false)
   .map(([name,value])=>value===true?` ${escapeHtml(name)}`:` ${escapeHtml(name)}="${escapeHtml(value)}"`).join('');
 const decorative=icon=>icon?`<span aria-hidden="true">${escapeHtml(icon)}</span>`:'';
