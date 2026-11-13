@@ -341,8 +341,16 @@ async function loadDeepHistory(){
     const {entries,total,skipped}=await apiGet('/api/deep-search/audit');
     const levelName=level=>TIERS[level]?.label||`Level ${level}`;
     const seen=new Set();const runs=entries.filter(entry=>{const key=entry.runId||`${entry.time}:${entry.target}`;if(seen.has(key))return false;seen.add(key);return true;});
-    box.innerHTML=runs.length?`<table class="deep-history-table"><thead><tr><th scope="col">When</th><th scope="col">Target</th><th scope="col">Max level</th><th scope="col">Tools</th><th scope="col">Outcome</th><th scope="col">Results</th></tr></thead><tbody>${runs.map(entry=>`<tr><td>${escapeHtml(new Date(entry.time).toLocaleString())}</td><td><code>${escapeHtml(entry.target)}</code></td><td>${escapeHtml(levelName(entry.level))}</td><td title="${escapeHtml((entry.tools||[]).join(', '))}">${entry.toolCount??(entry.tools||[]).length} tool${(entry.toolCount??(entry.tools||[]).length)===1?'':'s'}</td><td>${escapeHtml(entry.outcome)}</td><td>${entry.runId?`<button type="button" class="text-button" data-open-deep="${escapeHtml(entry.runId)}">Open results</button>`:'Results weren\'t kept for this run'}</td></tr>`).join('')}</tbody></table>${total>runs.length?`<p class="subtle">Showing the latest ${runs.length} of ${total} audit entries.</p>`:''}${skipped?`<p class="subtle">${skipped} damaged line${skipped===1?' was':'s were'} skipped in the audit log.</p>`:''}`:'<div class="empty-state">No Deep Search runs yet.</div>';
-  }catch(error){box.innerHTML=`<div class="empty-state">Could not read the audit log: ${escapeHtml(error.message)}</div>`;}
+    // Deleting is switched off while a search runs, so the running search can't delete its own results mid-write.
+    const busy=Boolean(state.deepRun);
+    const deleteButton=entry=>entry.runId
+      ?`<button type="button" class="text-button" data-delete-deep-run="${escapeHtml(entry.runId)}" aria-label="Delete search: ${escapeHtml(entry.target)}"${busy?' disabled':''}>Delete</button>`
+      :`<button type="button" class="text-button" data-delete-deep-time="${escapeHtml(entry.time)}" data-delete-deep-target="${escapeHtml(entry.target)}" aria-label="Delete search: ${escapeHtml(entry.target)}"${busy?' disabled':''}>Delete</button>`;
+    // The count is exact only when the whole log was read; otherwise Delete all doesn't name a number.
+    state.deepHistoryCount=total>entries.length?null:runs.length;
+    $('#deleteAllDeepHistory').hidden=!runs.length;$('#deleteAllDeepHistory').disabled=busy;$('#deepHistoryBusy').hidden=!busy;
+    box.innerHTML=runs.length?`<table class="deep-history-table"><thead><tr><th scope="col">When</th><th scope="col">Target</th><th scope="col">Max level</th><th scope="col">Tools</th><th scope="col">Outcome</th><th scope="col">Results</th></tr></thead><tbody>${runs.map(entry=>`<tr><td>${escapeHtml(new Date(entry.time).toLocaleString())}</td><td><code>${escapeHtml(entry.target)}</code></td><td>${escapeHtml(levelName(entry.level))}</td><td title="${escapeHtml((entry.tools||[]).join(', '))}">${entry.toolCount??(entry.tools||[]).length} tool${(entry.toolCount??(entry.tools||[]).length)===1?'':'s'}</td><td>${escapeHtml(entry.outcome)}</td><td>${entry.runId?`<button type="button" class="text-button" data-open-deep="${escapeHtml(entry.runId)}">Open results</button>`:'Results weren\'t kept for this run'} ${deleteButton(entry)}</td></tr>`).join('')}</tbody></table>${total>runs.length?`<p class="subtle">Showing the latest ${runs.length} of ${total} audit entries.</p>`:''}${skipped?`<p class="subtle">${skipped} damaged line${skipped===1?' was':'s were'} skipped in the audit log.</p>`:''}`:'<div class="empty-state">No Deep Search runs yet.</div>';
+  }catch(error){$('#deleteAllDeepHistory').hidden=true;box.innerHTML=`<div class="empty-state">Could not read the audit log: ${escapeHtml(error.message)}</div>`;}
 }
 const selfCheck={running:false,stop:false};
 function renderSelfCheck(results,pending=0){
@@ -704,7 +712,7 @@ async function startDeepSearch(){
   const id=crypto.randomUUID(),controller=new AbortController(),toolNames=choices.filter(item=>!excluded.has(`${item.tool.serverName}::${item.tool.name}`)).map(item=>item.tool.name);
   state.deepRun={id,target,level};state.deepController=controller;state.deepProgress=initialProgress(target,level);state.deepCurrent=null;
   $('#deepSetup').hidden=true;$('#deepResults').hidden=true;$('#deepProgress').hidden=false;renderDeepProgressSoon(true);document.getElementById('deepProgressHeading')?.focus();
-  window.addEventListener('beforeunload',warnDeepUnload);
+  window.addEventListener('beforeunload',warnDeepUnload);loadDeepHistory();
   const grantTargets=new Map();let run;
   await api('/api/deep-search/audit',{target:target.value,level,tools:toolNames,toolCount:toolNames.length,runId:id,outcome:'started'}).catch(error=>toast(`Audit log warning: ${error.message}`));
   try{
@@ -748,6 +756,40 @@ function rebuildDeepFindings(run){
   return{...run,findings:linked.findings};
 }
 
+// The status line is written only when its text changes, so screen readers announce each result once.
+function setDeepHistoryStatus(text){const box=$('#deepHistoryStatus');if(box.textContent!==text)box.textContent=text;}
+
+// After a delete the removed button can't keep focus, so focus moves to the Run history heading. Results on screen
+// that belonged to a deleted search are closed.
+async function afterDeepDelete({runId=null,all=false},message){
+  if(state.deepCurrent&&(all||state.deepCurrent.id===runId)){state.deepCurrent=null;$('#deepResults').hidden=true;$('#deepResults').innerHTML='';$('#deepSetup').hidden=false;}
+  await loadDeepHistory();setDeepHistoryStatus(message);$('#deepHistoryHeading').focus();
+}
+
+async function deleteDeepRun({runId,time,target}){
+  if(state.deepRun)return;
+  if(!await confirmAction({title:'Delete this search?',message:"Its results and its history entry will be removed for good. This can't be undone.",confirmLabel:'Delete'}))return;
+  if(state.deepRun)return;
+  setDeepHistoryStatus('');// cleared first, so a second delete in a row is announced too
+  try{
+    if(runId)await api(`/api/deep-search/runs/${encodeURIComponent(runId)}/delete`,{});
+    else await api('/api/deep-search/history/delete',{time,target});
+    await afterDeepDelete({runId:runId||null},'Search deleted.');
+  }catch(error){toast(`Could not delete: ${error.message}`);}
+}
+
+async function deleteAllDeepRuns(){
+  if(state.deepRun)return;
+  const count=state.deepHistoryCount;
+  if(!await confirmAction({title:count===1?'Delete this search?':count?`Delete all ${count} searches?`:'Delete all searches?',message:"Every search's results and history entry will be removed for good. This can't be undone.",confirmLabel:'Delete all'}))return;
+  if(state.deepRun)return;
+  setDeepHistoryStatus('');
+  try{
+    await api('/api/deep-search/history/delete-all',{});
+    await afterDeepDelete({all:true},'All searches deleted.');
+  }catch(error){toast(`Could not delete: ${error.message}`);}
+}
+
 async function openDeepResults(runId){
   const stored=await apiGet(`/api/deep-search/runs/${encodeURIComponent(runId)}`);const run=rebuildDeepFindings(stored);
   state.deepCurrent=run;switchView('deep');$('#deepSetup').hidden=true;$('#deepProgress').hidden=true;$('#deepResults').hidden=false;$('#deepResults').innerHTML=renderDeepResults(run);document.getElementById('deepResultsHeading')?.focus();
@@ -757,6 +799,8 @@ document.addEventListener('click',async event=>{
   if(event.target.closest('[data-deep-cancel]')){cancelDeepSearch();return;}
   if(event.target.closest('[data-deep-new]')){resetDeepSearch();return;}
   if(event.target.closest('[data-deep-save]')){if(!state.deepCurrent)return;state.lastResult=deepEvidenceRecord(state.deepCurrent);saveLastResultToCase().catch(error=>toast(`Could not save: ${error.message}`));return;}
+  const delRun=event.target.closest('[data-delete-deep-run]');if(delRun){deleteDeepRun({runId:delRun.dataset.deleteDeepRun});return;}
+  const delOld=event.target.closest('[data-delete-deep-time]');if(delOld){deleteDeepRun({time:delOld.dataset.deleteDeepTime,target:delOld.dataset.deleteDeepTarget});return;}
   const openDeep=event.target.closest('[data-open-deep]');if(openDeep){openDeepResults(openDeep.dataset.openDeep).catch(error=>toast(`Could not open results: ${error.message}`));return;}
   const deepTarget=event.target.closest('[data-deep-target]');if(deepTarget){switchView('deep');resetDeepSearch(deepTarget.dataset.deepTarget);return;}
   const consensusSignIn=event.target.closest('[data-consensus-sign-in]');if(consensusSignIn){try{const {authorize}=await api('/api/oauth/consensus/start',{});location.assign(authorize);}catch(error){toast(`Could not start sign-in: ${error.message}`);}return;}
@@ -814,6 +858,7 @@ $('#evidenceList').addEventListener('click',event=>{const option=event.target.cl
 $('#evidenceList').addEventListener('input',event=>{const note=event.target.closest('[data-evidence-note]');if(note)$(`#note-count-${CSS.escape(note.dataset.evidenceNote)}`).textContent=`${note.value.length} of 4000 characters`;});
 $('#evidenceList').addEventListener('click',event=>{const button=event.target.closest('[data-save-note]');if(!button||!state.activeCaseId)return;const note=$(`[data-evidence-note="${button.dataset.saveNote}"]`).value;updateFinding(button.dataset.saveNote,{note},'Note saved');});
 $('#refreshDeepHistory').onclick=()=>loadDeepHistory();
+$('#deleteAllDeepHistory').onclick=()=>deleteAllDeepRuns();
 $('#runSelfCheck').onclick=()=>runSelfCheck();
 $('#stopSelfCheck').onclick=()=>{selfCheck.stop=true;$('#stopSelfCheck').hidden=true;};
 const downloadReport=async extension=>{

@@ -106,7 +106,7 @@
         </section>
         <div id="deepProgress" hidden></div>
         <div id="deepResults" hidden></div>
-        <section class="deep-history" aria-labelledby="deepHistoryHeading"><div class="section-heading"><div><h2 id="deepHistoryHeading">Run history</h2><p class="subtle">Every Deep Search run, from the private audit log on this Mac (<code>work/deep-search-audit.jsonl</code>).</p></div><button class="text-button" id="refreshDeepHistory">Refresh</button></div><div id="deepHistory"></div></section>
+        <section class="deep-history" aria-labelledby="deepHistoryHeading"><div class="section-heading"><div><h2 id="deepHistoryHeading" tabindex="-1">Run history</h2><p class="subtle">Every Deep Search run, from the private audit log on this Mac (<code>work/deep-search-audit.jsonl</code>).</p></div><div><button class="text-button" id="refreshDeepHistory">Refresh</button> <button class="text-button" id="deleteAllDeepHistory" hidden>Delete all</button></div></div><p id="deepHistoryStatus" class="subtle" role="status"></p><p id="deepHistoryBusy" class="subtle" hidden>Wait for the current search to finish before deleting.</p><div id="deepHistory"></div></section>
       </section>
 
       <section id="news" class="view">
@@ -170,6 +170,6 @@
   </dialog>
 
   <div id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/app.js?v=58"></script>
+  <script type="module" src="/app.js?v=59"></script>
 </body>
 </html>
