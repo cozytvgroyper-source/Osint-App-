@@ -1,0 +1,30 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtemp,readdir,stat} from 'node:fs/promises';
+import {join} from 'node:path';
+import {tmpdir} from 'node:os';
+import {DeepRunStore,MAX_DEEP_RUN_BYTES} from '../scripts/deep-search-runs.mjs';
+
+const sample=id=>({id,target:{type:'email',value:'owner@example.com'},level:0,startedAt:'2026-11-13T00:00:00.000Z',finishedAt:'2026-11-13T00:01:00.000Z',outcome:'completed',rounds:1,calls:[],findings:[],leadsNotFollowed:[],raw:{}});
+
+test('saves and reads a run as private owner-only data',async()=>{
+  const root=await mkdtemp(join(tmpdir(),'pd-deep-runs-'));const dir=join(root,'runs');const store=new DeepRunStore(dir);
+  const run=sample('run-12345678');
+  assert.deepEqual(await store.save(run),{id:run.id});
+  assert.deepEqual(await store.read(run.id),run);
+  assert.equal((await stat(dir)).mode&0o077,0);
+  assert.equal((await stat(join(dir,`${run.id}.json`))).mode&0o077,0);
+  assert.deepEqual((await readdir(dir)).filter(name=>name.includes('.tmp')),[]);
+});
+
+test('rejects bad ids and oversized runs',async()=>{
+  const root=await mkdtemp(join(tmpdir(),'pd-deep-runs-'));const store=new DeepRunStore(join(root,'runs'),{maxBytes:500});
+  await assert.rejects(()=>store.save(sample('../escape')),/id/);
+  await assert.rejects(()=>store.save({...sample('valid-run-123'),raw:{huge:'x'.repeat(1_000)}}),/too large/i);
+  assert.equal(MAX_DEEP_RUN_BYTES,25_000_000);
+});
+
+test('missing and damaged runs have explicit error codes',async()=>{
+  const root=await mkdtemp(join(tmpdir(),'pd-deep-runs-'));const store=new DeepRunStore(join(root,'runs'));
+  await assert.rejects(()=>store.read('missing-run'),error=>error.code==='DEEP_RUN_NOT_FOUND');
+});

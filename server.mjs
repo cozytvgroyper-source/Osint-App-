@@ -11,11 +11,13 @@ import {authorizeMcpToolCall, createRunGrant, releaseRunGrants, serverNameForEnd
 import {deepCallTimeout} from './scripts/deep-call-timeout.mjs';
 import {appendDeepSearchAudit,readDeepSearchAudit} from './scripts/deep-search-audit.mjs';
 import {CaseStore,MAX_EVIDENCE_BYTES,handleCaseRequest} from './scripts/cases.mjs';
+import {DeepRunStore,MAX_DEEP_RUN_BYTES} from './scripts/deep-search-runs.mjs';
 
 const ROOT = fileURLToPath(new URL('./public/', import.meta.url));
 const UPLOAD_ROOT = fileURLToPath(new URL('./work/uploads/', import.meta.url));
 const DEEP_SEARCH_AUDIT_FILE = fileURLToPath(new URL('./work/deep-search-audit.jsonl', import.meta.url));
 const cases = new CaseStore(fileURLToPath(new URL('./work/cases/', import.meta.url)));
+const deepRuns = new DeepRunStore(fileURLToPath(new URL('./work/deep-search-runs/', import.meta.url)));
 const PORT = Number(process.env.PORT || 4173);
 const MAX_MCP_RESPONSE_BYTES = 5_000_000;
 const MAX_MCP_SSE_EVENTS = 1_000;
@@ -527,6 +529,13 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/deep-search/audit') {
       return json(res, 200, await appendDeepSearchAudit(DEEP_SEARCH_AUDIT_FILE,await body(req,100_000)));
     }
+    if (req.method === 'POST' && url.pathname === '/api/deep-search/runs') {
+      return json(res,200,await deepRuns.save(await body(req,MAX_DEEP_RUN_BYTES+100_000)));
+    }
+    const deepRunRoute=url.pathname.match(/^\/api\/deep-search\/runs\/([a-z0-9-]{8,64})$/);
+    if (req.method === 'GET' && deepRunRoute) {
+      return json(res,200,await deepRuns.read(deepRunRoute[1]));
+    }
     if (req.method === 'POST' && url.pathname === '/api/upload') {
       if (uploadRequests >= MAX_CONCURRENT_UPLOADS) return json(res, 429, { error: 'Too many uploads are already in progress' });
       if (uploads.size + reservedUploadSlots >= MAX_ACTIVE_UPLOADS) return json(res, 429, { error: 'Temporary upload limit reached; wait for an existing analysis to finish' });
@@ -613,6 +622,10 @@ function errorStatus(error) {
   if (error?.code === 'CASE_NOT_FOUND') return 404;
   if (error?.code === 'CASE_TOO_LARGE') return 413;
   if (error?.code === 'CASE_DAMAGED') return 422;
+  if (error?.code === 'DEEP_RUN_INPUT') return 400;
+  if (error?.code === 'DEEP_RUN_NOT_FOUND') return 404;
+  if (error?.code === 'DEEP_RUN_TOO_LARGE') return 413;
+  if (error?.code === 'DEEP_RUN_DAMAGED') return 422;
   return 502;
 }
 

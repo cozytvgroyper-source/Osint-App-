@@ -15,6 +15,15 @@ test('validates and appends private JSONL audit entries without credentials',asy
 });
 test('rejects malformed audit entries',()=>assert.throws(()=>auditEntry({target:'',level:9,tools:[],outcome:''}),/Invalid/));
 
+test('keeps run id and total tool count while capping names at 25',()=>{
+  const tools=Array.from({length:40},(_,index)=>`tool-${index}`);
+  const entry=auditEntry({target:'example.com',level:1,tools,toolCount:40,runId:'run-12345678',outcome:'started'},new Date('2026-11-13T00:00:00Z'));
+  assert.equal(entry.runId,'run-12345678');
+  assert.equal(entry.toolCount,40);
+  assert.equal(entry.tools.length,25);
+  assert.equal(entry.outcome,'started');
+});
+
 test('reads the audit log newest first, skipping and counting damaged lines',async()=>{
   const {readDeepSearchAudit}=await import('../scripts/deep-search-audit.mjs');
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'public-desk-audit-read-'));
