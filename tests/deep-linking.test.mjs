@@ -30,7 +30,7 @@ test('rule b: a profile showing a confirmed identifier that was not searched is 
   const usernameSeed={type:'username',value:'ownername'};
   const fact={id:'ghunt-fact',kind:'fact',subject:seed,tool:{name:'ghunt',serverName:'Test MCP'},evidence:evidence({emails:[seed.value,'contact@owner-site.example']}),fact:{label:'Contact',value:'contact@owner-site.example',group:'owner'}};
   const shows=account('Example','https://social.example/ownername',{details:{emails:['contact@owner-site.example']}});
-  const echo=account('Echo','https://echo.example/ownername',{details:{emails:[seed.value],usernames:['ownername']}});
+  const echo=account('Echo','https://echo.example/ownername',{subject:seed,details:{emails:[seed.value],usernames:['ownername']}});
   const result=linkFindings([fact,shows,echo],usernameSeed,{searched:[usernameSeed,seed]});
   const linked=byUrl(result,'social.example/ownername');
   assert.equal(linked.status,'linked');
@@ -328,4 +328,19 @@ test('two rounds the way the engine runs them: leads are followed and round-one 
   const echoed=byUrl(round2,'social.example/owner-alt');
   assert.equal(echoed.status,'possible');
   assert.deepEqual(echoed.account.details.usernames,[]);
+});
+
+test('following a lead from a linked fact never erases the confirmation it supplied',()=>{
+  const alt={type:'email',value:'alt@owner-site.example'};
+  const fact={
+    id:'contact-fact',kind:'fact',subject:E,tool:{name:'ghunt',serverName:'Test MCP'},
+    evidence:evidence({emails:[E.value,alt.value]}),
+    fact:{label:'Contact email',value:alt.value,group:'owner'}
+  };
+  const profile=account('GitLab','https://gitlab.com/ownername',{details:{emails:[alt.value]}});
+  const without=linkFindings([fact,profile],U,{searched:[U,E]});
+  const withLead=linkFindings([fact,profile],U,{searched:[U,E,alt]});
+  assert.equal(without.findings.find(item=>item.id==='contact-fact').status,'linked');
+  assert.deepEqual(byUrl(without,'gitlab.com/ownername').confirmedBy,['b']);
+  assert.deepEqual(statusesOf(withLead),statusesOf(without));
 });

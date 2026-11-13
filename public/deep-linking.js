@@ -313,15 +313,15 @@ function findingIdentifiers(finding,isPlatform){
 
 // What a linked non-account finding confirms for rule b: its emails and usernames, and its addresses as full URLs.
 // A bare platform host (e.g. youtube.com) is never added, so one channel link can't confirm every page on that site.
-function addNonAccountRoots(set,finding,searchedKeys,isPlatform){
+function addNonAccountRoots(set,finding,seedKey,isPlatform){
   const evidence=finding.evidence||{};
   const addUrl=value=>{const key=normalizeUrl(value);if(key&&!(!key.includes('/')&&isPlatform(key)))set.urls.add(key);};
-  for(const value of evidence.emails||[]){const id=normalizeIdentifier({type:'email',value});if(id&&!searchedKeys.has(idKey(id)))set.emails.add(looseKey(id.value));}
-  for(const value of evidence.usernames||[]){const id=normalizeIdentifier({type:'username',value});if(id&&!searchedKeys.has(idKey(id)))set.usernames.add(looseKey(id.value));}
+  for(const value of evidence.emails||[]){const id=normalizeIdentifier({type:'email',value});if(id&&idKey(id)!==seedKey)set.emails.add(looseKey(id.value));}
+  for(const value of evidence.usernames||[]){const id=normalizeIdentifier({type:'username',value});if(id&&idKey(id)!==seedKey)set.usernames.add(looseKey(id.value));}
   for(const value of evidence.urls||[])addUrl(value);
-  if(finding.kind==='host'&&!searchedKeys.has(idKey({type:'domain',value:finding.host?.value})))addUrl(finding.host?.value);
+  if(finding.kind==='host'&&idKey({type:'domain',value:finding.host?.value})!==seedKey)addUrl(finding.host?.value);
   const lead=normalizeIdentifier(finding.lead);
-  if(lead&&!searchedKeys.has(idKey(lead))){
+  if(lead&&idKey(lead)!==seedKey){
     if(lead.type==='email')set.emails.add(looseKey(lead.value));
     else if(lead.type==='username')set.usernames.add(looseKey(lead.value));
     else if(lead.type==='domain')addUrl(lead.value);
@@ -376,6 +376,7 @@ export function linkFindings(input,seed,{searched=[]}={}){
   const raw=(input||[]).filter(Boolean);
   const searchedIds=[normalizedSeed,...searched.map(normalizeIdentifier).filter(Boolean)];
   const searchedKeys=new Set(searchedIds.map(idKey));
+  const seedKey=idKey(normalizedSeed);
   const seedLoose=new Set([looseKey(normalizedSeed.value)]);
   // The seed is an echo everywhere. A searched lead was taken from a confirmed source, so it stays a real detail,
   // except on an account that a tool found for that very lead, where it is just the tool repeating its query.
@@ -416,7 +417,7 @@ export function linkFindings(input,seed,{searched=[]}={}){
     otherResults=classifyOthers(others,known,trailsByIdentifier);
     const rootSet=emptyConfirmed();
     for(const result of otherResults.values()){
-      if(result.status==='linked')addNonAccountRoots(rootSet,result,searchedKeys,isPlatform);
+      if(result.status==='linked')addNonAccountRoots(rootSet,result,seedKey,isPlatform);
     }
     const verdicts=judgeAccounts(entries,rootSet,seedLoose,isPlatform);
     accountResults=new Map(entries.map(entry=>[entry,accountResult(entry,verdicts.get(entry)||[])]));
