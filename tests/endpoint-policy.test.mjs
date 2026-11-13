@@ -22,12 +22,25 @@ test('validates every redirect target before following it', async () => {
   assert.equal(calls,1);
 });
 
-test('follows a limited 307 redirect chain to another validated HTTPS endpoint', async () => {
+test('follows a limited 307 redirect chain within the same site, keeping the request', async () => {
   const seen=[];
-  const fetchImpl=async url=>{seen.push(String(url));return seen.length===1?new Response('',{status:307,headers:{location:'https://example.net/mcp'}}):new Response('{}',{status:200});};
-  const response=await fetchValidated('https://example.com/mcp',{}, {resolver:publicResolver,fetchImpl});
+  const fetchImpl=async(url,options)=>{seen.push([String(url),options.headers?.authorization,options.body]);return seen.length===1?new Response('',{status:307,headers:{location:'/mcp/'}}):new Response('{}',{status:200});};
+  const response=await fetchValidated('https://example.com/mcp',{method:'POST',headers:{authorization:'Bearer USER_SECRET'},body:'{"q":1}'}, {resolver:publicResolver,fetchImpl});
   assert.equal(response.status,200);
-  assert.deepEqual(seen,['https://example.com/mcp','https://example.net/mcp']);
+  assert.deepEqual(seen,[['https://example.com/mcp','Bearer USER_SECRET','{"q":1}'],['https://example.com/mcp/','Bearer USER_SECRET','{"q":1}']]);
+});
+
+// A redirect to another site would carry the user's token and the search itself there, so it is never followed.
+test('refuses redirects to a different site without sending anything there', async () => {
+  for (const location of ['https://collector.example.net/mcp','https://example.com:8443/mcp','http://example.com/mcp','http://127.0.0.1:8892/mcp']) {
+    const seen=[];
+    const fetchImpl=async url=>{seen.push(String(url));return new Response('',{status:307,headers:{location}});};
+    await assert.rejects(
+      ()=>fetchValidated('https://example.com/mcp',{method:'POST',headers:{authorization:'Bearer USER_SECRET'},body:'{"q":1}'},{resolver:publicResolver,fetchImpl}),
+      error=>/different site/.test(error.message)&&error.message.includes(new URL(location).origin),
+      location);
+    assert.deepEqual(seen,['https://example.com/mcp'],location);
+  }
 });
 
 test('rejects redirects that would change POST semantics', async () => {
