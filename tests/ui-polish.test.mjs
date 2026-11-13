@@ -68,5 +68,5 @@ test('the results panel is large and names the case it saves into',()=>{
   assert.match(app,/\$\('#saveEvidence'\)\.textContent=saveButtonLabel\(state\.activeCase\)/);
 });
 test('Pivot is explained once, at the top of results that have pivots',()=>{
-  assert.match(app,/querySelector\('\.pivot-button'\)[\s\S]{0,200}pivot-note[\s\S]{0,80}term\('pivot'\)/);
+  assert.match(app,/querySelector\('\.pivot-button'\)[\s\S]{0,200}pivot-note[\s\S]{0,80}term\('pivot',\{visible:true\}\)/);
 });

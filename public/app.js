@@ -1,5 +1,5 @@
 import {explainSearchPlan,summarizePlanDiagnostics,toolUsage} from './search-planner.js?v=1';
-import {emptyState,escapeHtml,term} from './ui.js?v=3';
+import {emptyState,escapeHtml,term} from './ui.js?v=4';
 import {classifyToolResult,hasUsefulData,parseToolResult} from './result-classifier.js';
 import {buildSearchReport,reportHasFindings} from './search-report.js?v=4';
 import {recordToolHealth,serverConnectionLabel,toolCountLabel} from './tool-health.js';
@@ -477,7 +477,7 @@ function showResult(title,result){
   const openKeys=refresh?new Set([...$('#resultBody').querySelectorAll('details[data-details-key][open]:not([data-default-open])')].map(el=>el.dataset.detailsKey)):null;
   $('#resultTitle').textContent=title; $('#resultBody').innerHTML=renderReadableResult(result,openKeys);
   // Explain Pivot once, above the first result that offers one.
-  if($('#resultBody').querySelector('.pivot-button'))$('#resultBody').insertAdjacentHTML('afterbegin',`<p class="pivot-note">${term('pivot')}</p>`);
+  if($('#resultBody').querySelector('.pivot-button'))$('#resultBody').insertAdjacentHTML('afterbegin',`<p class="pivot-note">${term('pivot',{visible:true})}</p>`);
   $('#saveEvidence').textContent=saveButtonLabel(state.activeCase);
   if(refresh){dialog.scrollTop=scroll[0];$('#resultBody').scrollTop=scroll[1];}
   if(!dialog.open)openDialog(dialog);

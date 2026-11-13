@@ -69,3 +69,9 @@ test('building blocks use class names no older stylesheet defines',()=>{
   assert.match(emptyState({title:'t',text:'x'}),/class="ui-empty"/);
   assert.match(emptyState({title:'t',text:'x'}),/class="ui-empty-title"/);
 });
+
+// Where a term is being explained (not just mentioned), sighted readers need the meaning too.
+test('a term can show its explanation visibly',()=>{
+  assert.equal(term('pivot',{visible:true}),'<span class="term-explained"><b>Pivot</b>: Search this value next.</span>');
+  assert.doesNotMatch(term('pivot',{visible:true}),/visually-hidden/);
+});

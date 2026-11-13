@@ -45,9 +45,11 @@ export function emptyState({title,text,action=''}){
   return `<div class="ui-empty"><p class="ui-empty-title">${escapeHtml(title)}</p><p>${escapeHtml(text)}</p>${action}</div>`;
 }
 
-export function term(key){
+// visible:true shows the meaning on the page too, for the place where a term is being explained rather than mentioned.
+export function term(key,{visible=false}={}){
   const entry=GLOSSARY[key];
   if(!entry)throw new Error(`Unknown glossary term: ${key}`);
+  if(visible&&entry.explain)return `<span class="term-explained"><b>${escapeHtml(entry.label)}</b>: ${escapeHtml(entry.explain)}</span>`;
   if(!entry.explain)return `<span class="term">${escapeHtml(entry.label)}</span>`;
   return `<span class="term" title="${escapeHtml(entry.explain)}">${escapeHtml(entry.label)}</span><span class="visually-hidden">: ${escapeHtml(entry.explain)}</span>`;
 }
