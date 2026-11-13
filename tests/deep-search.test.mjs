@@ -124,3 +124,11 @@ test('isReservedIp never throws on odd input',async()=>{
   const {isReservedIp}=await import('../public/deep-search.js');
   for(const value of ['','999.1.1.1','01.2.3.4','1.2.3','not an ip',undefined])assert.equal(isReservedIp(value),false,String(value));
 });
+
+test('website input with www or a path is a website, never a username',()=>{
+  const site={type:'domain',value:'example.com'};
+  for(const input of ['www.example.com','WWW.Example.com','example.com/path','www.example.com/a/b?x=1'])
+    assert.deepEqual(detectDeepTarget(input),site,input);
+  assert.deepEqual(detectDeepTarget('ownername'),{type:'username',value:'ownername'});
+  assert.deepEqual(detectDeepTarget('owner.name'),{type:'domain',value:'owner.name'}); // current behaviour, unchanged
+});

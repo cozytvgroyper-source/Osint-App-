@@ -46,6 +46,8 @@ export const DEEP_TOOLS=Object.freeze({
 
 const PERSON_TYPES=new Set(['email','username','phone']);
 const USERNAME=/^@?[a-z0-9_.-]{2,32}$/i;
+// A bare website: optional www., a host, and optionally a path/query. The host is checked with extractTarget.
+const WEBSITE_INPUT=/^(?:www\.)?([^\s/?#@]+)(?:[/?#]\S*)?$/i;
 const URL_PATTERN=/^https?:\/\//i;
 
 export function normalizeIdentifier(identifier){
@@ -83,6 +85,11 @@ export function detectDeepTarget(input){
       const found=extractTarget(host);
       return found&&['domain','ip'].includes(found.type)?normalizeIdentifier(found):null;
     }catch{return null;}
+  }
+  const site=text.match(WEBSITE_INPUT);
+  if(site){
+    const host=extractTarget(site[1]);
+    if(host?.type==='domain')return normalizeIdentifier(host);
   }
   const found=extractTarget(text);
   if(found&&exactExtractedTarget(text,found))return normalizeIdentifier(found);
