@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const read=file=>fs.readFileSync(new URL(`../public/${file}`,import.meta.url),'utf8');
-const html=read('index.html'),app=read('app.js'),progress=read('deep-progress.js');
+const html=read('index.html'),app=read('app.js'),progress=read('deep-progress.js'),styles=read('ui.css');
 const deep=html.match(/<section id="deep"[\s\S]*?<section id="news"/)[0];
 
 test('Deep Search is one clear box with one start button and optional tool choices',()=>{
@@ -109,4 +109,12 @@ test('after a delete, focus and status move sensibly',()=>{
   assert.match(app,/\$\('#deepHistoryHeading'\)\.focus\(\)/);
 });
 
-test('index.html loads app.js?v=60',()=>assert.match(html,/src="\/app\.js\?v=60"/));
+test('person result modules and app use the refined-result versions',()=>{
+  assert.match(app,/deep-search\.js\?v=5/);
+  assert.match(app,/deep-adapters\.js\?v=2/);
+  assert.match(app,/deep-linking\.js\?v=2/);
+  assert.match(app,/deep-results-view\.js\?v=2/);
+  assert.match(html,/src="\/app\.js\?v=61"/);
+});
+
+test('result links use the accessible theme color',()=>assert.match(styles,/#deepResults a\{color:var\(--accent-dark\)\}/));
