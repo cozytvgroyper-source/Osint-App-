@@ -51,3 +51,19 @@ test('finding cards are a single column with statuses in a row',()=>{
   assert.match(ui,/\.evidence-list \.evidence-card\{display:block\}/);
   assert.match(ui,/\.status-group\{display:flex;flex-wrap:wrap/);
 });
+
+// Final review fixes.
+test('an opened finding is shown as saved, with no Save button',()=>{
+  assert.match(app,/function showResult\(title,result,\{saved=false\}=\{\}\)\{/);
+  assert.match(app,/\$\('#saveEvidence'\)\.hidden=saved;/);
+  assert.match(app,/data-open-finding[\s\S]{0,250}showResult\(item\.title,item\.result,\{saved:true\}\)/);
+});
+test('focus lands somewhere sensible after a confirmed delete',()=>{
+  assert.match(html,/<p id="caseSummary" class="subtle" tabindex="-1">/);
+  assert.match(app,/Remove this finding\?[\s\S]{0,500}\.then\(\(\)=>\$\('#caseSummary'\)\.focus\(\)\)/);
+  assert.match(app,/Delete this case\?[\s\S]{0,500}\$\('#caseSelect'\)\.focus\(\)/);
+  assert.match(app,/Remove this key\?[\s\S]{0,400}data-source-edit="\$\{CSS\.escape\(source\.id\)\}"\]'?\)?\??\.focus\(\)|Remove this key\?[\s\S]{0,400}focusSourceCard\(/);
+});
+test('the status toast names the status in words',()=>{
+  assert.match(app,/`Marked as "\$\{option\.dataset\.label\}"`/);
+});

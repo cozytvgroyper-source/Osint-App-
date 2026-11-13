@@ -24,3 +24,11 @@ test('news uses the shared view module',()=>{
   assert.match(app,/from '\.\/news-view\.js\?v=\d+'/);
   assert.doesNotMatch(app,/function relativeTime\(/);
 });
+
+test('the news status line only speaks when it changes, and the filter count is shown quietly',()=>{
+  assert.match(app,/if\(status\.textContent!==loadedText\)status\.textContent=loadedText;/);
+  assert.match(app,/Showing \$\{events\.length\} of \$\{matching\.length\}/);
+});
+test('after Try again, focus does not fall off the page',()=>{
+  assert.match(app,/retryIntelNews[\s\S]{0,200}\$\('#refreshIntelNews'\)\.focus\(\)/);
+});

@@ -20,7 +20,7 @@ export function findingCard(item){
   const id=escapeHtml(item.id);
   const current=item.status||'unverified';
   const found=item.time?new Date(item.time).toLocaleString():'';
-  const statuses=STATUSES.map(([value,key,icon])=>`<button type="button" class="status-option" data-set-status="${escapeHtml(value)}" data-finding="${id}" aria-pressed="${current===value}"><span aria-hidden="true">${icon}</span>${escapeHtml(GLOSSARY[key].label)}</button>`).join('');
+  const statuses=STATUSES.map(([value,key,icon])=>`<button type="button" class="status-option" data-set-status="${escapeHtml(value)}" data-finding="${id}" data-label="${escapeHtml(GLOSSARY[key].label)}" aria-pressed="${current===value}"><span aria-hidden="true">${icon}</span>${escapeHtml(GLOSSARY[key].label)}</button>`).join('');
   const note=String(item.note||'');
   return `<article class="evidence-card">`
     +`<h3>${escapeHtml(item.title)}</h3>`
@@ -40,6 +40,6 @@ export function evidenceEmpty(kind){
 
 export function browserOnlyNotice(count){
   const one=count===1;
-  const text=`${plural(count,'finding')} ${one?'is':'are'} saved only in this browser. Move ${one?'it':'them'} into this case so ${one?"it's":"they're"} kept on this Mac.`;
+  const text=`${plural(count,'finding')} ${one?'is':'are'} saved only in this browser. Import ${one?'it':'them'} into a new case so ${one?"it's":"they're"} kept on this Mac.`;
   return `<p>${escapeHtml(text)}</p><button class="primary" id="importBrowserEvidence">Import into a new case</button>`;
 }

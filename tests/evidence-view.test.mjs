@@ -41,7 +41,13 @@ test('findings open in the results panel and explain their fingerprint',()=>{
 test('empty states and the browser-only notice say what to do',()=>{
   assert.match(evidenceEmpty('no-case'),/You don&#39;t have a case yet\.[\s\S]*Save to evidence[\s\S]*data-new-case/);
   assert.match(evidenceEmpty('empty-case'),/This case has no findings yet\./);
-  assert.match(browserOnlyNotice(3),/3 findings are saved only in this browser\. Move them into this case so they&#39;re kept on this Mac\./);
-  assert.match(browserOnlyNotice(1),/1 finding is saved only in this browser\. Move it into this case so it&#39;s kept on this Mac\./);
   assert.match(browserOnlyNotice(2),/id="importBrowserEvidence"/);
+});
+
+test('status buttons carry their plain label for the toast',()=>{
+  assert.match(findingCard(item,{escapeHtml}),/data-set-status="unverified"[^>]*data-label="Not checked yet"/);
+});
+test('the browser-only notice matches its button (a new case)',()=>{
+  assert.match(browserOnlyNotice(3),/3 findings are saved only in this browser\. Import them into a new case so they&#39;re kept on this Mac\./);
+  assert.match(browserOnlyNotice(1),/1 finding is saved only in this browser\. Import it into a new case so it&#39;s kept on this Mac\./);
 });
