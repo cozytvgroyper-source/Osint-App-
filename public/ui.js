@@ -29,7 +29,7 @@ export function field({id,label,hint='',error='',control}){
   const attrs=attributes({id,...control.attrs,'aria-describedby':described||undefined,'aria-invalid':error?'true':undefined});
   const options=(control.options||[]).map(option=>`<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`).join('');
   const element=control.tag==='input'?`<input${attrs}>`:`<${control.tag}${attrs}>${control.tag==='select'?options:escapeHtml(control.value??'')}</${control.tag}>`;
-  return `<div class="field"><label for="${escapeHtml(id)}">${escapeHtml(label)}</label>${element}${hint?`<p class="field-hint" id="${escapeHtml(id)}-hint">${escapeHtml(hint)}</p>`:''}${error?`<p class="field-error" id="${escapeHtml(id)}-error" role="alert">${escapeHtml(error)}</p>`:''}</div>`;
+  return `<div class="field"><label for="${escapeHtml(id)}">${escapeHtml(label)}</label>${element}${hint?`<p class="field-hint" id="${escapeHtml(id)}-hint">${escapeHtml(hint)}</p>`:''}${error?`<p class="field-error" id="${escapeHtml(id)}-error">${escapeHtml(error)}</p>`:''}</div>`;
 }
 
 export function card({title,body='',actions='',headingLevel=3}){

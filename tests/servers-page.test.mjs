@@ -21,7 +21,7 @@ test('the add-server fields have visible hints and their own error slots',()=>{
   assert.match(html,/id="serverToken-hint"[^>]*>Kept only until you close this tab\.</);
   // The error is read through the field: its text is set before focus moves there (no role="alert", which read it twice).
   assert.match(html,/<p id="serverEndpoint-error" class="field-error"><\/p>/);
-  assert.match(app,/-error`\)\.textContent=problem\.message;[^;]*;\$\(`#\$\{problem\.field\}`\)\.focus\(\)/);
+  assert.match(app,/-error`\)\.textContent=problem\.message;[^;]*;if\(document\.activeElement===field\)announceServerProblem\(problem\.message\);else field\.focus\(\)/);
   assert.match(app,/validateServerForm\(/);
   assert.match(app,/setAttribute\('aria-invalid','true'\)/);
 });
@@ -45,4 +45,11 @@ test('connecting keeps focus on the card and never snatches it back from elsewhe
   assert.match(app,/onlyIfStranded&&!\(document\.activeElement===document\.body\|\|!document\.activeElement\|\|card\.contains\(document\.activeElement\)\)/);
   assert.match(app,/connect\(server\)\.then\(\(\)=>focusServerCard\(server\.id,\{onlyIfStranded:true\}\)\)/);
   assert.match(app,/saveServer[\s\S]{0,700}normalizeEndpoint\(/);
+});
+
+// Pressing Enter inside the field that has the mistake submits the form while focus is already there, so moving focus
+// cannot read the error; a status line in the dialog says it instead (only in that case, so it is never read twice).
+test('a mistake is read even when focus is already on the field',()=>{
+  assert.match(html,/<p id="serverFormStatus" class="visually-hidden" role="status"><\/p>/);
+  assert.match(app,/if\(document\.activeElement===field\)announceServerProblem\(problem\.message\);else field\.focus\(\);/);
 });

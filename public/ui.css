@@ -162,7 +162,11 @@ span.tier-badge{color:var(--ink)}
 .rail-foot{flex-wrap:wrap;gap:10px}
 #themeToggle{width:auto;display:inline-flex;align-items:center;gap:6px;padding:0 10px;font:600 13px var(--sans);white-space:nowrap}
 #themeToggle>span[aria-hidden]{font-size:18px}
-@media(max-width:1050px){#themeToggle{width:34px;padding:0;justify-content:center}#themeToggle .theme-label{display:none}}
+/* The rail is navy in both themes, so hover keeps light text on a light veil (the nav hover), not the page colors. */
+#themeToggle:hover{background:rgba(255,255,255,.11);color:#fff}
+@media(max-width:1050px){#themeToggle{width:34px;padding:0;justify-content:center}#themeToggle .theme-label{display:none}.rail-foot{gap:0;flex-wrap:nowrap}}
+/* The self-check heading is a section (h2) but keeps the size of the card headings around it. */
+.self-check .section-heading h2{font:700 17px var(--sans);letter-spacing:-.02em;margin:0 0 4px}
 
 /* ---- page and component styles (was styles.css) ---- */
 .news-load-more{grid-column:1/-1;justify-self:center;margin:10px 0 24px}

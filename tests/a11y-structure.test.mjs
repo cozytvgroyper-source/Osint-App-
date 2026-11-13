@@ -99,5 +99,18 @@ test('every card list has a section heading so headings never skip a level',()=>
 test('the Pivot button is named by the word it shows',()=>{
   const fn=app.match(/function pivotButton\(value\)\{[\s\S]*?\n\}/)[0];
   assert.match(fn,/>Pivot →<\/button>/);
-  assert.match(fn,/aria-label="\$\{escapeHtml\(`Pivot: \$\{pivot\.label\.toLowerCase\(\)\} \$\{pivot\.target\}`\)\}"/);
+  assert.match(fn,/aria-label="\$\{escapeHtml\(`Pivot: \$\{pivot\.label\[0\]\.toLowerCase\(\)\}\$\{pivot\.label\.slice\(1\)\} \$\{pivot\.target\}`\)\}"/);
+});
+
+// Review follow-ups: the theme switch stays readable on hover and keeps a tooltip when it shows only its icon; the
+// self-check is its own section, not part of the server list.
+test('the theme switch is readable on hover and has a tooltip',()=>{
+  assert.match(html,/id="themeToggle" title="Dark theme"/);
+  assert.match(read('ui.css'),/#themeToggle:hover\{background:rgba\(255,255,255,\.11\);color:#fff\}/);
+});
+test('the tool self-check has its own section heading',()=>{
+  assert.match(html,/<h2>Tool self-check: test that each search tool still works<\/h2>/);
+});
+test('the collapsed sidebar keeps the status dot and theme icon on one line',()=>{
+  assert.match(read('ui.css'),/@media\(max-width:1050px\)\{#themeToggle\{[^}]*\}#themeToggle \.theme-label\{display:none\}\.rail-foot\{gap:0;flex-wrap:nowrap\}\}/);
 });

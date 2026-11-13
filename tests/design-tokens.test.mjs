@@ -143,7 +143,7 @@ test('the danger button keeps its own text color over later .primary rules',()=>
   const rule=rules(css).find(r=>r.body==='background:var(--danger);border-color:var(--danger);color:var(--on-danger)');
   assert.ok(rule,'ui.css styles the danger button');
   const own=rule.selector.split(',').map(s=>s.trim());
-  for(const r of rules(css).filter(r=>/(?:^|;)color:/.test(r.body)))
+  for(const r of rules(css).filter(r=>/(?:^|[;{\s])color\s*:/.test(r.body)))
     for(const selector of r.selector.split(',').map(s=>s.trim()).filter(s=>/\.primary$/.test(s)))
       assert.ok(own.some(mine=>holds(mine,selector,r.index,rule.index)),`"${selector}" overrides the danger button's text color`);
 });

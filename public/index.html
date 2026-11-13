@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#07110f" />
   <title>Public Desk — OSINT workspace</title>
-  <link rel="stylesheet" href="/ui.css?v=23" />
+  <link rel="stylesheet" href="/ui.css?v=24" />
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -33,7 +33,7 @@
       </nav>
       <div class="rail-foot">
         <div class="privacy"><span class="pulse"></span><div><b>Local-first</b><small>MCP tokens stay in this tab</small></div></div>
-        <button class="icon-button" id="themeToggle" aria-label="Dark theme" aria-pressed="false"><span aria-hidden="true">☼</span><span class="theme-label">Dark theme</span></button>
+        <button class="icon-button" id="themeToggle" title="Dark theme" aria-label="Dark theme" aria-pressed="false"><span aria-hidden="true">☼</span><span class="theme-label">Dark theme</span></button>
       </div>
     </aside>
 
@@ -72,7 +72,7 @@
         <div class="section-heading view-actions"><button class="primary" id="addServer">＋ Add server</button></div>
         <h2 class="visually-hidden">Your MCP servers</h2>
         <div id="serverList" class="server-grid"></div>
-        <div class="self-check"><div class="section-heading"><div><p class="eyebrow">HEALTH</p><h3>Tool self-check: test that each search tool still works</h3><p class="subtle" id="selfCheckIntro">Runs each tool the automatic search uses against harmless test targets (example.com, 8.8.8.8, user@example.com, @octocat, CVE-2021-44228 and the EICAR test hash) to spot tools that stopped working. Passive lookups only; the services behind them see these queries.</p></div><div class="self-check-actions"><button class="ghost" id="stopSelfCheck" hidden>Stop</button><button class="primary" id="runSelfCheck">Run self-check</button></div></div><p class="subtle" id="selfCheckSummary"></p><div id="selfCheckResults"></div></div>
+        <div class="self-check"><div class="section-heading"><div><p class="eyebrow">HEALTH</p><h2>Tool self-check: test that each search tool still works</h2><p class="subtle" id="selfCheckIntro">Runs each tool the automatic search uses against harmless test targets (example.com, 8.8.8.8, user@example.com, @octocat, CVE-2021-44228 and the EICAR test hash) to spot tools that stopped working. Passive lookups only; the services behind them see these queries.</p></div><div class="self-check-actions"><button class="ghost" id="stopSelfCheck" hidden>Stop</button><button class="primary" id="runSelfCheck">Run self-check</button></div></div><p class="subtle" id="selfCheckSummary"></p><div id="selfCheckResults"></div></div>
         <div class="section-heading"><div><p class="eyebrow">CONNECTIONS</p><h2>Data sources</h2><p class="subtle">API keys for the services behind Open OSINT's tools. Keys are saved on this Mac only, in work/api-keys.env, and are never shown again. Connect and Disconnect apply right away.</p></div><span class="subtle" id="dataSourceCount"></span></div>
         <div id="dataSourceList" class="server-grid"><div class="empty-state">Loading data sources…</div></div>
         <div class="source-gaps"><h3>Not supported yet</h3><p class="subtle">These keys would improve results, but Public Desk cannot use them yet, so there is nothing to connect:</p><ul><li><b>Have I Been Pwned:</b> reliable email breach checks. Without it, <code>omega_leaked</code> reports "no breaches" even though it never checked (see the Omega tool review).</li><li><b>Shodan:</b> full host, port and banner data for IP searches, beyond the free InternetDB summary in the IP dossier.</li></ul><p class="subtle">Both are read by Omega from its own settings rather than this page, so adding them needs a small change first.</p></div>
@@ -131,6 +131,7 @@
       <div class="field"><label for="serverEndpoint">Endpoint</label><input id="serverEndpoint" name="endpoint" type="url" autocomplete="off" placeholder="https://example.com/mcp" aria-describedby="serverEndpoint-hint serverEndpoint-error" /><p id="serverEndpoint-hint" class="field-hint">Must start with https://</p><p id="serverEndpoint-error" class="field-error"></p></div>
       <div class="field"><label for="serverToken">Bearer token <span>(optional)</span></label><input id="serverToken" name="token" type="password" autocomplete="off" aria-describedby="serverToken-hint" /><p id="serverToken-hint" class="field-hint">Kept only until you close this tab.</p></div>
       <p class="form-note">Public Desk uses MCP Streamable HTTP. Added servers must use HTTPS and a public address. To bring back a bundled server you disabled, add its address: http://127.0.0.1:8892/mcp (Open OSINT), :8893 (OSINT Toolbox) or :8894 (Omega).</p>
+      <p id="serverFormStatus" class="visually-hidden" role="status"></p>
       <div class="dialog-actions"><button type="button" data-close-dialog class="ghost">Cancel</button><button value="default" class="primary" id="saveServer">Connect server</button></div>
     </form>
   </dialog>
@@ -158,6 +159,6 @@
   </dialog>
 
   <div id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/app.js?v=53"></script>
+  <script type="module" src="/app.js?v=54"></script>
 </body>
 </html>
