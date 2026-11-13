@@ -84,6 +84,36 @@ test('socmint table rows carry presence, clean links and no echo',()=>{
   assert.ok(found.some(finding=>finding.account.url==='https://news.ycombinator.com/user?id=ownername'));
 });
 
+test('socmint rows marked "✅ Found" are found accounts with clean links',()=>{
+  const subject={type:'username',value:'ownername'};
+  const answer=['  Platform          Status     URL',
+    '  Twitter/X         ✅ Found   https://x.com/ownername\\n',
+    '  Reddit            ✅ Found   https://old.reddit.com/user/ownername/about.js',
+    '  GitHub            ❌ 404     https://github.com/ownername'].join('\n');
+  const result={content:[{type:'text',text:JSON.stringify({status:'ok',result:answer})}]};
+  const found=accounts(adaptToolResult({name:'omega_socmint',serverName:'Omega MCP'},result,subject));
+  assert.equal(found.length,3);
+  const x=byUrl(found,'https://x.com/ownername');
+  assert.equal(x.account.site,'Twitter/X');
+  assert.equal(x.account.presence,'found');
+  assert.ok(!x.account.presenceNote);
+  const reddit=byUrl(found,'https://www.reddit.com/user/ownername');
+  assert.equal(reddit.account.presence,'found');
+  assert.equal(reddit.account.rawUrl,'https://old.reddit.com/user/ownername/about.js');
+  assert.equal(byUrl(found,'https://github.com/ownername').account.presence,'not-found');
+});
+
+test('profilePageUrl maps every Reddit data-address form to the profile page',()=>{
+  const page='https://www.reddit.com/user/ownername';
+  for(const raw of [
+    'https://www.reddit.com/user/ownername/about.json',
+    'https://www.reddit.com/user/ownername/about.js',
+    'https://old.reddit.com/user/ownername/about.json',
+    'https://reddit.com/user/ownername/about.json?raw_json=1'
+  ])assert.deepEqual(profilePageUrl(raw),{url:page,rawUrl:raw},raw);
+  assert.deepEqual(profilePageUrl(page),{url:page,rawUrl:''});
+});
+
 test('identity list rows are found accounts without the echo',()=>{
   const found=accounts(adaptFixture('omega_identity'));
   assert.equal(found.length,5);
