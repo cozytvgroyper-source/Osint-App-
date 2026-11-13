@@ -14,15 +14,15 @@ import {toolRisk} from '../public/tool-tiers.js';
 const FIXTURE_TOOLS=JSON.parse(fs.readFileSync(new URL('./fixtures/mcp-tools.json',import.meta.url),'utf8'));
 
 test('detects and normalises messy input',()=>{
-  assert.deepEqual(detectDeepTarget(' Jane.Smith+news@Mail.COM '),{type:'email',value:'jane.smith+news@mail.com'});
-  assert.deepEqual(detectDeepTarget('@JSmith88'),{type:'username',value:'jsmith88'});
-  assert.deepEqual(detectDeepTarget('jsmith88'),{type:'username',value:'jsmith88'});
+  assert.deepEqual(detectDeepTarget(' Owner.Name+news@Example.COM '),{type:'email',value:'owner.name+news@example.com'});
+  assert.deepEqual(detectDeepTarget('@OwnerName88'),{type:'username',value:'ownername88'});
+  assert.deepEqual(detectDeepTarget('ownername88'),{type:'username',value:'ownername88'});
   assert.deepEqual(detectDeepTarget('https://Example.com/about'),{type:'domain',value:'example.com'});
   assert.deepEqual(detectDeepTarget('8.8.8.8'),{type:'ip',value:'8.8.8.8'});
   assert.deepEqual(detectDeepTarget('+1 (415) 555-2671'),{type:'phone',value:'+14155552671'});
   assert.deepEqual(detectDeepTarget('cve-2024-3094'),{type:'cve',value:'CVE-2024-3094'});
   assert.deepEqual(detectDeepTarget('D41D8CD98F00B204E9800998ECF8427E'),{type:'hash',value:'d41d8cd98f00b204e9800998ecf8427e'});
-  assert.equal(detectDeepTarget('jane smith'),null);
+  assert.equal(detectDeepTarget('owner example'),null);
   assert.equal(detectDeepTarget('a'),null);
 });
 
@@ -75,9 +75,9 @@ test('deep arguments apply the overrides',()=>{
   const maigret=FIXTURE_TOOLS.find(tool=>tool.name==='maigret_username_search');
   const holehe=FIXTURE_TOOLS.find(tool=>tool.name==='holehe_email_search');
   const sherlock=FIXTURE_TOOLS.find(tool=>tool.name==='sherlock_username_search');
-  assert.equal(deepArgs(maigret,{type:'username',value:'jsmith88'}).all_sites,true);
+  assert.equal(deepArgs(maigret,{type:'username',value:'ownername88'}).all_sites,true);
   assert.equal(deepArgs(holehe,{type:'email',value:'owner@example.com'}).only_used,true);
-  assert.equal(deepArgs(sherlock,{type:'username',value:'jsmith88'}).output_format,'txt');
+  assert.equal(deepArgs(sherlock,{type:'username',value:'ownername88'}).output_format,'txt');
 });
 
 test('confirmations: none for people, ownership for sites, typed target at Intrusive',()=>{
@@ -139,4 +139,17 @@ test('a website name with accented letters is the whole site, never part of it',
   assert.deepEqual(detectDeepTarget('https://bücher.de/'),{type:'domain',value:'xn--bcher-kva.de'});
   assert.deepEqual(detectDeepTarget('www.bücher.de/katalog'),{type:'domain',value:'xn--bcher-kva.de'});
   assert.deepEqual(detectDeepTarget('owner@bücher.de'),{type:'email',value:'owner@xn--bcher-kva.de'});
+});
+
+test('Deep Search recognises IPv6 and an IP with a port',()=>{
+  assert.deepEqual(detectDeepTarget('2001:4860:4860::8888'),{type:'ip',value:'2001:4860:4860::8888'});
+  assert.deepEqual(detectDeepTarget('https://[2001:4860:4860::8888]/'),{type:'ip',value:'2001:4860:4860::8888'});
+  assert.deepEqual(detectDeepTarget('8.8.8.8:53'),{type:'ip',value:'8.8.8.8'});
+  assert.deepEqual(detectDeepTarget('[2001:db8::1]:443'),{type:'ip',value:'2001:db8::1'});
+});
+
+test('a phone number without a country code is never turned into another country',()=>{
+  for(const input of ['555-123-4567','(555) 123-4567','5551234567'])assert.equal(detectDeepTarget(input),null,input);
+  assert.deepEqual(detectDeepTarget('+1 555-123-4567'),{type:'phone',value:'+15551234567'});
+  assert.deepEqual(detectDeepTarget('0044 20 7946 0958'),{type:'phone',value:'+442079460958'});
 });

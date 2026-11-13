@@ -1,4 +1,4 @@
-import {detectDeepTarget,isPersonType} from './deep-search.js';
+import {detectDeepTarget,isPersonType,phoneNeedsCountryCode} from './deep-search.js';
 import {button,escapeHtml} from './ui.js';
 
 const stages=Object.freeze([
@@ -46,6 +46,7 @@ export function deepStatusLine(input){
   const text=String(input??'').trim();
   if(!text)return{kind:'empty',message:'Type one email, username, website or IP address.'};
   const target=detectDeepTarget(text);
+  if(!target&&phoneNeedsCountryCode(text))return{kind:'unsupported',message:'Add the country code to this phone number (for example +1 555 123 4567), so Deep Search knows which country it is in.'};
   if(!target)return{kind:'unsupported',message:'Deep Search needs an email, username, website or IP. To search a name, use Search.'};
   if(isPersonType(target.type)){
     if(target.type==='phone')return{kind:'other',message:'Looks like a phone number. We will check public sources only.'};

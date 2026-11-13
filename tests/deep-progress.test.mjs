@@ -40,3 +40,9 @@ test('status lines distinguish people, sites, other supported targets and unsupp
   assert.equal(deepStatusLine('+1 555 555 0100').kind,'other');
   assert.deepEqual(deepStatusLine('John Smith'),{kind:'unsupported',message:'Deep Search needs an email, username, website or IP. To search a name, use Search.'});
 });
+
+test('a phone number without a country code is asked for one',()=>{
+  const line=deepStatusLine('555-123-4567');
+  assert.equal(line.kind,'unsupported');
+  assert.match(line.message,/country code/);
+});

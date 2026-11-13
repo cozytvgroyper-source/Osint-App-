@@ -4,9 +4,7 @@ set -u
 APP_DIR="${0:A:h}"
 source "$APP_DIR/config/open-osint.env"
 MANAGED_OSINT_ROOT="$APP_DIR/work/dependencies/osint-mcp"
-LEGACY_OSINT_ROOT="${APP_DIR:h}/omprehensive-osint-toolboxes-osint-mcp-by/downloads/osint-mcp"
 OSINT_ROOT="${PUBLIC_DESK_OSINT_ROOT:-$MANAGED_OSINT_ROOT}"
-[[ -d "$OSINT_ROOT/.git" ]] || OSINT_ROOT="$LEGACY_OSINT_ROOT"
 RUNTIME_DIR="$APP_DIR/work/runtime"
 LOG_DIR="$APP_DIR/work/logs"
 TOKEN_FILE="$RUNTIME_DIR/public-desk-token"
@@ -74,15 +72,16 @@ is_ready() {
   /usr/bin/curl -fsS --max-time 2 "$1" >/dev/null 2>&1
 }
 
+# The token goes to curl on its standard input (-H @-), never on its command line, where other programs could read it.
 service_ready() {
-  /usr/bin/curl -fsS --max-time 2 -H "Authorization: Bearer $PUBLIC_DESK_TOKEN" "$1" >/dev/null 2>&1
+  print -r -- "Authorization: Bearer $PUBLIC_DESK_TOKEN" | /usr/bin/curl -fsS --max-time 2 -H @- "$1" >/dev/null 2>&1
 }
 
 # MCP endpoints reject plain GET requests (HTTP 400), so a bridge only counts as running
 # when it answers an MCP initialize request.
 mcp_ready() {
-  /usr/bin/curl -fsS --max-time 2 -X POST "$1" \
-    -H "Authorization: Bearer $PUBLIC_DESK_TOKEN" \
+  print -r -- "Authorization: Bearer $PUBLIC_DESK_TOKEN" | /usr/bin/curl -fsS --max-time 2 -X POST "$1" \
+    -H @- \
     -H 'content-type: application/json' -H 'accept: application/json, text/event-stream' \
     --data '{"jsonrpc":"2.0","id":"startup","method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"Public Desk Launcher","version":"1.0"}}}' \
     >/dev/null 2>&1

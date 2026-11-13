@@ -121,3 +121,23 @@ test('person result modules and app use the refined-result versions',()=>{
 });
 
 test('result links use the accessible theme color',()=>assert.match(styles,/#deepResults a\{color:var\(--accent-dark\)\}/));
+
+// ---- Minor review fixes: Deep Search page quirks ----
+
+test('stopping a search keeps the keyboard place and never errors if the search already finished',()=>{
+  const cancel=fn('cancelDeepSearch');
+  assert.match(cancel,/state\.deepController\?\.abort\(\)/);
+  assert.doesNotMatch(cancel,/state\.deepController\.abort\(\)/);
+  assert.match(cancel,/deepProgressHeading[\s\S]*deepResultsHeading[\s\S]*focus\(\)/);
+});
+
+test('while a search runs, opening an old result or starting another brings back the live progress',()=>{
+  assert.match(app,/function showLiveDeepSearch\(\)\{\s*if\(!state\.deepRun\)return false;/);
+  assert.match(fn('openDeepResults'),/^async function openDeepResults\(runId\)\{\s*if\(showLiveDeepSearch\(\)\)return;/);
+  assert.match(app,/function resetDeepSearch\(value=''\)\{\s*if\(showLiveDeepSearch\(\)\)return;/);
+  assert.match(app,/data-open-deep="\$\{escapeHtml\(entry\.runId\)\}"\$\{busy\?' disabled':''\}>Open results/);
+});
+
+test('a tool that answers with a plain list keeps the heading order',()=>{
+  assert.match(app,/if\(Array\.isArray\(payload\)\)return `<section class="result-category"><div class="category-head"><div><p class="eyebrow">RESULT<\/p><h3>Findings<\/h3><\/div><\/div>\$\{renderArray\(payload\)\}<\/section>`;/);
+});

@@ -6,3 +6,6 @@ node_modules/
 npm-debug.log*
 work/
 tests/fixtures/deep/raw/
+# Local test helpers (e.g. public/__axe-test.js) and agent working notes are never committed.
+public/__*
+.superpowers/

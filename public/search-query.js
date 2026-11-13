@@ -4,10 +4,12 @@
 // it ("example.com whois"). Tools that look a target up need only the target itself.
 const OCTET='(?:25[0-5]|2[0-4]\\d|1?\\d?\\d)';
 const TARGET_PATTERNS=[
-  ['email',/(?:^|[\s<(])([a-z0-9._%+-]+@(?:[a-z0-9-]+\.)+[a-z]{2,63})(?=$|[\s>),;!?]|\.(?:\s|$))/i],
-  ['url',/\bhttps?:\/\/([^\s/?#:]+)/i],
+  ['email',/(?:^|[\s<(:=])([a-z0-9._%+-]+@(?:[a-z0-9-]+\.)+[a-z]{2,63})(?=$|[\s>),;!?]|\.(?:\s|$))/i],
+  ['url',/\bhttps?:\/\/(\[[0-9a-f:.]+\]|[^\s/?#:]+)/i],
   ['cve',/\b(CVE-\d{4}-\d{4,})\b/i],
   ['hash',/\b([a-f0-9]{64}|[a-f0-9]{40}|[a-f0-9]{32})\b/i],
+  // IPv6 candidates (two or more colons); each one is checked with the URL parser before it counts.
+  ['ipv6',/(?<![\w:.])([0-9a-f]*:[0-9a-f]*:[0-9a-f:.]*)(?![\w:.])/i],
   ['ip',new RegExp(`(?<![\\d.])((?:${OCTET}\\.){3}${OCTET})(?![\\d]|\\.\\d)`)],
   ['username',/(?:^|\s)@([a-z0-9_](?:[a-z0-9_.-]{0,30}[a-z0-9_])?)(?=$|\s)/i],
   ['username',/\b(?:username|handle)\s*[:=]?\s*@?([a-z0-9_](?:[a-z0-9_.-]{0,30}[a-z0-9_])?)(?=$|\s)/i],
@@ -26,15 +28,31 @@ export function asciiHosts(text){
   });
 }
 
+// The compressed, lowercase form of a valid IPv6 address, or null. "::" alone (no address) is not a target.
+function ipv6Value(text){
+  try{const host=new URL(`http://[${text}]`).hostname.slice(1,-1);return host&&host!=='::'?host:null;}catch{return null;}
+}
+
+// A phone number: 7 to 15 digits, but never a date (2024-01-15) or dotted numbers such as a version or a bad IP.
+function looksLikePhone(raw){
+  const text=String(raw).trim();
+  if(!/^\+?[\d\s().-]{8,}$/.test(text))return false;
+  if(/^\d{4}[-./]\d{1,2}[-./]\d{1,2}$/.test(text)||/^\d+(?:\.\d+){2,}$/.test(text))return false;
+  const digits=text.replace(/\D/g,'').length;
+  return digits>=7&&digits<=15;
+}
+
 function findTarget(query){
   const text=asciiHosts(String(query).trim());
   for(const [kind,pattern] of TARGET_PATTERNS){
     const match=text.match(pattern);
     if(!match)continue;
     const raw=match[1];
-    if(kind==='phone'&&raw.replace(/\D/g,'').length<7)continue;
+    if(kind==='phone'&&!looksLikePhone(raw))continue;
+    if(kind==='ipv6'){const value=ipv6Value(raw);if(!value)continue;return{type:'ip',value,raw:match[0].trim()};}
     if(kind==='url'){
       const host=raw.toLowerCase();
+      if(host.startsWith('[')){const value=ipv6Value(host.slice(1,-1));if(!value)continue;return{type:'ip',value,raw:text.match(/\bhttps?:\/\/\S+/i)[0]};}
       return{type:new RegExp(`^(?:${OCTET}\\.){3}${OCTET}$`).test(host)?'ip':'domain',value:host,raw:text.match(/\bhttps?:\/\/\S+/i)[0]};
     }
     const value=kind==='cve'?raw.toUpperCase():kind==='domain'||kind==='email'?raw.toLowerCase():raw.trim();
@@ -115,7 +133,7 @@ export function searchIntent(query){
   if(/^(?:https?:\/\/)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/.*)?$/i.test(q)||/\b(domain|website|whois|certificate|dns)\b/i.test(q))return intent('domain','Domain intelligence',['whois_lookup','dnstwist_lookalike_domains']);
   if(/^@?[a-z0-9_.-]{2,32}$/i.test(q)&&(/^@/.test(q)||/\b(username|handle|account)\b/i.test(q)))return intent('username','Public username presence',['sherlock_username_search','blackbird_username_search']);
   if(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(q))return intent('email','Public email-account presence',['holehe_email_search']);
-  if(/^\+?[\d\s().-]{8,}$/.test(q))return intent('phone','Public phone information',['phoneinfoga_scan']);
+  if(looksLikePhone(q))return intent('phone','Public phone information',['phoneinfoga_scan']);
   const topic=TOPIC_INTENTS.find(([,,,pattern])=>has(pattern));
   if(topic)return intent(...topic);
   return intent('entity','Entity and related coverage',['get_wikidata','get_news_rss','get_hn_search']);

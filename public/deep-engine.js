@@ -152,10 +152,12 @@ export async function runDeepSearch(options={}){
       linkedResult=linkFindings(adapted,target,{searched});countsEvent();
       if(!person||signal?.aborted)break;
       const newLeads=[];
+      // Leads found in the last round can't be followed any more, so they are listed as not followed, not announced.
+      const lastRound=round>=MAX_ROUNDS;
       for(const lead of linkedResult.leads){
         const normalized=normalizeIdentifier(lead);const key=normalized&&identifierKey(normalized);
         if(!normalized||searchedKeys.has(key)||newLeads.some(item=>identifierKey(item)===key))continue;
-        if(searched.length+newLeads.length>=MAX_IDENTIFIERS)leadsNotFollowed.push(normalized);
+        if(lastRound||searched.length+newLeads.length>=MAX_IDENTIFIERS)leadsNotFollowed.push(normalized);
         else{newLeads.push(normalized);onEvent({type:'lead',identifier:normalized,from:target});}
       }
       pending=newLeads;

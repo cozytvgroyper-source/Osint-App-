@@ -76,9 +76,9 @@ test('the same profile from two tools is one finding with both sources',()=>{
 test('normalised identifiers are never searched twice',()=>{
   const findings=[
     leadFinding('@OwnerName','username'),
-    leadFinding('Jane@Mail.com','email')
+    leadFinding('Owner@Example.com','email')
   ];
-  const {leads}=linkFindings(findings,{type:'username',value:'ownername'},{searched:[{type:'email',value:'jane@mail.com'}]});
+  const {leads}=linkFindings(findings,{type:'username',value:'ownername'},{searched:[{type:'email',value:'owner@example.com'}]});
   assert.deepEqual(leads,[]);
 });
 

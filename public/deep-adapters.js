@@ -56,7 +56,9 @@ const PAGE_RULES=[
   [/^https?:\/\/dev\.to\/api\/users\/by_username\?(?:[^#]*&)?url=([^&#]+)/i,user=>`https://dev.to/${user}`],
   [/^https?:\/\/(?:en\.)?gravatar\.com\/([^/?#]+)\.json(?:[?#]|$)/i,user=>`https://gravatar.com/${user}`],
   [/^https?:\/\/hub\.docker\.com\/v2\/users\/([^/?#]+)\/?(?:[?#]|$)/i,user=>`https://hub.docker.com/u/${user}`],
-  [/^https?:\/\/api\.twitch\.tv\/helix\/users\?(?:[^#]*&)?login=([^&#]+)/i,user=>`https://www.twitch.tv/${user}`]
+  [/^https?:\/\/api\.twitch\.tv\/helix\/users\?(?:[^#]*&)?login=([^&#]+)/i,user=>`https://www.twitch.tv/${user}`],
+  // The Wayback Machine's "is there a snapshot?" data address, mapped to the archived page itself.
+  [/^https?:\/\/(?:www\.)?archive\.org\/wayback\/available\?(?:[^#]*&)?url=([^&#]+)/i,page=>`https://web.archive.org/web/${decodeURIComponent(page)}`]
 ];
 
 export function profilePageUrl(value){
