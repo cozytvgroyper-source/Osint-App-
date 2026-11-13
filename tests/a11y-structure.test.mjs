@@ -86,3 +86,10 @@ test('only a click outside the dialog box cancels a confirmation, and a second a
 test('field errors are read once, through the field',()=>{
   assert.doesNotMatch(html,/id="server(?:Name|Endpoint)-error"[^>]*role="alert"/);
 });
+
+// Card titles are h3; each list of cards has an h2 above it (for screen readers; the page shows the cards' own layout).
+test('every card list has a section heading so headings never skip a level',()=>{
+  assert.match(html,/<h2 class="visually-hidden">Your MCP servers<\/h2>\s*<div id="serverList"/);
+  assert.match(html,/<h2 class="visually-hidden">Stories<\/h2>\s*<div id="intelNewsList"/);
+  assert.match(html,/<h2 class="visually-hidden">Findings<\/h2>\s*<div id="evidenceList"/);
+});

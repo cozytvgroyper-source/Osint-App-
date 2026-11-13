@@ -29,7 +29,7 @@ export function renderRankedReport(data = {}, helpers) {
 
   // 2. Top results
   if (topResults.length) {
-    parts.push(`<section class="result-category"><div class="category-head"><p class="eyebrow">Top results</p></div>${
+    parts.push(`<section class="result-category"><div class="category-head"><h3 class="eyebrow">Top results</h3></div>${
       topResults.map(item => `<div class="top-result"><p class="result-source">${label(item)}</p>${typeof item.item === 'string' ? renderRecord(item.item) : renderArray([item.item])}</div>`).join('')
     }</section>`);
   }
@@ -47,7 +47,7 @@ export function renderRankedReport(data = {}, helpers) {
         body += `<details class="more-results" data-details-key="${esc(key)}"${openAttr(key, false)}><summary>Show ${rest.length} more from ${esc(s.tool)} ${esc("that don't mention your search")}</summary>${renderArray(rest)}</details>`;
       }
     }
-    parts.push(`<section class="result-category"><div class="category-head"><p class="eyebrow">${label(s)}</p></div>${body}</section>`);
+    parts.push(`<section class="result-category"><div class="category-head"><h3 class="eyebrow">${label(s)}</h3></div>${body}</section>`);
   }
 
   // 4. Consolidated findings

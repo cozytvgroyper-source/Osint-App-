@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#07110f" />
   <title>Public Desk — OSINT workspace</title>
-  <link rel="stylesheet" href="/ui.css?v=22" />
+  <link rel="stylesheet" href="/ui.css?v=23" />
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -70,6 +70,7 @@
 
       <section id="servers" class="view">
         <div class="section-heading view-actions"><button class="primary" id="addServer">＋ Add server</button></div>
+        <h2 class="visually-hidden">Your MCP servers</h2>
         <div id="serverList" class="server-grid"></div>
         <div class="self-check"><div class="section-heading"><div><p class="eyebrow">HEALTH</p><h3>Tool self-check: test that each search tool still works</h3><p class="subtle" id="selfCheckIntro">Runs each tool the automatic search uses against harmless test targets (example.com, 8.8.8.8, user@example.com, @octocat, CVE-2021-44228 and the EICAR test hash) to spot tools that stopped working. Passive lookups only; the services behind them see these queries.</p></div><div class="self-check-actions"><button class="ghost" id="stopSelfCheck" hidden>Stop</button><button class="primary" id="runSelfCheck">Run self-check</button></div></div><p class="subtle" id="selfCheckSummary"></p><div id="selfCheckResults"></div></div>
         <div class="section-heading"><div><p class="eyebrow">CONNECTIONS</p><h2>Data sources</h2><p class="subtle">API keys for the services behind Open OSINT's tools. Keys are saved on this Mac only, in work/api-keys.env, and are never shown again. Connect and Disconnect apply right away.</p></div><span class="subtle" id="dataSourceCount"></span></div>
@@ -102,6 +103,7 @@
         <div class="news-toolbar"><label class="filter"><span aria-hidden="true">⌕</span>Search news<input id="intelNewsFilter" placeholder="Title, source or country" /></label><label class="news-category">Category<select id="intelNewsCategory"><option value="">All categories</option></select></label><span id="intelNewsFreshness" class="subtle"></span></div>
         <div id="intelNewsMetrics" class="news-metrics"></div>
         <p id="intelNewsStatus" class="news-status" role="status"></p>
+        <h2 class="visually-hidden">Stories</h2>
         <div id="intelNewsList" class="news-grid"></div>
       </section>
 
@@ -117,6 +119,7 @@
         <div class="case-bar"><label>Case<select id="caseSelect"></select></label><button class="ghost" id="newCase">＋ New case</button><button class="text-button" id="renameCase">Rename</button><button class="text-button" id="deleteCase">Delete</button></div>
         <div id="caseImport" class="case-import" hidden></div>
         <p id="caseSummary" class="subtle" tabindex="-1"></p>
+        <h2 class="visually-hidden">Findings</h2>
         <div id="evidenceList" class="evidence-list"></div>
       </section>
     </main>
@@ -155,6 +158,6 @@
   </dialog>
 
   <div id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/app.js?v=51"></script>
+  <script type="module" src="/app.js?v=52"></script>
 </body>
 </html>
