@@ -9,6 +9,7 @@ const fixtureFiles=fs.readdirSync(fixtureDir).filter(file=>file.endsWith('.json'
 const fixtures=fixtureFiles.map(file=>JSON.parse(fs.readFileSync(new URL(file,fixtureDir),'utf8')));
 const fixture=tool=>fixtures.find(item=>item.tool===tool);
 const VALID_KINDS=new Set(['account','breach','fact','host','problem','lead']);
+const LINKED_PROFILE_URL='https://example.com/linked-profile';
 
 test('every recorded answer is safe to adapt and every finding keeps its source and subject',()=>{
   assert.equal(fixtures.length,53);
@@ -50,7 +51,7 @@ test('Maigret keeps extracted names as evidence and profile details as details',
   assert.ok(findings.length>20);
   assert.ok(findings.some(finding=>finding.kind==='account'&&finding.evidence.names.includes('Owner Example')));
   assert.ok(findings.some(finding=>finding.account?.details.names.includes('Owner Example')));
-  assert.ok(findings.some(finding=>finding.account?.details.websites.includes('https://example.com/linked-profile')));
+  assert.ok(findings.some(finding=>finding.account?.details.websites.some(value=>value===LINKED_PROFILE_URL)));
 });
 
 const adaptFixture=name=>{
@@ -100,7 +101,7 @@ test('Maigret profile details become details, never images or the searched usern
   assert.ok(found.every(finding=>finding.account.presence==='found'));
   assert.ok(found.some(finding=>finding.account.details.names.includes('Owner Example')));
   assert.ok(found.some(finding=>finding.account.details.places.includes('Example City')));
-  assert.ok(found.some(finding=>finding.account.details.websites.includes('https://example.com/linked-profile')));
+  assert.ok(found.some(finding=>finding.account.details.websites.some(value=>value===LINKED_PROFILE_URL)));
   for(const finding of found){
     const values=allDetails(finding);
     assert.ok(!values.some(value=>/avatar\.jpg/.test(value)),finding.account.site);
