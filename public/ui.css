@@ -129,3 +129,30 @@ html .primary.danger,.danger{background:var(--danger);border-color:var(--danger)
 /* Finding cards read top to bottom (the older two-column card grid squeezed the status buttons). */
 .evidence-list .evidence-card{display:block}
 .evidence-list .evidence-card > *+*{margin-top:var(--space-2)}
+
+/* MCP server cards: name and status dot, what the server is for, its state in words, the address in small print. */
+.server-card .server-card-top h3{margin:0}
+.server-purpose{margin:var(--space-2) 0 var(--space-1)}
+.server-status{font-weight:650;margin:0 0 var(--space-1)}
+.server-card .endpoint{font-size:var(--text-xs);color:var(--muted)}
+
+/* Tool library: chips are toggles with a one-line explanation; cards spell out flags. */
+.tier-chip{display:inline-grid;text-align:left;gap:2px;min-height:44px}
+.tier-chip[aria-pressed="true"]{border-width:2px;font-weight:750;color:var(--ink)}
+.tier-chip-explain{font-size:var(--text-xs);font-weight:400;color:var(--muted);max-width:28ch}
+.tool-card h3{margin:0;font-size:var(--text-sm)}
+.tool-flag{font-size:var(--text-xs);font-weight:650;margin:var(--space-1) 0}
+
+/* Deep Search: three numbered steps, each a card with its own heading. */
+.deep-step{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-card);padding:var(--space-4);margin:0 0 var(--space-4)}
+.deep-step > h2{font-size:var(--text-lg);margin:0 0 var(--space-3)}
+.deep-level-explain{grid-column:1/-1}
+
+/* Tier chips: undo the older stylesheet's faded spans (opacity .7 dropped text below 4.5:1) and mark the pressed chip
+   with a 3:1 border and a ring, not only bolder text. */
+#tierFilters .tier-chip span{opacity:1;margin-left:0}
+#tierFilters .tier-chip[aria-pressed="true"]{border-color:var(--accent-dark);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent-dark) 35%,transparent)}
+.tier-group-title{font-size:var(--text-md);margin:0}
+
+/* Tier badges: the tier color stays as tint and border; the label is ink so it reads at 4.5:1 in both themes. */
+span.tier-badge{color:var(--ink)}

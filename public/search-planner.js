@@ -139,4 +139,4 @@ export function summarizePlanDiagnostics(explained,{nearMisses=12}={}){
 
 export function isPassiveSearchTool(tool){return passiveCandidate(tool);}
 // Where a tool can be used: the main search runs only the tools the planner may pick on its own.
-export function toolUsage(tool){return passiveCandidate(tool)?'Main search can use it':'Tool Library only';}
+export function toolUsage(tool){return passiveCandidate(tool)?'Used by the main search':'Tool library only';}

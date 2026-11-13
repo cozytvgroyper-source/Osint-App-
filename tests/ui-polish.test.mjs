@@ -27,7 +27,7 @@ test('a skip link leads to the main content',()=>{
 
 test('long tool descriptions are clamped in Tool Library cards, with the full text kept',()=>{
   assert.match(css,/\.tool-card \.tool-desc\{[^}]*-webkit-line-clamp:4/);
-  assert.match(app,/<p class="tool-desc" title="\$\{escapeHtml\(t\.description/);
+  assert.match(read('tools-view.js'),/<p class="tool-desc" title="\$\{escapeHtml\(tool\.description/);
 });
 
 test('the main search box has a visible label',()=>{

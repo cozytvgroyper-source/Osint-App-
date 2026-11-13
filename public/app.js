@@ -1,4 +1,6 @@
 import {explainSearchPlan,summarizePlanDiagnostics,toolUsage} from './search-planner.js?v=1';
+import {tierChips,toolCard} from './tools-view.js?v=1';
+import {normalizeEndpoint,serverCard,serverFocusTarget,validateServerForm} from './servers-view.js?v=3';
 import {browserOnlyNotice,caseSummary,evidenceEmpty,findingCard} from './evidence-view.js?v=2';
 import {newsCard,newsMetrics,relativeTime} from './news-view.js?v=1';
 import {emptyState,escapeHtml,term} from './ui.js?v=4';
@@ -241,7 +243,15 @@ function renderSourcesStatus(){
   lastSourcesStatus=html;$('#sourcesStatus').innerHTML=html;
 }
 function renderServers(){
-  $('#serverList').innerHTML=state.servers.length?state.servers.map(s=>`<article class="server-card"><div class="server-card-top"><span class="badge">STREAMABLE HTTP</span><span class="server-dot ${s.status==='connected'?'connected':''}"></span></div><h3>${escapeHtml(s.name)}</h3><p class="endpoint">${escapeHtml(s.endpoint)}</p><p class="subtle">${s.status==='connected'?toolCountHtml(s):s.needsAuth?'Sign in is required to search academic research.':s.disconnected?'Disconnected':s.error?escapeHtml(s.error):'Not connected'}</p>${s.caution?`<p class="form-note">${escapeHtml(s.caution)}</p>`:''}<div class="server-actions"><button class="ghost" data-remove="${s.id}">${bundledServers.some(item=>item.endpoint===s.endpoint)?'Disable':'Remove'}</button>${s.needsAuth?`<button class="primary" data-consensus-sign-in>Sign in to Consensus</button>`:s.status==='connected'?`<button class="ghost" data-disconnect="${s.id}">Disconnect</button><button class="primary" data-connect="${s.id}">Refresh</button>`:`<button class="primary" data-connect="${s.id}">${s.status==='connecting'?'Connecting…':'Connect'}</button>`}</div></article>`).join(''):'<div class="empty-state">Add your first MCP server to begin.</div>';
+  $('#serverList').innerHTML=state.servers.length?state.servers.map(s=>serverCard(s,{bundled:bundledServers.some(item=>item.endpoint===s.endpoint),toolCountText:s.status==='connected'?toolCountLabel(s,state.toolHealth):''})).join(''):emptyState({title:'No MCP servers yet.',text:'Add one to start searching.'});
+}
+// After a server card is re-drawn, put focus back on that card's main button so keyboard users keep their place.
+function focusServerCard(id,{onlyIfStranded=false}={}){
+  const card=document.querySelector(`[data-server-card="${CSS.escape(id)}"]`);
+  if(!card)return;
+  // When a slow request finishes, take focus back only if it was left nowhere (or still on this card).
+  if(onlyIfStranded&&!(document.activeElement===document.body||!document.activeElement||card.contains(document.activeElement)))return;
+  serverFocusTarget(card)?.focus();
 }
 // Data sources: API keys for the services behind Open OSINT's tools, saved by the server in work/api-keys.env.
 // The server reports statuses and which fields are saved, never key values, and key inputs are cleared on close.
@@ -264,9 +274,13 @@ function renderDataSources(){
     const feeds=s.feeds.length?`Feeds ${s.feeds.join(', ')}`:'No search tool uses it directly';
     const id=escapeHtml(s.id);
     const actions=s.status==='not_configured'
-      ?`<a class="ghost" href="${escapeHtml(s.signup)}" target="_blank" rel="noopener noreferrer">Get a key ↗</a><button class="primary" data-source-edit="${id}">Connect</button>`
+      ?`<a class="ghost" href="${escapeHtml(s.signup)}" target="_blank" rel="noopener noreferrer">Get a key<span aria-hidden="true"> ↗</span><span class="visually-hidden"> (opens in a new tab)</span></a><button class="primary" data-source-edit="${id}">Connect</button>`
       :`<button class="ghost" data-source-remove="${id}">Remove</button><button class="ghost" data-source-edit="${id}">Change key</button>${s.status==='connected'?`<button class="primary" data-source-disconnect="${id}">Disconnect</button>`:`<button class="primary" data-source-connect="${id}">Connect</button>`}`;
-    return `<article class="server-card source-card"><div class="server-card-top"><span class="badge">API KEY</span><span class="server-dot ${dot}"></span></div><h3>${escapeHtml(s.name)}${s.recommended?' <span class="badge recommended-badge">Recommended</span>':''}</h3><p class="endpoint">${escapeHtml(feeds)}</p><p class="subtle">${SOURCE_STATUS[s.status]||''}</p><p class="source-improves"><b>Improves:</b> ${escapeHtml(s.improves||'')}</p><p class="form-note">${escapeHtml(s.note)}</p>${s.example?`<button class="text-button source-try" data-prompt="${escapeHtml(s.example)}">Try a search: ${escapeHtml(s.example)} →</button>`:''}<div class="server-actions">${actions}</div></article>`;
+    return `<article class="server-card source-card"><div class="server-card-top"><h3>${escapeHtml(s.name)}${s.recommended?' <span class="ui-badge ui-badge-safe">Recommended</span>':''}</h3><span class="server-dot ${dot}" aria-hidden="true"></span></div>`
+      +`<p class="source-improves"><b>Improves:</b> ${escapeHtml(s.improves||'')}</p>`
+      +`<p class="server-status">${SOURCE_STATUS[s.status]||''}</p>`
+      +`<p class="endpoint">${escapeHtml(feeds)}</p><p class="form-note">${escapeHtml(s.note)}</p>`
+      +`${s.example?`<button class="text-button source-try" data-prompt="${escapeHtml(s.example)}">Try a search: ${escapeHtml(s.example)} →</button>`:''}<div class="server-actions">${actions}</div></article>`;
   }).join('');
 }
 function openKeyDialog(source){
@@ -285,21 +299,17 @@ async function dataSourceAction(action,id,values){
 
 function allTools(){ return state.servers.flatMap(server=>(server.tools||[]).map(tool=>({...tool,serverId:server.id,serverName:server.name}))); }
 // Tool Library groups tools by risk tier (tool-tiers.js): what running each one does to the target.
-const FLAG_LABELS={credits:'💳 Uses AI credits','side-effects':'⚙ Side effects'};
 function tierBadge(risk){return `<span class="tier-badge tier-${escapeHtml(risk.key)}" title="${escapeHtml(risk.targetSees)}">${escapeHtml(risk.label)}</span>`;}
 function renderTools(){
   const filter=$('#toolFilter').value.trim().toLowerCase();
   const matching=allTools().filter(t=>(t.name+' '+(t.description||'')+' '+(t.serverName||'')).toLowerCase().includes(filter));
   const groups=groupToolsByTier(matching);
-  const chips=[['all','All',matching.length],...groups.map(group=>[group.tier.key,group.tier.label,group.tools.length])];
-  if(!chips.some(([key])=>key===state.tierFilter))state.tierFilter='all';
-  $('#tierFilters').innerHTML=matching.length?chips.map(([key,label,count])=>`<button class="tier-chip${state.tierFilter===key?' active':''}" data-tier-filter="${escapeHtml(key)}">${escapeHtml(label)} <span>${count}</span></button>`).join(''):'';
+  const chips=[{key:'all',label:'All',count:matching.length,explain:'Every tool from your connected MCP servers.'},...groups.map(group=>({key:group.tier.key,label:group.tier.label,count:group.tools.length,explain:group.tier.targetSees}))];
+  if(!chips.some(chip=>chip.key===state.tierFilter))state.tierFilter='all';
+  $('#tierFilters').innerHTML=matching.length?tierChips(chips,state.tierFilter):'';
   const shown=groups.filter(group=>state.tierFilter==='all'||group.tier.key===state.tierFilter);
-  $('#toolCount').textContent=matching.length?`${matching.length} tools across ${new Set(matching.map(t=>t.serverId)).size} connected server(s), grouped by what running them does to the target.`:'Connect a server to discover tools.';
-  $('#toolLibrary').innerHTML=shown.length?shown.map(group=>`<section class="tier-group"><div class="tier-group-head">${tierBadge(toolRisk(group.tools[0]))}<p class="subtle">${escapeHtml(group.tier.targetSees)}</p></div><div class="tool-grid">${group.tools.map(t=>{
-    const risk=toolRisk(t);const flags=risk.flags.map(flag=>`<span class="badge">${escapeHtml(FLAG_LABELS[flag]||flag)}</span>`).join('');
-    return `<article class="tool-card"><div class="tool-card-head"><code>${escapeHtml(t.name)}</code>${tierBadge(risk)}</div><p class="tool-meta">${escapeHtml(t.serverName)} · ${escapeHtml(toolUsage(t))}${risk.needsReview?' · <span title="Tier set from a short description; confirm in docs/search-overhaul.md">needs review</span>':''}</p>${flags?`<div class="tool-flags">${flags}</div>`:''}<p class="tool-desc" title="${escapeHtml(t.description||'')}">${escapeHtml(t.description||'No description provided.')}</p><button class="text-button" data-run="${escapeHtml(t.serverId)}::${escapeHtml(t.name)}">${risk.level>=2?`Run ${escapeHtml(risk.label.toLowerCase())} tool →`:'Run tool →'}</button></article>`;
-  }).join('')}</div></section>`).join(''):'<div class="empty-state">No tools to show yet.</div>';
+  $('#toolCount').textContent=matching.length?`${matching.length} tools across ${new Set(matching.map(t=>t.serverId)).size} connected MCP server(s).`:'Connect an MCP server to see its tools.';
+  $('#toolLibrary').innerHTML=shown.length?shown.map(group=>`<section class="tier-group"><div class="tier-group-head"><h2 class="tier-group-title">${escapeHtml(group.tier.label)}</h2>${tierBadge(toolRisk(group.tools[0]))}<p class="subtle">${escapeHtml(group.tier.targetSees)}</p></div><div class="tool-grid">${group.tools.map(t=>toolCard(t,{risk:toolRisk(t),usage:toolUsage(t)})).join('')}</div></section>`).join(''):emptyState({title:'No tools to show yet.',text:'Connect an MCP server to see its tools here.'});
 }
 function renderEvidence(){
   const options=state.cases.map(item=>`<option value="${escapeHtml(item.id)}"${item.id===state.activeCaseId?' selected':''}${item.damaged?' disabled':''}>${escapeHtml(item.name)}${item.damaged?'':` (${item.evidenceCount})`}</option>`).join('');
@@ -318,14 +328,15 @@ async function loadDeepHistory(){
   try{
     const {entries,total,skipped}=await apiGet('/api/deep-search/audit');
     const levelName=level=>TIERS[level]?.label||`Level ${level}`;
-    box.innerHTML=entries.length?`<table class="deep-history-table"><thead><tr><th>When</th><th>Target</th><th>Max level</th><th>Tools</th><th>Outcome</th></tr></thead><tbody>${entries.map(entry=>`<tr><td>${escapeHtml(new Date(entry.time).toLocaleString())}</td><td><code>${escapeHtml(entry.target)}</code></td><td>${escapeHtml(levelName(entry.level))}</td><td title="${escapeHtml((entry.tools||[]).join(', '))}">${(entry.tools||[]).length} tool${(entry.tools||[]).length===1?'':'s'}</td><td>${escapeHtml(entry.outcome)}</td></tr>`).join('')}</tbody></table>${total>entries.length?`<p class="subtle">Showing the latest ${entries.length} of ${total} runs.</p>`:''}${skipped?`<p class="subtle">${skipped} damaged line${skipped===1?' was':'s were'} skipped in the audit log.</p>`:''}`:'<div class="empty-state">No Deep Search runs yet.</div>';
+    box.innerHTML=entries.length?`<table class="deep-history-table"><thead><tr><th scope="col">When</th><th scope="col">Target</th><th scope="col">Max level</th><th scope="col">Tools</th><th scope="col">Outcome</th></tr></thead><tbody>${entries.map(entry=>`<tr><td>${escapeHtml(new Date(entry.time).toLocaleString())}</td><td><code>${escapeHtml(entry.target)}</code></td><td>${escapeHtml(levelName(entry.level))}</td><td title="${escapeHtml((entry.tools||[]).join(', '))}">${(entry.tools||[]).length} tool${(entry.tools||[]).length===1?'':'s'}</td><td>${escapeHtml(entry.outcome)}</td></tr>`).join('')}</tbody></table>${total>entries.length?`<p class="subtle">Showing the latest ${entries.length} of ${total} runs.</p>`:''}${skipped?`<p class="subtle">${skipped} damaged line${skipped===1?' was':'s were'} skipped in the audit log.</p>`:''}`:'<div class="empty-state">No Deep Search runs yet.</div>';
   }catch(error){box.innerHTML=`<div class="empty-state">Could not read the audit log: ${escapeHtml(error.message)}</div>`;}
 }
 const selfCheck={running:false,stop:false};
 function renderSelfCheck(results,pending=0){
   $('#selfCheckSummary').textContent=results.length?`${summarizeSelfCheck(results).label}${pending?` · ${pending} to go`:''}`:'';
-  const label={working:'Working',empty:'Returned nothing',failing:'Failing',skipped:'Skipped'};
-  $('#selfCheckResults').innerHTML=results.length?`<table class="deep-history-table"><thead><tr><th>Tool</th><th>Server</th><th>Test target</th><th>Result</th><th>Time</th></tr></thead><tbody>${results.map(r=>`<tr class="self-check-${r.outcome}"><td><code>${escapeHtml(r.tool)}</code></td><td>${escapeHtml(r.server)}</td><td><code>${escapeHtml(r.target)}</code></td><td>${escapeHtml(label[r.outcome]||r.outcome)}${r.detail?`<br><small>${escapeHtml(r.detail)}</small>`:''}</td><td>${r.ms==null?'':`${(r.ms/1000).toFixed(1)} s`}</td></tr>`).join('')}</tbody></table>`:'';
+  // Each result is a word with an icon (never color alone).
+  const label={working:['✓','Working'],empty:['○','Returned nothing'],failing:['✕','Failing'],skipped:['–','Skipped']};
+  $('#selfCheckResults').innerHTML=results.length?`<table class="deep-history-table"><thead><tr><th scope="col">Tool</th><th scope="col">Server</th><th scope="col">Test target</th><th scope="col">Result</th><th scope="col">Time</th></tr></thead><tbody>${results.map(r=>`<tr class="self-check-${r.outcome}"><td><code>${escapeHtml(r.tool)}</code></td><td>${escapeHtml(r.server)}</td><td><code>${escapeHtml(r.target)}</code></td><td>${label[r.outcome]?`<span aria-hidden="true">${label[r.outcome][0]} </span>${escapeHtml(label[r.outcome][1])}`:escapeHtml(r.outcome)}${r.detail?`<br><small>${escapeHtml(r.detail)}</small>`:''}</td><td>${r.ms==null?'':`${(r.ms/1000).toFixed(1)} s`}</td></tr>`).join('')}</tbody></table>`:'';
 }
 async function runSelfCheck(){
   if(selfCheck.running)return;
@@ -625,13 +636,14 @@ async function smartInvestigate(query){
 function renderDeepPlan(){
   const plan=state.deepPlan;
   $('#deepPlan').innerHTML=plan.length?plan.map((item,index)=>`<label class="deep-tool"><input type="checkbox" data-deep-tool="${index}" ${item.selected?'checked':''} /><div><b>${escapeHtml(item.tool.name)}</b><p>${escapeHtml(item.tool.description||'No description provided.')}</p><p>${escapeHtml(item.risk.targetSees)}</p></div><div class="deep-tool-meta">${tierBadge(item.risk)}<br>${item.risk.level<=1?'about 30 seconds':item.risk.level===2?'up to 2 minutes':'up to 2 minutes'}</div></label>`).join(''):'<div class="empty-state">No reviewed Deep Search tools match this target and level on the connected servers.</div>';
-  $('#deepConfirmations').hidden=!plan.length;
+  $('#deepConfirmations').hidden=!plan.length;$('#deepConfirmHint').hidden=Boolean(plan.length);$('#deepConfirmHint').textContent=state.deepPlanBuilt?'Nothing to run yet: no reviewed tools match this target and level.':'Build a plan in step 1 first. Then confirm here and run it.';
   $('#deepTypedWrap').hidden=Number($('#deepLevel').value)!==3;
 }
 
 function addDeepLog(message){const log=$('#deepLog');log.hidden=false;log.textContent+=`${new Date().toLocaleTimeString()}  ${message}\n`;log.scrollTop=log.scrollHeight;}
 
 function buildDeepPlan(){
+  state.deepPlanBuilt=true;
   const target=$('#deepTarget').value.trim();const level=Number($('#deepLevel').value);
   state.deepPlan=deepSearchPlan(allTools(),target,level);$('#deepError').textContent='';$('#deepLog').textContent='';$('#deepLog').hidden=true;renderDeepPlan();
 }
@@ -670,15 +682,15 @@ document.addEventListener('click',async event=>{
   const link=event.target.closest('[data-view-link]'); if(link)switchView(link.dataset.viewLink);
   const rerun=event.target.closest('[data-rerun]');if(rerun){const query=rerun.dataset.rerun;switchView('workspace');$('#query').value=query;$('#query').focus();try{await smartInvestigate(query);}catch(error){toast(error.message);}return;}
   const prompt=event.target.closest('[data-prompt]'); if(prompt){switchView('workspace');$('#query').value=prompt.dataset.prompt;$('#query').focus();}
-  const connectButton=event.target.closest('[data-connect]'); if(connectButton){const server=state.servers.find(s=>s.id===connectButton.dataset.connect);if(server)connect(server);}
-  const disconnectButton=event.target.closest('[data-disconnect]'); if(disconnectButton){const server=state.servers.find(s=>s.id===disconnectButton.dataset.disconnect);if(server)disconnect(server);}
-  const remove=event.target.closest('[data-remove]'); if(remove){const server=state.servers.find(s=>s.id===remove.dataset.remove);if(server&&bundledServers.some(item=>item.endpoint===server.endpoint))removedBundledEndpoints.add(server.endpoint);state.servers=state.servers.filter(s=>s.id!==remove.dataset.remove);renderAll();}
+  const connectButton=event.target.closest('[data-connect]'); if(connectButton){const server=state.servers.find(s=>s.id===connectButton.dataset.connect);if(server){const done=connect(server);focusServerCard(server.id);done.then(()=>focusServerCard(server.id,{onlyIfStranded:true}));}}
+  const disconnectButton=event.target.closest('[data-disconnect]'); if(disconnectButton){const server=state.servers.find(s=>s.id===disconnectButton.dataset.disconnect);if(server)disconnect(server).then(()=>focusServerCard(server.id,{onlyIfStranded:true}));}
+  const remove=event.target.closest('[data-remove]'); if(remove){const server=state.servers.find(s=>s.id===remove.dataset.remove);if(server&&bundledServers.some(item=>item.endpoint===server.endpoint))removedBundledEndpoints.add(server.endpoint);state.servers=state.servers.filter(s=>s.id!==remove.dataset.remove);renderAll();$('#addServer').focus();}
   const run=event.target.closest('[data-run]'); if(run){const [serverId,name]=run.dataset.run.split('::');const tool=allTools().find(t=>t.serverId===serverId&&t.name===name);if(tool)openTool(tool,serverId);}
   const del=event.target.closest('[data-delete-evidence]');if(del&&state.activeCaseId){const item=state.activeCase?.evidence.find(entry=>entry.id===del.dataset.deleteEvidence);if(await confirmAction({title:'Remove this finding?',message:`"${item?.title||'This finding'}" will be removed from this case. This can't be undone.`,confirmLabel:'Remove finding'}))api(`/api/cases/${state.activeCaseId}/evidence/${del.dataset.deleteEvidence}/delete`,{}).then(loadCases).then(()=>$('#caseSummary').focus()).catch(error=>toast(error.message));return;}
   const open=event.target.closest('[data-open-finding]');if(open){const item=state.activeCase?.evidence.find(entry=>entry.id===open.dataset.openFinding);if(item)showResult(item.title,item.result,{saved:true});return;}
   if(event.target.closest('[data-new-case]')){createCase().catch(error=>toast(error.message));return;}
   if(event.target.closest('#importBrowserEvidence'))importBrowserEvidence().catch(error=>toast(`Import stopped: ${error.message}. Your browser copy was kept.`));
-  const tierChip=event.target.closest('[data-tier-filter]');if(tierChip){state.tierFilter=tierChip.dataset.tierFilter;renderTools();}
+  const tierChip=event.target.closest('[data-tier-filter]');if(tierChip){const key=tierChip.dataset.tierFilter;state.tierFilter=key;renderTools();document.querySelector(`[data-tier-filter="${CSS.escape(key)}"]`)?.focus();}
   const moreNews=event.target.closest('[data-load-more-news]');if(moreNews){const shown=intelNews.visibleLimit;intelNews.visibleLimit+=30;renderIntelNews();document.querySelectorAll('#intelNewsList .news-card')[shown]?.focus();}
   const sourceEdit=event.target.closest('[data-source-edit]');if(sourceEdit){const source=dataSources.list.find(s=>s.id===sourceEdit.dataset.sourceEdit);if(source)openKeyDialog(source);}
   const sourceConnect=event.target.closest('[data-source-connect]');if(sourceConnect)dataSourceAction('connect',sourceConnect.dataset.sourceConnect);
@@ -693,10 +705,20 @@ $('#addServer').onclick=()=>openDialog($('#serverDialog'),$('#addServer'));
 $('#newInvestigation').onclick=()=>{switchView('workspace');$('#query').focus();};
 $('#cmdButton').onclick=()=>{switchView('workspace');$('#query').focus();};
 document.addEventListener('keydown',event=>{if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='k'){event.preventDefault();switchView('workspace');$('#query').focus();}});
-$('#saveServer').addEventListener('click',e=>{e.preventDefault();const form=new FormData($('#serverForm'));const server={id:crypto.randomUUID(),name:form.get('name').trim(),endpoint:form.get('endpoint').trim(),status:'offline',tools:[]};if(!server.name||!server.endpoint)return;removedBundledEndpoints.delete(server.endpoint);state.servers.push(server);state.tokens.set(server.id,form.get('token'));$('#serverDialog').close();renderAll();connect(server);});
+// Add MCP server: a mistake is shown next to its field, the field is marked invalid and focused, and nothing is saved.
+function clearServerFormErrors(){for(const id of ['serverName','serverEndpoint']){$(`#${id}-error`).textContent='';$(`#${id}`).removeAttribute('aria-invalid');}}
+$('#serverForm').addEventListener('input',clearServerFormErrors);
+$('#addServer').addEventListener('click',clearServerFormErrors);
+$('#saveServer').addEventListener('click',e=>{e.preventDefault();const form=new FormData($('#serverForm'));const server={id:crypto.randomUUID(),name:form.get('name').trim(),endpoint:normalizeEndpoint(form.get('endpoint')),status:'offline',tools:[]};
+  clearServerFormErrors();const problem=validateServerForm(server);
+  if(problem){$(`#${problem.field}-error`).textContent=problem.message;$(`#${problem.field}`).setAttribute('aria-invalid','true');$(`#${problem.field}`).focus();return;}
+ removedBundledEndpoints.delete(server.endpoint);state.servers.push(server);state.tokens.set(server.id,form.get('token'));$('#serverDialog').close();renderAll();connect(server);});
 $('#executeTool').addEventListener('click',async e=>{e.preventDefault();const blocked=runBlockedReason(state.activeTool.tool);if(blocked){$('#runError').textContent=blocked;return;}try{const args=JSON.parse($('#runArgs').value);const grant=await requestRunGrant(state.activeTool.tool,state.activeTool.serverId,args);$('#runDialog').close();await runTool(state.activeTool.tool,state.activeTool.serverId,args,state.activeTool.tool.name,grant);}catch(error){$('#runError').textContent=error.message;}});
 $('#buildDeepPlan').onclick=buildDeepPlan;
-$('#deepLevel').onchange=()=>{$('#deepTypedWrap').hidden=Number($('#deepLevel').value)!==3;if(state.deepPlan.length)buildDeepPlan();};
+// Explain the chosen Deep Search level in plain words (the tier's own description of what the target sees).
+const explainDeepLevel=()=>{$('#deepLevelExplain').textContent=`${TIERS[Number($('#deepLevel').value)].label}: ${TIERS[Number($('#deepLevel').value)].targetSees}`;};
+$('#deepLevel').onchange=()=>{$('#deepTypedWrap').hidden=Number($('#deepLevel').value)!==3;explainDeepLevel();if(state.deepPlan.length)buildDeepPlan();};
+explainDeepLevel();
 $('#runDeepSearch').onclick=runDeepSearch;
 $('#cancelDeepRun').onclick=()=>state.deepController?.abort();
 $$('[data-close-result]').forEach(b=>b.onclick=()=>$('#resultDialog').close());
