@@ -23,3 +23,16 @@ test('the add-server fields have visible hints and their own error slots',()=>{
   assert.match(app,/validateServerForm\(/);
   assert.match(app,/setAttribute\('aria-invalid','true'\)/);
 });
+
+test('data source cards lead with what the key improves',()=>{
+  const fn=app.match(/function renderDataSources\(\)\{[\s\S]*?\n\}/)[0];
+  assert.ok(fn.indexOf('source-improves')<fn.indexOf('SOURCE_STATUS'),'improvement before status');
+  assert.doesNotMatch(fn,/API KEY/);
+  assert.match(fn,/\(opens in a new tab\)/);
+});
+test('self-check results are words with an icon, and tables have column headers',()=>{
+  assert.match(app,/'✓','Working'|✓ Working/);
+  assert.match(app,/'✕','Failing'|✕ Failing/);
+  assert.doesNotMatch(app,/<th>/,'every th has scope="col"');
+  assert.match(html,/Tool self-check: test that each search tool still works/);
+});

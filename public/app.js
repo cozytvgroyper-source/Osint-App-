@@ -267,9 +267,13 @@ function renderDataSources(){
     const feeds=s.feeds.length?`Feeds ${s.feeds.join(', ')}`:'No search tool uses it directly';
     const id=escapeHtml(s.id);
     const actions=s.status==='not_configured'
-      ?`<a class="ghost" href="${escapeHtml(s.signup)}" target="_blank" rel="noopener noreferrer">Get a key ↗</a><button class="primary" data-source-edit="${id}">Connect</button>`
+      ?`<a class="ghost" href="${escapeHtml(s.signup)}" target="_blank" rel="noopener noreferrer">Get a key<span aria-hidden="true"> ↗</span><span class="visually-hidden"> (opens in a new tab)</span></a><button class="primary" data-source-edit="${id}">Connect</button>`
       :`<button class="ghost" data-source-remove="${id}">Remove</button><button class="ghost" data-source-edit="${id}">Change key</button>${s.status==='connected'?`<button class="primary" data-source-disconnect="${id}">Disconnect</button>`:`<button class="primary" data-source-connect="${id}">Connect</button>`}`;
-    return `<article class="server-card source-card"><div class="server-card-top"><span class="badge">API KEY</span><span class="server-dot ${dot}"></span></div><h3>${escapeHtml(s.name)}${s.recommended?' <span class="badge recommended-badge">Recommended</span>':''}</h3><p class="endpoint">${escapeHtml(feeds)}</p><p class="subtle">${SOURCE_STATUS[s.status]||''}</p><p class="source-improves"><b>Improves:</b> ${escapeHtml(s.improves||'')}</p><p class="form-note">${escapeHtml(s.note)}</p>${s.example?`<button class="text-button source-try" data-prompt="${escapeHtml(s.example)}">Try a search: ${escapeHtml(s.example)} →</button>`:''}<div class="server-actions">${actions}</div></article>`;
+    return `<article class="server-card source-card"><div class="server-card-top"><h3>${escapeHtml(s.name)}${s.recommended?' <span class="ui-badge ui-badge-safe">Recommended</span>':''}</h3><span class="server-dot ${dot}" aria-hidden="true"></span></div>`
+      +`<p class="source-improves"><b>Improves:</b> ${escapeHtml(s.improves||'')}</p>`
+      +`<p class="server-status">${SOURCE_STATUS[s.status]||''}</p>`
+      +`<p class="endpoint">${escapeHtml(feeds)}</p><p class="form-note">${escapeHtml(s.note)}</p>`
+      +`${s.example?`<button class="text-button source-try" data-prompt="${escapeHtml(s.example)}">Try a search: ${escapeHtml(s.example)} →</button>`:''}<div class="server-actions">${actions}</div></article>`;
   }).join('');
 }
 function openKeyDialog(source){
@@ -321,14 +325,15 @@ async function loadDeepHistory(){
   try{
     const {entries,total,skipped}=await apiGet('/api/deep-search/audit');
     const levelName=level=>TIERS[level]?.label||`Level ${level}`;
-    box.innerHTML=entries.length?`<table class="deep-history-table"><thead><tr><th>When</th><th>Target</th><th>Max level</th><th>Tools</th><th>Outcome</th></tr></thead><tbody>${entries.map(entry=>`<tr><td>${escapeHtml(new Date(entry.time).toLocaleString())}</td><td><code>${escapeHtml(entry.target)}</code></td><td>${escapeHtml(levelName(entry.level))}</td><td title="${escapeHtml((entry.tools||[]).join(', '))}">${(entry.tools||[]).length} tool${(entry.tools||[]).length===1?'':'s'}</td><td>${escapeHtml(entry.outcome)}</td></tr>`).join('')}</tbody></table>${total>entries.length?`<p class="subtle">Showing the latest ${entries.length} of ${total} runs.</p>`:''}${skipped?`<p class="subtle">${skipped} damaged line${skipped===1?' was':'s were'} skipped in the audit log.</p>`:''}`:'<div class="empty-state">No Deep Search runs yet.</div>';
+    box.innerHTML=entries.length?`<table class="deep-history-table"><thead><tr><th scope="col">When</th><th scope="col">Target</th><th scope="col">Max level</th><th scope="col">Tools</th><th scope="col">Outcome</th></tr></thead><tbody>${entries.map(entry=>`<tr><td>${escapeHtml(new Date(entry.time).toLocaleString())}</td><td><code>${escapeHtml(entry.target)}</code></td><td>${escapeHtml(levelName(entry.level))}</td><td title="${escapeHtml((entry.tools||[]).join(', '))}">${(entry.tools||[]).length} tool${(entry.tools||[]).length===1?'':'s'}</td><td>${escapeHtml(entry.outcome)}</td></tr>`).join('')}</tbody></table>${total>entries.length?`<p class="subtle">Showing the latest ${entries.length} of ${total} runs.</p>`:''}${skipped?`<p class="subtle">${skipped} damaged line${skipped===1?' was':'s were'} skipped in the audit log.</p>`:''}`:'<div class="empty-state">No Deep Search runs yet.</div>';
   }catch(error){box.innerHTML=`<div class="empty-state">Could not read the audit log: ${escapeHtml(error.message)}</div>`;}
 }
 const selfCheck={running:false,stop:false};
 function renderSelfCheck(results,pending=0){
   $('#selfCheckSummary').textContent=results.length?`${summarizeSelfCheck(results).label}${pending?` · ${pending} to go`:''}`:'';
-  const label={working:'Working',empty:'Returned nothing',failing:'Failing',skipped:'Skipped'};
-  $('#selfCheckResults').innerHTML=results.length?`<table class="deep-history-table"><thead><tr><th>Tool</th><th>Server</th><th>Test target</th><th>Result</th><th>Time</th></tr></thead><tbody>${results.map(r=>`<tr class="self-check-${r.outcome}"><td><code>${escapeHtml(r.tool)}</code></td><td>${escapeHtml(r.server)}</td><td><code>${escapeHtml(r.target)}</code></td><td>${escapeHtml(label[r.outcome]||r.outcome)}${r.detail?`<br><small>${escapeHtml(r.detail)}</small>`:''}</td><td>${r.ms==null?'':`${(r.ms/1000).toFixed(1)} s`}</td></tr>`).join('')}</tbody></table>`:'';
+  // Each result is a word with an icon (never color alone).
+  const label={working:['✓','Working'],empty:['○','Returned nothing'],failing:['✕','Failing'],skipped:['–','Skipped']};
+  $('#selfCheckResults').innerHTML=results.length?`<table class="deep-history-table"><thead><tr><th scope="col">Tool</th><th scope="col">Server</th><th scope="col">Test target</th><th scope="col">Result</th><th scope="col">Time</th></tr></thead><tbody>${results.map(r=>`<tr class="self-check-${r.outcome}"><td><code>${escapeHtml(r.tool)}</code></td><td>${escapeHtml(r.server)}</td><td><code>${escapeHtml(r.target)}</code></td><td>${label[r.outcome]?`<span aria-hidden="true">${label[r.outcome][0]} </span>${escapeHtml(label[r.outcome][1])}`:escapeHtml(r.outcome)}${r.detail?`<br><small>${escapeHtml(r.detail)}</small>`:''}</td><td>${r.ms==null?'':`${(r.ms/1000).toFixed(1)} s`}</td></tr>`).join('')}</tbody></table>`:'';
 }
 async function runSelfCheck(){
   if(selfCheck.running)return;
