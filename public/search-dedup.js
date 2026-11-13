@@ -20,6 +20,7 @@ function normalized(type, value) {
 function domainValues(text) {
   const values = [];
   for (const token of String(text).split(/[\s,;]+/).filter(Boolean)) {
+    if (isIpv6(token)) { values.push({type: 'ipAddresses', value: token}); continue; }
     const withoutWildcard = token.replace(/^\*\./, '');
     const ipMatches = withoutWildcard.match(IPV4) || [];
     const host = withoutWildcard.replace(/:\d{1,5}$/, '').split(':')[0];
@@ -49,10 +50,14 @@ export function extractIndicatorLists(data) {
     for (const [key, child] of Object.entries(value)) {
       const type = LIST_TYPES.get(key.toLowerCase());
       if (type && Array.isArray(child) && child.every(item => ['string', 'number'].includes(typeof item))) {
-        const extracted = child.flatMap(item => valuesFor(type, item));
+        const perItem = child.map(item => ({item, extracted: valuesFor(type, item)}));
+        const extracted = perItem.flatMap(entry => entry.extracted);
         if (extracted.length) {
           findings.push(...extracted.map(item => ({...item, normalized: normalized(item.type, item.value)})));
           changed = true;
+          // Anything not recognised (localhost, a street address, an ftp link) stays with its source, never dropped.
+          const leftover = perItem.filter(entry => !entry.extracted.length).map(entry => entry.item);
+          if (leftover.length) copy[key] = leftover;
           continue;
         }
       }
