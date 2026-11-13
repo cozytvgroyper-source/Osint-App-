@@ -70,3 +70,58 @@ test('serializes concurrent appends so rotation never loses or corrupts accepted
   assert.equal(new Set(result.entries.map(entry=>entry.target)).size,12);
   assert.equal(result.skipped,0);
 });
+
+const lineFor=(fields)=>JSON.stringify({time:'2026-11-13T10:00:00.000Z',target:'owner@example.com',level:0,tools:['holehe_email_search'],toolCount:1,outcome:'completed',...fields});
+async function logWith(lines){
+  const dir=await mkdtemp(join(tmpdir(),'pd-audit-del-'));const file=join(dir,'audit.jsonl');
+  await fs.promises.writeFile(file,lines.map(line=>`${line}\n`).join(''),{mode:0o600});
+  return file;
+}
+
+test('delete by run id removes both of that run\'s lines and keeps every other line byte-for-byte',async()=>{
+  const {deleteDeepSearchAudit}=await import('../scripts/deep-search-audit.mjs');
+  const a1=lineFor({runId:'run-aaaaaaaa',outcome:'started'}),b=lineFor({runId:'run-bbbbbbbb',target:'ownername'}),legacy=lineFor({target:'old.example'}),a2=lineFor({runId:'run-aaaaaaaa'});
+  const file=await logWith([a1,b,'not json',legacy,a2]);
+  assert.equal(await deleteDeepSearchAudit(file,{runId:'run-aaaaaaaa'}),2);
+  assert.equal(await readFile(file,'utf8'),[b,'not json',legacy].map(line=>`${line}\n`).join(''));
+  assert.equal((await stat(file)).mode&0o077,0);
+});
+
+test('delete by time and target removes only the legacy line without a run id',async()=>{
+  const {deleteDeepSearchAudit}=await import('../scripts/deep-search-audit.mjs');
+  const legacy=lineFor({}),withId=lineFor({runId:'run-aaaaaaaa'});
+  const file=await logWith([legacy,withId]);
+  assert.equal(await deleteDeepSearchAudit(file,{time:'2026-11-13T10:00:00.000Z',target:'owner@example.com'}),1);
+  assert.equal(await readFile(file,'utf8'),`${withId}\n`);
+});
+
+test('rejects bad delete input',async()=>{
+  const {deleteDeepSearchAudit}=await import('../scripts/deep-search-audit.mjs');
+  const file=await logWith([lineFor({})]);
+  for(const match of [{runId:'../x'},{time:'t',target:''},{}])
+    await assert.rejects(()=>deleteDeepSearchAudit(file,match),error=>error.code==='AUDIT_INPUT');
+  assert.equal(await readFile(file,'utf8'),`${lineFor({})}\n`);
+});
+
+test('clear empties the log and a missing log is fine',async()=>{
+  const {deleteDeepSearchAudit,clearDeepSearchAudit}=await import('../scripts/deep-search-audit.mjs');
+  const file=await logWith([lineFor({runId:'run-aaaaaaaa'}),'not json',lineFor({})]);
+  assert.equal(await clearDeepSearchAudit(file),3);
+  assert.equal(await readFile(file,'utf8'),'');
+  assert.equal((await stat(file)).mode&0o077,0);
+  const missing=join(await mkdtemp(join(tmpdir(),'pd-audit-missing-')),'audit.jsonl');
+  assert.equal(await clearDeepSearchAudit(missing),0);
+  assert.equal(await deleteDeepSearchAudit(missing,{runId:'run-aaaaaaaa'}),0);
+  await assert.rejects(()=>fs.promises.access(missing),error=>error.code==='ENOENT');
+});
+
+test('an append queued during a delete is never lost',async()=>{
+  const {deleteDeepSearchAudit,readDeepSearchAudit}=await import('../scripts/deep-search-audit.mjs');
+  const file=await logWith([lineFor({runId:'run-aaaaaaaa',outcome:'started'}),lineFor({runId:'run-aaaaaaaa'})]);
+  await Promise.all([
+    deleteDeepSearchAudit(file,{runId:'run-aaaaaaaa'}),
+    appendDeepSearchAudit(file,{target:'ownername',level:0,tools:['maigret_username_search'],outcome:'completed',runId:'run-cccccccc'})
+  ]);
+  const {entries}=await readDeepSearchAudit(file);
+  assert.deepEqual(entries.map(entry=>entry.runId),['run-cccccccc']);
+});
