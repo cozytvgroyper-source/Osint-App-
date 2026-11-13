@@ -3,6 +3,15 @@ import {toolRisk} from '../public/tool-tiers.js';
 
 export const RUN_GRANT_TTL_MS = 2 * 60_000;
 export const RUN_GRANT_LIMIT = 100;
+export const DEEP_RUN_GRANT_TTL_MS = 15 * 60_000;
+export const DEEP_RUN_GRANT_TTL_CAP_MS = 30 * 60_000;
+
+const LIVE_RUN_IDS=new WeakMap();
+const liveRunsFor=grants=>{
+  let ids=LIVE_RUN_IDS.get(grants);
+  if(!ids){ids=new Set();LIVE_RUN_IDS.set(grants,ids);}
+  return ids;
+};
 
 const BUNDLED_SERVER_NAMES = new Map([
   ['http://127.0.0.1:8892/mcp', 'Open OSINT'],
@@ -33,14 +42,20 @@ function stable(value) {
 export const stableArguments = value => JSON.stringify(stable(value ?? {}));
 const callKey = ({endpoint, name, arguments: args}) => `${endpointKey(endpoint)}\n${name}\n${stableArguments(args)}`;
 
-export function pruneRunGrants(grants, now = Date.now()) {
+export function pruneRunGrants(grants, now = Date.now(), liveRunIds = liveRunsFor(grants)) {
   for (const [token, grant] of grants) if (grant.expiresAt <= now) grants.delete(token);
-  while (grants.size >= RUN_GRANT_LIMIT) grants.delete(grants.keys().next().value);
+  while (grants.size >= RUN_GRANT_LIMIT) {
+    const removable=[...grants].find(([,grant])=>!grant.runId||!liveRunIds.has(grant.runId));
+    if(!removable)break;
+    grants.delete(removable[0]);
+  }
 }
 
-export function createRunGrant(request, grants, {now = Date.now(), ttl = RUN_GRANT_TTL_MS, token = randomBytes(24).toString('base64url')} = {}) {
-  pruneRunGrants(grants, now);
+export function createRunGrant(request, grants, {now = Date.now(), ttl, token = randomBytes(24).toString('base64url')} = {}) {
   const purpose = request?.purpose === 'deep-search' ? 'deep-search' : 'tool-library';
+  const runId=purpose==='deep-search'?String(request?.runId||'').trim():'';
+  pruneRunGrants(grants, now);
+  if(grants.size>=RUN_GRANT_LIMIT)throw new RunGrantError('Too many Deep Search permissions are active; finish or stop a run first',503);
   const target = String(request?.target || '').trim();
   const level = Number(request?.level);
   const tools = Array.isArray(request?.tools) ? request.tools : [];
@@ -66,8 +81,8 @@ export function createRunGrant(request, grants, {now = Date.now(), ttl = RUN_GRA
     allowedCalls.set(callKey(allowed), {endpoint, name, level: risk.level});
   }
   if (purpose !== 'deep-search' && !highestRisk && !spendsCredits && !hasSideEffects) throw new RunGrantError('This passive lookup does not need a run grant', 400);
-  if (!confirmation.acknowledged) throw new RunGrantError('Confirm that the target may notice this request');
-  if ((purpose === 'deep-search' || highestRisk >= 2) && !confirmation.authorization) {
+  if (!confirmation.acknowledged) throw new RunGrantError('Confirm that you read the notice for this request');
+  if (highestRisk >= 2 && !confirmation.authorization) {
     throw new RunGrantError('Confirm that you own this target or have written permission to test it');
   }
   if (highestRisk >= 3) {
@@ -78,9 +93,23 @@ export function createRunGrant(request, grants, {now = Date.now(), ttl = RUN_GRA
   if (spendsCredits && !confirmation.credits) throw new RunGrantError('Confirm that this run may spend paid AI credits');
   if (hasSideEffects && !confirmation.sideEffects) throw new RunGrantError('Confirm that this tool may send, store, schedule, or change data');
 
-  const grant = {purpose, target, level, createdAt: now, expiresAt: now + ttl, allowedCalls};
+  const requestedTtl=purpose==='deep-search'?(Number(request?.ttlMs)||DEEP_RUN_GRANT_TTL_MS):(ttl??RUN_GRANT_TTL_MS);
+  const grantTtl=purpose==='deep-search'?Math.min(Math.max(1,requestedTtl),DEEP_RUN_GRANT_TTL_CAP_MS):requestedTtl;
+  const grant = {purpose, target, level, runId:runId||undefined, createdAt: now, expiresAt: now + grantTtl, allowedCalls};
+  if(runId)liveRunsFor(grants).add(runId);
   grants.set(token, grant);
   return {token, target, level, expiresAt: grant.expiresAt};
+}
+
+export function releaseRunGrants(grants,runId){
+  const id=String(runId||'').trim();
+  if(!id)return 0;
+  let removed=0;
+  for(const [token,grant] of grants){
+    if(grant.runId===id){grants.delete(token);removed+=1;}
+  }
+  liveRunsFor(grants).delete(id);
+  return removed;
 }
 
 export function authorizeMcpToolCall(payload, grants, {now = Date.now()} = {}) {
