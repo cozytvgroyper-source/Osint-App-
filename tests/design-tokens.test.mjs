@@ -128,3 +128,13 @@ test('the danger button meets 4.5:1 in both themes',()=>{
     assert.ok(value>=4.5,`${theme} --on-danger on --danger is ${value.toFixed(2)}:1`);
   }
 });
+
+// Later stylesheets force white text on .primary in dark mode; the danger button must out-rank that rule, or its dark
+// text on the light red is replaced by white (about 2.7:1).
+test('the danger button keeps its own text color over later .primary rules',()=>{
+  const own=[...css.matchAll(/([^{}]+)\{background:var\(--danger\);border-color:var\(--danger\);color:var\(--on-danger\)\}/g)].flatMap(m=>m[1].split(',').map(s=>s.trim()));
+  assert.ok(own.length,'ui.css styles the danger button');
+  for(const file of ['styles.css','theme.css'])for(const m of read(file).matchAll(/([^{}@]+)\{([^}]*\bcolor:[^}]*)\}/g))
+    for(const selector of m[1].split(',').map(s=>s.trim()).filter(s=>/\.primary$/.test(s)))
+      assert.ok(own.some(mine=>beats(specificity(mine),specificity(selector))),`${file}: "${selector}" overrides the danger button's text color`);
+});

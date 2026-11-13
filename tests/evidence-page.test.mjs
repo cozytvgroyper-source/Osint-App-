@@ -44,3 +44,10 @@ test('the menu works from the keyboard',()=>{
   assert.match(app,/\$\('#exportButton'\)\.disabled=/);
   assert.match(app,/setupMenu\(\$\('#exportButton'\),\$\('#exportItems'\)\)/);
 });
+
+// The old two-column card grid squeezed the status buttons into a narrow column; the new card reads top to bottom.
+test('finding cards are a single column with statuses in a row',()=>{
+  const ui=read('ui.css');
+  assert.match(ui,/\.evidence-list \.evidence-card\{display:block\}/);
+  assert.match(ui,/\.status-group\{display:flex;flex-wrap:wrap/);
+});
