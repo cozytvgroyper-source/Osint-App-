@@ -5,33 +5,44 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#07110f" />
   <title>Public Desk — OSINT workspace</title>
-  <link rel="stylesheet" href="/styles.css?v=18" />
-  <link rel="stylesheet" href="/results.css?v=13" />
-  <link rel="stylesheet" href="/theme.css?v=17" />
+  <link rel="stylesheet" href="/ui.css?v=5" />
+  <link rel="stylesheet" href="/styles.css?v=19" />
+  <link rel="stylesheet" href="/results.css?v=14" />
+  <link rel="stylesheet" href="/theme.css?v=18" />
 </head>
 <body>
+  <a class="skip-link" href="#main">Skip to content</a>
   <div class="shell">
     <aside class="rail">
       <a class="brand" href="#" aria-label="Public Desk home"><span class="brand-mark">P</span><span>Public Desk</span></a>
       <nav aria-label="Primary">
-        <button class="nav active" data-view="workspace"><span>⌁</span>Workspace</button>
-        <button class="nav" data-view="servers"><span>⌘</span>MCP servers</button>
-        <button class="nav" data-view="library"><span>◫</span>Tool library</button>
-        <button class="nav nav-deep" data-view="deep"><span>⚠</span>Deep Search</button>
-        <button class="nav" data-view="news"><img class="nav-logo" src="/assets/intelmap-logo.svg" alt="" />News</button>
-        <a class="nav nav-external" href="https://intelmap.watch/" target="_blank" rel="noopener noreferrer" aria-label="Open IntelMap in a new tab"><img class="nav-logo" src="/assets/intelmap-logo.svg" alt="" />IntelMap <i>↗</i></a>
-        <a class="nav nav-external" href="https://situationroom.io/" target="_blank" rel="noopener noreferrer" aria-label="Open Situation Room in a new tab"><img class="nav-logo" src="/assets/situation-room-logo.svg" alt="" />Situation Room <i>↗</i></a>
-        <button class="nav" data-view="evidence"><span>◇</span>Evidence</button>
+        <div class="nav-group" role="group" aria-labelledby="nav-g-1">
+          <p id="nav-g-1" class="nav-group-label visually-hidden">Main</p>
+          <button class="nav active" data-view="workspace" aria-current="page"><span aria-hidden="true">⌕</span>Search</button>
+          <button class="nav" data-view="evidence"><span aria-hidden="true">◇</span>Evidence</button>
+          <button class="nav" data-view="news"><img class="nav-logo" src="/assets/intelmap-logo.svg" alt="" aria-hidden="true" />News</button>
+        </div>
+        <div class="nav-group" role="group" aria-labelledby="nav-g-2">
+          <p id="nav-g-2" class="nav-group-label">Tools and services</p>
+          <button class="nav" data-view="servers"><span aria-hidden="true">⌘</span>MCP servers</button>
+          <button class="nav" data-view="library"><span aria-hidden="true">◫</span>Tool library</button>
+          <button class="nav nav-deep" data-view="deep"><span aria-hidden="true">⚠</span>Deep Search</button>
+        </div>
+        <div class="nav-group" role="group" aria-labelledby="nav-g-3">
+          <p id="nav-g-3" class="nav-group-label">Outside sites</p>
+          <a class="nav nav-external" href="https://intelmap.watch/" target="_blank" rel="noopener noreferrer" aria-label="Open IntelMap (opens in a new tab)"><img class="nav-logo" src="/assets/intelmap-logo.svg" alt="" aria-hidden="true" />IntelMap <i aria-hidden="true">↗</i></a>
+          <a class="nav nav-external" href="https://situationroom.io/" target="_blank" rel="noopener noreferrer" aria-label="Open Situation Room (opens in a new tab)"><img class="nav-logo" src="/assets/situation-room-logo.svg" alt="" aria-hidden="true" />Situation Room <i aria-hidden="true">↗</i></a>
+        </div>
       </nav>
       <div class="rail-foot">
         <div class="privacy"><span class="pulse"></span><div><b>Local-first</b><small>MCP tokens stay in this tab</small></div></div>
-        <button class="icon-button" id="themeToggle" aria-label="Toggle theme">☼</button>
+        <button class="icon-button" id="themeToggle" aria-label="Dark theme" aria-pressed="false"><span aria-hidden="true">☼</span></button>
       </div>
     </aside>
 
-    <main>
+    <main id="main" tabindex="-1">
       <header>
-        <div><p class="eyebrow">INVESTIGATION CONSOLE</p><h1 id="pageTitle">Hello Groyper</h1></div>
+        <div><h1 id="pageTitle">Search</h1><p id="pageIntro" class="page-intro">Look up a person, company, website, IP address, username or event. Public Desk asks connected sources and shows the best matches first.</p></div>
         <div class="header-actions"><button class="ghost" id="cmdButton"><kbd>⌘</kbd><kbd>K</kbd> Search</button><button class="primary" id="newInvestigation">＋ New investigation</button></div>
       </header>
 
@@ -41,7 +52,7 @@
           <form id="investigateForm" class="search-box">
             <div class="search-row"><span class="search-icon">⌕</span><input id="query" autocomplete="off" aria-label="Search for a person, organization, domain, place or event" placeholder="e.g. Map recent infrastructure outages in the Baltic region" /><button type="submit">Investigate <span>→</span></button></div>
             <div class="file-actions"><label class="upload-button">＋ Add file, picture, or video<input id="fileInput" type="file" accept="image/*,video/*,.pdf,.doc,.docx,.txt,.csv,.json,.rtf" /></label><div id="fileSelection" class="file-selection" hidden><span id="fileIcon">◇</span><div><b id="fileName"></b><small id="fileDetails"></small></div><button type="button" id="removeFile" aria-label="Remove selected file">×</button></div><small class="file-privacy">Analyzed locally · 50 MB maximum</small></div>
-            <div class="chips" aria-label="Suggested investigations">
+            <div class="chips" role="group" aria-label="Suggested investigations">
               <button type="button" data-prompt="Find recent cyber threats affecting healthcare">Cyber threats</button>
               <button type="button" data-prompt="Review sanctions exposure for an organization">Sanctions check</button>
               <button type="button" data-prompt="Map recent earthquakes and natural hazards">Natural events</button>
@@ -57,13 +68,13 @@
         <div class="source-strip" id="dataSourceStrip"></div>
 
         <div class="lower-grid">
-          <section class="panel"><div class="panel-head"><div><p class="eyebrow">RECENT ACTIVITY</p><h3>Investigation history</h3></div><button class="icon-button" id="clearHistory" title="Clear history">⌫</button></div><div id="history" class="history"></div></section>
+          <section class="panel"><div class="panel-head"><div><p class="eyebrow">RECENT ACTIVITY</p><h3>Investigation history</h3></div><button class="icon-button" id="clearHistory" aria-label="Clear history"><span aria-hidden="true">⌫</span></button></div><div id="history" class="history"></div></section>
           <section class="panel connection-panel"><div class="panel-head"><div><p class="eyebrow">CONNECTIONS</p><h3>MCP server health</h3><p class="subtle" id="connectionCount"></p></div><button class="text-button" data-view-link="servers">Manage →</button></div><div id="connectionSummary"></div></section>
         </div>
       </section>
 
       <section id="servers" class="view">
-        <div class="section-heading"><div><p class="eyebrow">CONNECTIONS</p><h2>MCP servers</h2><p class="subtle">The bundled local servers, plus any MCP server you add over HTTPS. Bearer tokens are held only in this browser tab.</p></div><button class="primary" id="addServer">＋ Add server</button></div>
+        <div class="section-heading view-actions"><button class="primary" id="addServer">＋ Add server</button></div>
         <div id="serverList" class="server-grid"></div>
         <div class="self-check"><div class="section-heading"><div><p class="eyebrow">HEALTH</p><h3>Tool self-check</h3><p class="subtle" id="selfCheckIntro">Runs each tool the automatic search uses against harmless test targets (example.com, 8.8.8.8, user@example.com, @octocat, CVE-2021-44228 and the EICAR test hash) to spot tools that stopped working. Passive lookups only; the services behind them see these queries.</p></div><div class="self-check-actions"><button class="ghost" id="stopSelfCheck" hidden>Stop</button><button class="primary" id="runSelfCheck">Run self-check</button></div></div><p class="subtle" id="selfCheckSummary"></p><div id="selfCheckResults"></div></div>
         <div class="section-heading"><div><p class="eyebrow">CONNECTIONS</p><h2>Data sources</h2><p class="subtle">API keys for the services behind Open OSINT's tools. Keys are saved on this Mac only, in work/api-keys.env, and are never shown again. Connect and Disconnect apply right away.</p></div><span class="subtle" id="dataSourceCount"></span></div>
@@ -72,13 +83,12 @@
       </section>
 
       <section id="library" class="view">
-        <div class="section-heading"><div><p class="eyebrow">CAPABILITIES</p><h2>Tool library</h2><p class="subtle" id="toolCount">Connect a server to discover tools.</p></div><label class="filter"><span>⌕</span><input id="toolFilter" placeholder="Filter tools" /></label></div>
-        <div id="tierFilters" class="tier-filters" aria-label="Filter tools by risk tier"></div>
+        <div class="section-heading"><div><p class="subtle" id="toolCount">Connect a server to discover tools.</p></div><label class="filter"><span>⌕</span><input id="toolFilter" placeholder="Filter tools" /></label></div>
+        <div id="tierFilters" class="tier-filters" role="group" aria-label="Filter tools by risk tier"></div>
         <div id="toolLibrary" class="tier-groups"></div>
       </section>
 
       <section id="deep" class="view deep-view">
-        <div class="deep-hero"><p class="eyebrow">CONTROLLED TESTING</p><h2>Deep Search</h2><p>Build a visible plan for one explicit target. Tools run one at a time and may be noticed by the target.</p></div>
         <div class="deep-setup"><label>Target<input id="deepTarget" autocomplete="off" placeholder="example.com" /></label><label>Maximum level<select id="deepLevel"><option value="0">Passive</option><option value="1" selected>Light touch</option><option value="2">Active</option><option value="3">Intrusive</option></select></label><button class="primary" id="buildDeepPlan">Build plan</button></div>
         <div id="deepPlan" class="deep-plan"><div class="empty-state">Type a target and build a plan. Nothing runs automatically.</div></div>
         <div id="deepConfirmations" class="deep-confirmations" hidden><label class="run-check"><input type="checkbox" id="deepAuthorize" /> I own this target or have written permission to test it.</label><label id="deepTypedWrap" hidden>Type the target exactly to confirm Intrusive testing<input id="deepTypedTarget" autocomplete="off" /></label><p id="deepError" class="form-error"></p><div class="deep-actions"><button class="ghost" id="cancelDeepRun" disabled>Cancel</button><button class="primary" id="runDeepSearch">Run selected tools</button></div></div>
@@ -87,14 +97,14 @@
       </section>
 
       <section id="news" class="view">
-        <div class="section-heading news-heading"><div><p class="eyebrow">INTELMAP JSON</p><h2>News</h2><p class="subtle">Live public signals from IntelMap's official JSON API. Open original sources to verify consequential reporting.</p></div><div class="header-actions"><button class="primary" id="refreshIntelNews">↻ Refresh</button></div></div>
+        <div class="section-heading news-heading view-actions"><div class="header-actions"><button class="primary" id="refreshIntelNews">↻ Refresh</button></div></div>
         <div class="news-toolbar"><label class="filter"><span>⌕</span><input id="intelNewsFilter" placeholder="Search title, source, country…" /></label><label class="news-category">Category<select id="intelNewsCategory"><option value="">All categories</option></select></label><span id="intelNewsFreshness" class="subtle">Not loaded</span></div>
         <div id="intelNewsMetrics" class="news-metrics"></div>
         <div id="intelNewsList" class="news-grid"><div class="empty-state">Open News to load IntelMap's public feed.</div></div>
       </section>
 
       <section id="evidence" class="view">
-        <div class="section-heading"><div><p class="eyebrow">CASE FILE</p><h2>Evidence notebook</h2><p class="subtle">Saved findings, sources, and tool outputs, kept on this Mac in <code>work/cases/</code>.</p></div><div class="case-exports"><button class="ghost" id="reportMarkdown" title="Readable report with fingerprints, as Markdown">Report (Markdown)</button><button class="ghost" id="reportHtml" title="Printable report: open it, then File &gt; Print &gt; Save as PDF">Report (HTML / PDF)</button><button class="ghost" id="exportEvidence">Export JSON</button></div></div>
+        <div class="section-heading view-actions"><div class="case-exports"><button class="ghost" id="reportMarkdown" title="Readable report with fingerprints, as Markdown">Report (Markdown)</button><button class="ghost" id="reportHtml" title="Printable report: open it, then File &gt; Print &gt; Save as PDF">Report (HTML / PDF)</button><button class="ghost" id="exportEvidence">Export JSON</button></div></div>
         <div class="case-bar"><label>Case<select id="caseSelect" aria-label="Active case"></select></label><button class="ghost" id="newCase">＋ New case</button><button class="text-button" id="renameCase">Rename</button><button class="text-button" id="deleteCase">Delete case</button></div>
         <div id="caseImport" class="case-import" hidden></div>
         <p id="caseSummary" class="subtle"></p>
@@ -103,8 +113,8 @@
     </main>
   </div>
 
-  <dialog id="serverDialog">
-    <form method="dialog" id="serverForm"><div class="dialog-head"><div><p class="eyebrow">NEW CONNECTION</p><h2>Add MCP server</h2></div><button type="button" data-close-dialog class="icon-button" aria-label="Close">×</button></div>
+  <dialog id="serverDialog" aria-labelledby="serverDialogTitle">
+    <form method="dialog" id="serverForm"><div class="dialog-head"><div><p class="eyebrow">NEW CONNECTION</p><h2 id="serverDialogTitle">Add MCP server</h2></div><button type="button" data-close-dialog class="icon-button" aria-label="Close">×</button></div>
       <label>Name<input name="name" required placeholder="OSINT MCP" /></label>
       <label>Endpoint<input name="endpoint" required type="url" placeholder="https://example.com/mcp" /></label>
       <label>Bearer token <span>(optional)</span><input name="token" type="password" autocomplete="off" placeholder="Stored in this tab only" /></label>
@@ -113,7 +123,7 @@
     </form>
   </dialog>
 
-  <dialog id="keyDialog">
+  <dialog id="keyDialog" aria-labelledby="keyDialogTitle">
     <form method="dialog" id="keyForm"><div class="dialog-head"><div><p class="eyebrow">DATA SOURCE</p><h2 id="keyDialogTitle">Connect</h2></div><button type="button" data-close-dialog class="icon-button" aria-label="Close">×</button></div>
       <div id="keyFields"></div>
       <p class="form-note" id="keyNote"></p><p id="keyError" class="form-error"></p>
@@ -121,14 +131,14 @@
     </form>
   </dialog>
 
-  <dialog id="runDialog">
+  <dialog id="runDialog" aria-labelledby="runToolName">
     <form method="dialog" id="runForm"><div class="dialog-head"><div><p class="eyebrow">RUN TOOL</p><h2 id="runToolName">Tool</h2></div><button type="button" data-close-dialog class="icon-button" aria-label="Close">×</button></div>
       <p id="runToolDescription" class="subtle"></p><div id="runRisk"></div><label>Arguments (JSON)<textarea id="runArgs" rows="9">{}</textarea></label><p id="runError" class="form-error"></p>
       <div class="dialog-actions"><button type="button" data-close-dialog class="ghost">Cancel</button><button value="default" class="primary" id="executeTool">Run tool</button></div>
     </form>
   </dialog>
 
-  <dialog id="resultDialog" class="result-dialog"><div class="dialog-head"><div><p class="eyebrow">INVESTIGATION RESULT</p><h2 id="resultTitle">Result</h2></div><button class="icon-button" data-close-result aria-label="Close">×</button></div><div id="resultBody" class="result-body"></div><div class="dialog-actions"><button class="ghost" data-close-result>Close</button><button class="primary" id="saveEvidence">Save to evidence</button></div></dialog>
+  <dialog id="resultDialog" class="result-dialog" aria-labelledby="resultTitle"><div class="dialog-head"><div><p class="eyebrow">INVESTIGATION RESULT</p><h2 id="resultTitle">Result</h2></div><button class="icon-button" data-close-result aria-label="Close">×</button></div><div id="resultBody" class="result-body"></div><div class="dialog-actions"><button class="ghost" data-close-result>Close</button><button class="primary" id="saveEvidence">Save to evidence</button></div></dialog>
 
   <div id="toast" role="status" aria-live="polite"></div>
   <script type="module" src="/app.js?v=36"></script>

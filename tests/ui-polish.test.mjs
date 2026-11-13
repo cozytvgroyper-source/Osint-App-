@@ -5,14 +5,24 @@ import fs from 'node:fs';
 const read=file=>fs.readFileSync(new URL(`../public/${file}`,import.meta.url),'utf8');
 const html=read('index.html'),app=read('app.js'),css=read('styles.css');
 
-test('each page header says something different from the panel heading below it',()=>{
-  const labels=Object.fromEntries([...app.match(/const labels=\{([^}]*)\}/)[1].matchAll(/(\w+):'([^']*)'/g)].map(m=>[m[1],m[2]]));
-  for(const view of ['servers','library','deep','news','evidence']){
-    const section=html.match(new RegExp(`<section[^>]*id="${view}"[\\s\\S]*?</section>`))?.[0]||'';
-    const heading=section.match(/<h2[^>]*>([^<]+)<\/h2>/)?.[1];
-    assert.ok(heading,`${view} has a panel heading`);
-    assert.notEqual(labels[view],heading,`${view}: header and panel both say "${heading}"`);
+// The page header names the page and explains it in one plain line, so a view must not repeat that name as its
+// own heading (one name per page, one h1 per document).
+test('the page header names the page and explains it; no view repeats the name',()=>{
+  const pages=Object.fromEntries([...app.match(/const PAGES=\{([\s\S]*?)\n\};/)[1].matchAll(/(\w+):\{title:'([^']*)',intro:'([^']*)'\}/g)].map(m=>[m[1],{title:m[2],intro:m[3]}]));
+  assert.deepEqual(Object.keys(pages).sort(),['deep','evidence','library','news','servers','workspace']);
+  assert.equal(pages.workspace.title,'Search');
+  for(const [view,{title,intro}] of Object.entries(pages)){
+    assert.ok(intro.length>20,view);
+    const section=html.match(new RegExp(`<section[^>]*id="${view}"[\\s\\S]*?</section>`))[0];
+    assert.doesNotMatch(section,new RegExp(`<h[12][^>]*>${title}</h[12]>`),`${view} repeats "${title}"`);
   }
+  assert.doesNotMatch(html+app,/Hello Groyper/);
+});
+
+test('a skip link leads to the main content',()=>{
+  assert.match(html,/<body>\s*<a class="skip-link" href="#main">Skip to content<\/a>/);
+  assert.match(html,/<main id="main" tabindex="-1">/);
+  assert.equal((html.match(/<h1/g)||[]).length,1);
 });
 
 test('long tool descriptions are clamped in Tool Library cards, with the full text kept',()=>{

@@ -1,4 +1,5 @@
 import {explainSearchPlan,summarizePlanDiagnostics,toolUsage} from './search-planner.js?v=1';
+import {escapeHtml} from './ui.js?v=1';
 import {classifyToolResult,hasUsefulData,parseToolResult} from './result-classifier.js';
 import {buildSearchReport,reportHasFindings} from './search-report.js?v=4';
 import {recordToolHealth,serverConnectionLabel,toolCountLabel} from './tool-health.js';
@@ -64,15 +65,38 @@ function persist() {
   if(warning&&warning!==lastStorageWarning){lastStorageWarning=warning;queueMicrotask(()=>toast(warning));}
 }
 
-function escapeHtml(value='') { return String(value).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
+// Opens a modal dialog with focus inside it (the first field, or else its close button) and gives focus back to the
+// control that opened it when it closes, so keyboard and screen-reader users keep their place.
+function openDialog(dialog,trigger=document.activeElement){
+  dialog.showModal();
+  const first=dialog.querySelector('input:not([type="hidden"]):not([disabled]),select:not([disabled]),textarea:not([disabled])')||dialog.querySelector('[data-close-dialog],[data-close-result]');
+  first?.focus();
+  // Only when nothing else took focus meanwhile (a Pivot closes the results and focuses the search box).
+  dialog.addEventListener('close',()=>{const stranded=document.activeElement===document.body||dialog.contains(document.activeElement);if(stranded&&trigger?.isConnected&&typeof trigger.focus==='function')trigger.focus();},{once:true});
+}
 function toast(message) { const el=$('#toast'); el.textContent=message; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2400); }
 function iconFor(name='') { if(/cyber|cve|threat|domain|ip/i.test(name))return'⌁'; if(/geo|satellite|place|flight|vessel/i.test(name))return'◈'; if(/sanction|entity|company/i.test(name))return'◎'; return'▤'; }
 
+// Each view's name and one plain line on what it is for, shown in the page header and the browser tab.
+const PAGES={
+  workspace:{title:'Search',intro:'Look up a person, company, website, IP address, username or event. Public Desk asks connected sources and shows the best matches first.'},
+  evidence:{title:'Evidence',intro:'Save findings into cases, mark what you’ve checked, and export a report. Cases are stored on this Mac.'},
+  news:{title:'News',intro:'Live public events from IntelMap. Always open the original source before relying on a report.'},
+  servers:{title:'MCP servers',intro:'MCP servers are the services Public Desk asks when you search. The first four are included; you can add your own.'},
+  library:{title:'Tool library',intro:'Every tool your MCP servers offer, grouped by how visible it is to the target. The main search only uses Passive tools.'},
+  deep:{title:'Deep Search',intro:'Run stronger checks against one target you own or have written permission to test. Nothing runs until you confirm.'}
+};
+
 function switchView(id) {
   $$('.view').forEach(v => v.classList.toggle('active-view', v.id === id));
-  $$('.nav').forEach(v => v.classList.toggle('active', v.dataset.view === id));
-  const labels={workspace:'Hello Groyper',servers:'Connection center',library:'Explore capabilities',deep:'Plan a controlled test',news:'IntelMap news',evidence:'Your case file'};
-  $('#pageTitle').textContent=labels[id]||'Public Desk'; window.scrollTo({top:0,behavior:'smooth'});
+  $$('.nav[data-view]').forEach(v => {
+    const current=v.dataset.view===id;
+    v.classList.toggle('active', current);
+    if(current)v.setAttribute('aria-current','page');else v.removeAttribute('aria-current');
+  });
+  const page=PAGES[id]||PAGES.workspace;
+  $('#pageTitle').textContent=page.title;$('#pageIntro').textContent=page.intro;document.title=`${page.title} · Public Desk`;
+  window.scrollTo({top:0,behavior:'smooth'});
   if(id==='news'&&!intelNews.loaded&&!intelNews.loading)loadIntelNews();
   if(id==='deep')loadDeepHistory();
 }
@@ -197,7 +221,7 @@ function openKeyDialog(source){
   $('#keyFields').innerHTML=source.fields.map(f=>{const saved=source.saved.includes(f.env);const email=/EMAIL/.test(f.env);return `<label>${escapeHtml(f.label)}<input name="${escapeHtml(f.env)}" type="${email?'email':'password'}" autocomplete="off" spellcheck="false" placeholder="${saved?'Saved. Leave empty to keep it.':'Paste here'}" /></label>`;}).join('');
   $('#keyNote').innerHTML=`Get a key at <a href="${escapeHtml(source.signup)}" target="_blank" rel="noopener noreferrer">${escapeHtml(new URL(source.signup).host)}</a>. It is saved on this Mac only and is not shown again.`;
   $('#keyError').textContent='';$('#saveKey').textContent=source.status==='not_configured'?'Connect':'Save';
-  $('#keyDialog').showModal();$('#keyFields input')?.focus();
+  openDialog($('#keyDialog'));
 }
 async function dataSourceAction(action,id,values){
   const source=dataSources.list.find(s=>s.id===id);if(!source)return;
@@ -329,7 +353,7 @@ function openTool(tool, serverId){
     +(needs.typeName?`<label class="run-confirm">Type <code>${escapeHtml(tool.name)}</code> to confirm<input id="runConfirmName" autocomplete="off" spellcheck="false" /></label>`:'')
     +(needs.credits?'<label class="run-check"><input type="checkbox" id="runCredits" /> This tool may spend paid AI credits.</label>':'')
     +(needs.sideEffects?'<label class="run-check"><input type="checkbox" id="runSideEffects" /> This tool may send, store, schedule, or change data.</label>':'')+'</div>';
-  $('#runArgs').value=JSON.stringify(sample,null,2); $('#runError').textContent=''; $('#runDialog').showModal();
+  $('#runArgs').value=JSON.stringify(sample,null,2); $('#runError').textContent=''; openDialog($('#runDialog'));
 }
 // Returns why a tool may not run yet, or '' when every confirmation it needs is given.
 function runBlockedReason(tool){
@@ -443,7 +467,7 @@ function showResult(title,result){
   const openKeys=refresh?new Set([...$('#resultBody').querySelectorAll('details[data-details-key][open]:not([data-default-open])')].map(el=>el.dataset.detailsKey)):null;
   $('#resultTitle').textContent=title; $('#resultBody').innerHTML=renderReadableResult(result,openKeys);
   if(refresh){dialog.scrollTop=scroll[0];$('#resultBody').scrollTop=scroll[1];}
-  if(!dialog.open)dialog.showModal();
+  if(!dialog.open)openDialog(dialog);
 }
 // Refreshes a search that is still running without reopening the window if the user has closed it.
 function updateOpenResult(title,result){if($('#resultDialog').open&&$('#resultTitle').textContent===title)showResult(title,result);}
@@ -601,7 +625,7 @@ document.addEventListener('click',async event=>{
 $('#investigateForm').addEventListener('submit',async e=>{e.preventDefault();const q=$('#query').value.trim();if(!q&&!state.pendingFile)return;try{if(state.pendingFile)await analyzeSelectedFile(state.pendingFile,q);else await smartInvestigate(q);}catch(error){toast(error.message);}});
 $('#fileInput').addEventListener('change',event=>{const file=event.target.files?.[0];if(!file)return;state.pendingFile=file;$('#fileName').textContent=file.name;$('#fileDetails').textContent=`${file.type||'Unknown type'} · ${formatBytes(file.size)}`;$('#fileIcon').textContent=file.type.startsWith('image/')?'▧':file.type.startsWith('video/')?'▶':'◇';$('#fileSelection').hidden=false;});
 $('#removeFile').onclick=clearSelectedFile;
-$('#addServer').onclick=()=>$('#serverDialog').showModal();
+$('#addServer').onclick=()=>openDialog($('#serverDialog'),$('#addServer'));
 $('#newInvestigation').onclick=()=>{switchView('workspace');$('#query').focus();};
 $('#cmdButton').onclick=()=>{switchView('workspace');$('#query').focus();};
 document.addEventListener('keydown',event=>{if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='k'){event.preventDefault();switchView('workspace');$('#query').focus();}});
@@ -640,8 +664,13 @@ $('#intelNewsFilter').oninput=()=>{intelNews.visibleLimit=30;renderIntelNews();}
 $('#intelNewsCategory').onchange=()=>{intelNews.visibleLimit=30;renderIntelNews();};
 $('#refreshIntelNews').onclick=()=>loadIntelNews(true);
 $('#exportEvidence').onclick=()=>{const c=state.activeCase;if(!c)return;const blob=new Blob([JSON.stringify(c,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`public-desk-case-${c.name.replace(/[^a-z0-9]+/gi,'-').replace(/^-|-$/g,'').toLowerCase()||c.id}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);};
-$('#themeToggle').onclick=()=>{const next=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=next;localStorage.setItem('signaldesk.theme',next);};
-document.documentElement.dataset.theme=localStorage.getItem('signaldesk.theme')||'light';
+// The switch is a toggle for the dark theme: it says which theme is on, so screen readers announce its state.
+function applyTheme(theme){
+  document.documentElement.dataset.theme=theme;
+  const toggle=$('#themeToggle');toggle.setAttribute('aria-pressed',String(theme==='dark'));toggle.setAttribute('aria-label','Dark theme');toggle.title=theme==='dark'?'Dark theme is on':'Dark theme is off';
+}
+$('#themeToggle').onclick=()=>{const next=document.documentElement.dataset.theme==='dark'?'light':'dark';applyTheme(next);localStorage.setItem('signaldesk.theme',next);};
+applyTheme(localStorage.getItem('signaldesk.theme')||'light');
 if(new URLSearchParams(location.search).get('consensus')==='connected'){
   history.replaceState({},'',location.pathname);
   toast('Consensus sign-in complete');
