@@ -1,4 +1,4 @@
-import {explainSearchPlan,summarizePlanDiagnostics} from './search-planner.js';
+import {explainSearchPlan,summarizePlanDiagnostics,toolUsage} from './search-planner.js?v=1';
 import {classifyToolResult,hasUsefulData,parseToolResult} from './result-classifier.js';
 import {buildSearchReport,reportHasFindings} from './search-report.js?v=4';
 import {recordToolHealth,serverConnectionLabel,toolCountLabel} from './tool-health.js';
@@ -7,7 +7,7 @@ import {selfCheckPlan,summarizeSelfCheck} from './self-check.js';
 import {argsForSearch,extractTarget,searchIntent,searchSubjectFor} from './search-query.js?v=1';
 import {renderRankedReport} from './search-results-view.js?v=2';
 import {loadStoredState,mergeStoredServers,persistStoredState} from './browser-storage.js';
-import {TIERS,groupToolsByTier,runRequirements,toolRisk,toolUsage} from './tool-tiers.js';
+import {TIERS,groupToolsByTier,runRequirements,toolRisk} from './tool-tiers.js?v=1';
 import {resultPivot} from './result-pivots.js?v=1';
 import {buildRunGrantRequest} from './run-grant-client.js?v=1';
 import {deepRunBlocked,deepSearchPlan} from './deep-search.js?v=1';

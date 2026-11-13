@@ -12,7 +12,7 @@ test('scores every connected tool and keeps relevant preferred sources first',()
 });
 
 test('discovers relevant tools even when they are not in the preferred list',()=>{
-  const tools=[tool('get_news_rss','Current reporting'),tool('election_observer','Election polling ballot monitoring','Community MCP')];
+  const tools=[tool('get_news_rss','Current reporting'),tool('election_observer','Election polling ballot monitoring','Open OSINT')];
   const plan=planSearchTools({query:'monitor election ballot activity',intentId:'election',preferredNames:['missing_tool'],tools});
   assert.equal(plan[0].tool.name,'election_observer');
 });
@@ -76,7 +76,7 @@ test('never auto-runs a tool its own server declares as writing',()=>{
   const withHints=annotations=>({...tool('create_thread','Create a new research thread and dispatch the research agent','Consensus'),annotations});
   assert.equal(isPassiveSearchTool(withHints({readOnlyHint:false})),false);
   assert.equal(isPassiveSearchTool(withHints({readOnlyHint:true,destructiveHint:true})),false);
-  assert.equal(isPassiveSearchTool(withHints({readOnlyHint:true})),true);
+  assert.equal(isPassiveSearchTool(withHints({readOnlyHint:true})),false,'a read-only hint cannot lift a reviewed paid tool into the main search');
   assert.equal(isPassiveSearchTool(tool('search','Search published research papers','Consensus')),true,'tools without hints keep their review');
 });
 
@@ -89,4 +89,13 @@ test('rejects tools whose required target type does not match the query',()=>{
   const newsTool=tool('get_cyber_news','Cybersecurity threat news');
   const plan=planSearchTools({query:'latest healthcare cyber threats',intentId:'cyber',preferredNames:['get_cyber_news'],tools:[domainTool,newsTool]});
   assert.deepEqual(plan.map(item=>item.tool.name),['get_cyber_news']);
+});
+
+// The main search only auto-runs reviewed passive tools, whatever server they come from.
+test('the main search never picks an unreviewed or non-passive tool',()=>{
+  const custom={name:'lookup_company_records',description:'Look up company records and sanctions for an organization',serverName:'My Custom MCP',inputSchema:{properties:{query:{type:'string'}}}};
+  const lookalike={...custom,name:'whois_lookup',description:'WHOIS lookup for a domain'};
+  assert.equal(isPassiveSearchTool(custom),false);
+  assert.equal(isPassiveSearchTool(lookalike),false);
+  assert.deepEqual(planSearchTools({query:'Rosneft company sanctions',intentId:'sanctions',preferredNames:[],tools:[custom],maxTools:6}),[]);
 });
