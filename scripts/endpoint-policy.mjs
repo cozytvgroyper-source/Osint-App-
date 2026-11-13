@@ -109,6 +109,10 @@ export async function fetchValidated(value, options = {}, { resolver = lookup, f
     if (![307, 308].includes(response.status)) throw new Error(`MCP endpoint returned unsupported redirect ${response.status}`);
     const location = response.headers.get('location');
     if (!location) throw new Error('MCP endpoint redirected without a destination');
-    ({ url, pin } = await resolveValidatedEndpoint(new URL(location, url), { resolver }));
+    // A 307/308 resends the same headers and body, so a redirect to another site would carry the user's token and
+    // the search itself there. Only same-site redirects (same scheme, host and port) are followed.
+    const next = new URL(location, url);
+    if (next.origin !== url.origin) throw new Error(`MCP endpoint redirected to a different site (${next.origin}). Redirects to another site are blocked so your token and search are never sent there; if that address is right, use it as the endpoint instead.`);
+    ({ url, pin } = await resolveValidatedEndpoint(next, { resolver }));
   }
 }
