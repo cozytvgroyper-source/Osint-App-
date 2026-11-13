@@ -17,10 +17,23 @@ test('every dialog is titled by its heading',()=>{
   }
 });
 
+// The text a screen reader would read from a button's markup: text outside any aria-hidden element. Walks the tags
+// and text pieces instead of deleting tags with a regex, which reads the same and is not a sanitizer.
+function spokenText(markup){
+  let hidden=0,text='';
+  for(const [piece] of markup.matchAll(/<\/?[a-z][^>]*>|[^<]+/gi)){
+    if(!piece.startsWith('<')){if(!hidden)text+=piece;continue;}
+    const closing=piece.startsWith('</'),selfClosing=/\/>$|^<(?:img|br|input)\b/i.test(piece);
+    if(closing){if(hidden)hidden--;}else if(hidden)hidden+=selfClosing?0:1;else if(/aria-hidden="true"/.test(piece)&&!selfClosing)hidden=1;
+  }
+  return text.trim();
+}
+
 test('every icon-only button has a name',()=>{
+  assert.equal(spokenText('<span aria-hidden="true">⌫</span>'),'');
+  assert.equal(spokenText('<span aria-hidden="true">⌕</span>Search'),'Search');
   for(const m of html.matchAll(/<button([^>]*)>([\s\S]*?)<\/button>/g)){
-    const text=m[2].replace(/<[^>]*aria-hidden="true"[^>]*>[^<]*<\/[^>]+>/g,'').replace(/<[^>]+>/g,'').trim();
-    if(!/[\p{L}\p{N}]/u.test(text))assert.match(m[1],/aria-label="[^"]+"/,`unnamed button: ${m[0].slice(0,80)}`);
+    if(!/[\p{L}\p{N}]/u.test(spokenText(m[2])))assert.match(m[1],/aria-label="[^"]+"/,`unnamed button: ${m[0].slice(0,80)}`);
   }
 });
 
