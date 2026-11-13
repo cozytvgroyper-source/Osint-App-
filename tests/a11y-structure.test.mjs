@@ -114,3 +114,7 @@ test('the tool self-check has its own section heading',()=>{
 test('the collapsed sidebar keeps the status dot and theme icon on one line',()=>{
   assert.match(read('ui.css'),/@media\(max-width:1050px\)\{#themeToggle\{[^}]*\}#themeToggle \.theme-label\{display:none\}\.rail-foot\{gap:0;flex-wrap:nowrap\}\}/);
 });
+
+test('Deep Search status changes are announced only when the words change',()=>{
+  assert.match(app,/deepStatus\.textContent!==status\.message/);
+});

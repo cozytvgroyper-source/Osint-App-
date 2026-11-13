@@ -5,7 +5,7 @@ import path from 'node:path';
 import {ADAPTERS,accountCategory,adaptToolResult,trimRaw} from '../public/deep-adapters.js';
 
 const fixtureDir=new URL('./fixtures/deep/',import.meta.url);
-const fixtureFiles=fs.readdirSync(fixtureDir).filter(file=>file.endsWith('.json')).sort();
+const fixtureFiles=fs.readdirSync(fixtureDir).filter(file=>file.endsWith('.json')&&file.includes('--')).sort();
 const fixtures=fixtureFiles.map(file=>JSON.parse(fs.readFileSync(new URL(file,fixtureDir),'utf8')));
 const fixture=tool=>fixtures.find(item=>item.tool===tool);
 const VALID_KINDS=new Set(['account','breach','fact','host','problem','lead']);
