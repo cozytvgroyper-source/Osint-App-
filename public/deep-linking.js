@@ -13,12 +13,17 @@ const unique=values=>[...new Set((values||[]).filter(Boolean))];
 const HOST_ALIASES={'twitter.com':'x.com'};
 const aliasHost=host=>HOST_ALIASES[host]||host;
 
+// Query parameters that name the user on profile pages (e.g. news.ycombinator.com/user?id=…, member.php?u=…). They are kept,
+// so two different people's pages on such a site never compare as the same page; every other parameter is dropped.
+const PROFILE_PARAMS=['id','u','uid','user','userid','user_id','username','login','member'];
+
 export function normalizeUrl(value){
   try{
     const url=new URL(String(value));
     const host=aliasHost(url.hostname.toLowerCase().replace(/^www\./,''));
     const path=url.pathname.replace(/\/+$/,'').toLowerCase();
-    return`${host}${path}`;
+    const query=PROFILE_PARAMS.filter(name=>url.searchParams.get(name)).map(name=>`${name}=${url.searchParams.get(name).toLowerCase()}`).join('&');
+    return`${host}${path}${query?`?${query}`:''}`;
   }catch{
     const bare=String(value||'').trim().toLowerCase().replace(/^https?:\/\/(?:www\.)?/,'').replace(/[?#].*$/,'').replace(/\/+$/,'');
     const slash=bare.indexOf('/');
@@ -113,7 +118,9 @@ const IMAGE_VALUE=/\.(?:jpe?g|png|gif|webp|svg)$/i;
 const looseKey=value=>String(value??'').trim().toLowerCase().replace(/^@/,'');
 const nameKey=value=>String(value??'').trim().toLowerCase().replace(/\s+/g,' ');
 const isImage=value=>IMAGE_VALUE.test(String(value??'').trim().replace(/[?#].*$/,''));
-const hostOf=value=>normalizeUrl(value).split('/')[0];
+const hostOf=value=>normalizeUrl(value).split(/[/?]/)[0];
+// A normalized key with no path and no profile parameter is a whole site, not one page on it.
+const isBareKey=key=>!/[/?]/.test(key);
 const presenceOf=finding=>Object.hasOwn(PRESENCE_RANK,finding?.account?.presence)?finding.account.presence:'found';
 // Big sites many unrelated people have pages on: a bare host here is never a personal site and never a lead.
 const SHARED_HOSTS=new Set(['youtube.com','youtu.be','github.com','gitlab.com','bitbucket.org','codeberg.org','x.com','facebook.com',
@@ -180,7 +187,7 @@ function mergeAccounts(findings,isEcho,searchedKeys){
 }
 
 // Rule c: two or more found accounts on different hosts show the same name, website or email.
-function corroborations(entries,seedLoose){
+function corroborations(entries,seedLoose,isPlatform){
   const groups=new Map();
   const add=(entry,kind,key,label)=>{
     const groupKey=`${kind}:${key}`;
@@ -193,6 +200,8 @@ function corroborations(entries,seedLoose){
     for(const site of details.websites){
       if(isImage(site))continue;
       const key=normalizeUrl(site);if(!key||hostOf(site)===entry.host)continue;
+      // A big site's home page (x.com, youtube.com) is linked by countless unrelated people, so it shows nothing shared.
+      if(isBareKey(key)&&isPlatform(key))continue;
       add(entry,'website',key,key);
     }
     for(const email of details.emails){const key=email.trim().toLowerCase();if(key)add(entry,'email',key,key);}
@@ -215,9 +224,9 @@ function addEntryToConfirmed(set,entry,isPlatform){
   for(const site of details.websites){
     if(isImage(site))continue;
     const key=normalizeUrl(site);if(!key)continue;
+    // A big site's home page confirms nothing; only a bare personal site confirms other pages on its host.
+    if(isBareKey(key)){if(isPlatform(key))continue;set.bareHosts.add(key);}
     set.urls.add(key);set.linkedTo.add(key);
-    // Only a bare personal site (no path, not a big shared platform) confirms other pages on its host.
-    if(!key.includes('/')&&!isPlatform(key))set.bareHosts.add(key);
   }
   for(const email of details.emails)set.emails.add(looseKey(email));
   for(const username of details.usernames)set.usernames.add(looseKey(username));
@@ -231,7 +240,11 @@ function mergeConfirmed(target,source){
 // Rule b: the account's details show something already confirmed, or a confirmed profile links to this account.
 function ruleBReasons(entry,set,isPlatform){
   const details=entry.finding.account.details;const reasons=[];
-  const forward=details.websites.find(site=>!isImage(site)&&(set.urls.has(normalizeUrl(site))||(set.bareHosts.has(hostOf(site))&&!isPlatform(hostOf(site)))))
+  const forward=details.websites.find(site=>{
+    if(isImage(site))return false;
+    const key=normalizeUrl(site);if(!key||(isBareKey(key)&&isPlatform(key)))return false;
+    return set.urls.has(key)||(set.bareHosts.has(hostOf(site))&&!isPlatform(hostOf(site)));
+  })
     ||details.emails.find(email=>set.emails.has(looseKey(email)))
     ||details.usernames.find(username=>set.usernames.has(looseKey(username)));
   if(forward)reasons.push(`Profile links to ${forward}, which is confirmed.`);
@@ -243,7 +256,7 @@ function ruleBReasons(entry,set,isPlatform){
 // so an account can never back itself up through its own details.
 function confirmedWithout(entries,excluded,rootSet,seedLoose,isPlatform){
   const pool=entries.filter(entry=>entry!==excluded);
-  const corroborated=corroborations(pool,seedLoose);
+  const corroborated=corroborations(pool,seedLoose,isPlatform);
   const confirmed=new Set(pool.filter(entry=>entry.registeredWith.length||corroborated.has(entry)));
   let changed=true;let set;
   while(changed){
@@ -255,7 +268,31 @@ function confirmedWithout(entries,excluded,rootSet,seedLoose,isPlatform){
       if(ruleBReasons(entry,set,isPlatform).length){confirmed.add(entry);changed=true;}
     }
   }
-  return set;
+  return{set,confirmed};
+}
+
+// What other findings confirm for rule b when judging one account, built without that account at all. It starts
+// from what was searched, minus any searched lead the account shows itself (the lead may have come from it), and grows
+// only through accounts confirmed without it. So a finding about the account's own detail can never back it up.
+function confirmedSetWithout(found,excluded,others,searchedIds,seedKey,seedLoose,isPlatform){
+  const own=new Set(detailIdentifiers(excluded.finding.account.details,isPlatform).map(idKey));
+  const known=new Map(searchedIds.filter(identifier=>idKey(identifier)===seedKey||!own.has(idKey(identifier))).map(identifier=>[idKey(identifier),identifier]));
+  for(;;){
+    const rootSet=emptyConfirmed();
+    for(const result of classifyOthers(others,new Map(known),new Map()).values()){
+      if(result.status==='linked')addNonAccountRoots(rootSet,result,seedKey,isPlatform);
+    }
+    const {set,confirmed}=confirmedWithout(found,excluded,rootSet,seedLoose,isPlatform);
+    // Known values only ever grow, so this stops once confirmed accounts add nothing new.
+    let grew=false;
+    for(const entry of confirmed){
+      for(const identifier of detailIdentifiers(entry.finding.account.details,isPlatform)){
+        const key=idKey(identifier);
+        if(key&&!known.has(key)){known.set(key,identifier);grew=true;}
+      }
+    }
+    if(!grew)return set;
+  }
 }
 
 function canHoldB(entry,allLinkedTo){
@@ -263,16 +300,16 @@ function canHoldB(entry,allLinkedTo){
   return details.websites.length||details.emails.length||details.usernames.length||(entry.ownUrl&&allLinkedTo.has(entry.ownUrl));
 }
 
-function judgeAccounts(entries,rootSet,seedLoose,isPlatform){
+function judgeAccounts(entries,others,searchedIds,seedKey,seedLoose,isPlatform){
   const found=entries.filter(entry=>entry.presence==='found');
-  const corroborated=corroborations(found,seedLoose);
+  const corroborated=corroborations(found,seedLoose,isPlatform);
   const allLinkedTo=new Set(found.flatMap(entry=>entry.finding.account.details.websites.map(normalizeUrl)));
   const verdicts=new Map();
   for(const entry of found){
     const reasons=[];
     for(const email of entry.registeredWith)reasons.push({rule:'a',text:`Registered with ${email}.`});
     if(canHoldB(entry,allLinkedTo)){
-      for(const text of ruleBReasons(entry,confirmedWithout(found,entry,rootSet,seedLoose,isPlatform),isPlatform))reasons.push({rule:'b',text});
+      for(const text of ruleBReasons(entry,confirmedSetWithout(found,entry,others,searchedIds,seedKey,seedLoose,isPlatform),isPlatform))reasons.push({rule:'b',text});
     }
     for(const text of corroborated.get(entry)||[])reasons.push({rule:'c',text});
     verdicts.set(entry,reasons);
@@ -315,7 +352,7 @@ function findingIdentifiers(finding,isPlatform){
 // A bare platform host (e.g. youtube.com) is never added, so one channel link can't confirm every page on that site.
 function addNonAccountRoots(set,finding,seedKey,isPlatform){
   const evidence=finding.evidence||{};
-  const addUrl=value=>{const key=normalizeUrl(value);if(key&&!(!key.includes('/')&&isPlatform(key)))set.urls.add(key);};
+  const addUrl=value=>{const key=normalizeUrl(value);if(key&&!(isBareKey(key)&&isPlatform(key)))set.urls.add(key);};
   for(const value of evidence.emails||[]){const id=normalizeIdentifier({type:'email',value});if(id&&idKey(id)!==seedKey)set.emails.add(looseKey(id.value));}
   for(const value of evidence.usernames||[]){const id=normalizeIdentifier({type:'username',value});if(id&&idKey(id)!==seedKey)set.usernames.add(looseKey(id.value));}
   for(const value of evidence.urls||[])addUrl(value);
@@ -401,30 +438,20 @@ export function linkFindings(input,seed,{searched=[]}={}){
   const entries=mergeAccounts(accounts,isEcho,searchedKeys);
   const accountHosts=new Set(entries.filter(entry=>entry.ownUrl).map(entry=>platformKey(entry.host)));
   const isPlatform=host=>{const key=platformKey(host);return SHARED_HOSTS.has(key)||accountHosts.has(key);};
-  let accountResults=new Map();let otherResults=new Map();let previous='';
-  // Accounts and other findings feed each other (a confirmed detail can link a fact, a linked fact's email can
-  // confirm an account), so both are re-judged until the set of linked findings stops changing.
-  for(let pass=0;pass<10;pass++){
-    const known=new Map();const trailsByIdentifier=new Map();
-    for(const identifier of searchedIds){known.set(idKey(identifier),identifier);trailsByIdentifier.set(idKey(identifier),[]);}
-    for(const result of accountResults.values()){
-      if(result.status!=='linked')continue;
-      for(const identifier of detailIdentifiers(result.account.details,isPlatform)){
-        const key=idKey(identifier);
-        if(key&&!known.has(key)){known.set(key,identifier);trailsByIdentifier.set(key,result.trail);}
-      }
+  // Accounts are judged first: each one's rule b is worked out from other findings without that account (see
+  // confirmedSetWithout). Then other findings are linked through what was searched and the confirmed accounts' details.
+  const verdicts=judgeAccounts(entries,others,searchedIds,seedKey,seedLoose,isPlatform);
+  const accountResults=new Map(entries.map(entry=>[entry,accountResult(entry,verdicts.get(entry)||[])]));
+  const known=new Map();const trailsByIdentifier=new Map();
+  for(const identifier of searchedIds){known.set(idKey(identifier),identifier);trailsByIdentifier.set(idKey(identifier),[]);}
+  for(const result of accountResults.values()){
+    if(result.status!=='linked')continue;
+    for(const identifier of detailIdentifiers(result.account.details,isPlatform)){
+      const key=idKey(identifier);
+      if(key&&!known.has(key)){known.set(key,identifier);trailsByIdentifier.set(key,result.trail);}
     }
-    otherResults=classifyOthers(others,known,trailsByIdentifier);
-    const rootSet=emptyConfirmed();
-    for(const result of otherResults.values()){
-      if(result.status==='linked')addNonAccountRoots(rootSet,result,seedKey,isPlatform);
-    }
-    const verdicts=judgeAccounts(entries,rootSet,seedLoose,isPlatform);
-    accountResults=new Map(entries.map(entry=>[entry,accountResult(entry,verdicts.get(entry)||[])]));
-    const signature=[...accountResults.values(),...otherResults.values()].filter(item=>item.status==='linked').map(item=>`${item.id}:${(item.confirmedBy||[]).join('')}`).sort().join('|');
-    if(signature===previous)break;
-    previous=signature;
   }
+  const otherResults=classifyOthers(others,known,trailsByIdentifier);
 
   const names=nameSourceCounts([...accountResults.values(),...otherResults.values()]);
   const sanctionResults=new Map(sanctions.map(finding=>{

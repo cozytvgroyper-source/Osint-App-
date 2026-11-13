@@ -344,3 +344,86 @@ test('following a lead from a linked fact never erases the confirmation it suppl
   assert.deepEqual(byUrl(without,'gitlab.com/ownername').confirmedBy,['b']);
   assert.deepEqual(statusesOf(withLead),statusesOf(without));
 });
+
+// ---- Batch 2 review fixes ----
+
+const confirmedGitHub=websites=>account('GitHub','https://github.com/ownername',{verified:true,subject:E,tool:'holehe',details:{websites}});
+
+test('rule c: two profiles that both link a big site\'s home page are not confirmed by it',()=>{
+  const input=[
+    account('Keybase','https://keybase.io/ownername',{details:{websites:['https://twitter.com']}}),
+    account('Chess.com','https://chess.com/member/ownername',{details:{websites:['https://x.com/']}})
+  ];
+  const result=linkFindings(input,U,{searched:[U]});
+  assert.equal(byUrl(result,'keybase.io/ownername').status,'possible');
+  assert.equal(byUrl(result,'chess.com/member/ownername').status,'possible');
+});
+
+test('rule c: two profiles linking the same profile page on a big site still confirm each other',()=>{
+  const input=[
+    account('Keybase','https://keybase.io/ownername',{details:{websites:['https://twitter.com/owner_real']}}),
+    account('Chess.com','https://chess.com/member/ownername',{details:{websites:['https://x.com/owner_real']}})
+  ];
+  const result=linkFindings(input,U,{searched:[U]});
+  assert.deepEqual(byUrl(result,'keybase.io/ownername').confirmedBy,['c']);
+  assert.deepEqual(byUrl(result,'chess.com/member/ownername').confirmedBy,['c']);
+});
+
+test('rule b: a confirmed profile linking a big site\'s home page confirms nobody else who links it',()=>{
+  const input=[
+    confirmedGitHub(['https://youtube.com']),
+    account('Forum','https://forum.example/u/ownername',{details:{websites:['https://www.youtube.com/']}})
+  ];
+  const result=linkFindings(input,U,{searched:[U,E]});
+  assert.equal(byUrl(result,'github.com/ownername').status,'linked');
+  assert.equal(byUrl(result,'forum.example/u/ownername').status,'possible');
+});
+
+test('profile addresses that name the user in the query keep it when compared',()=>{
+  assert.equal(normalizeUrl('https://news.ycombinator.com/user?id=OwnerName'),'news.ycombinator.com/user?id=ownername');
+  assert.equal(normalizeUrl('https://example.org/member.php?u=42&sort=new#x'),'example.org/member.php?u=42');
+  assert.equal(normalizeUrl('https://example.org/profile.php?id=7'),normalizeUrl('https://www.example.org/profile.php?id=7&tab=about'));
+  assert.notEqual(normalizeUrl('https://news.ycombinator.com/user?id=pg'),normalizeUrl('https://news.ycombinator.com/user?id=ownername'));
+});
+
+test('a confirmed profile linking someone else\'s Hacker News page never confirms the searched person\'s',()=>{
+  const hn=account('HackerNews','https://news.ycombinator.com/user?id=ownername');
+  const strangerLink=linkFindings([confirmedGitHub(['https://news.ycombinator.com/user?id=pg']),hn],U,{searched:[U,E]});
+  assert.equal(byUrl(strangerLink,'news.ycombinator.com/user?id=ownername').status,'possible');
+  const ownLink=linkFindings([confirmedGitHub(['https://news.ycombinator.com/user?id=ownername']),hn],U,{searched:[U,E]});
+  assert.deepEqual(byUrl(ownLink,'news.ycombinator.com/user?id=ownername').confirmedBy,['b']);
+});
+
+test('two Hacker News accounts for different users stay two cards',()=>{
+  const lead={type:'username',value:'owner-alt'};
+  const result=linkFindings([
+    account('HackerNews','https://news.ycombinator.com/user?id=ownername'),
+    account('HackerNews','https://news.ycombinator.com/user?id=owner-alt',{subject:lead})
+  ],U,{searched:[U,lead]});
+  assert.equal(result.findings.filter(item=>item.kind==='account').length,2);
+});
+
+test('an account never raises its own level through a finding about its own detail',()=>{
+  const github=account('GitHub','https://github.com/ownername',{details:{names:['Owner Example'],emails:[E.value]}});
+  const gitlab=account('GitLab','https://gitlab.com/ownername',{details:{names:['Owner Example']}});
+  const breach={id:'breach-1',kind:'breach',subject:E,tool:{name:'omega_breach',serverName:'Test MCP'},
+    evidence:evidence({emails:[E.value]}),breach:{name:'ExampleLeak',date:'2024-01-01'}};
+  for(const searched of [[U],[U,E]]){
+    const result=linkFindings([github,gitlab,breach],U,{searched});
+    assert.deepEqual(byUrl(result,'github.com/ownername').confirmedBy,['c'],JSON.stringify(searched));
+    assert.equal(byUrl(result,'github.com/ownername').level,3,JSON.stringify(searched));
+    assert.deepEqual(byUrl(result,'gitlab.com/ownername').confirmedBy,['c'],JSON.stringify(searched));
+  }
+});
+
+test('another confirmed account showing the same detail still backs an account through that finding',()=>{
+  const alt='alt@owner-site.example';
+  const github=account('GitHub','https://github.com/ownername',{verified:true,subject:E,tool:'holehe',details:{emails:[alt]}});
+  const codeberg=account('Codeberg','https://codeberg.org/ownername',{details:{emails:[alt]}});
+  const fact={id:'alt-fact',kind:'fact',subject:{type:'email',value:alt},tool:{name:'ghunt',serverName:'Test MCP'},
+    evidence:evidence({emails:[alt,'contact@owner-site.example']}),fact:{label:'Contact',value:'contact@owner-site.example',group:'owner'}};
+  const shows=account('Forum','https://forum.example/u/ownername',{details:{emails:['contact@owner-site.example']}});
+  const result=linkFindings([github,codeberg,fact,shows],U,{searched:[U,E,{type:'email',value:alt}]});
+  assert.deepEqual(byUrl(result,'forum.example/u/ownername').confirmedBy,['b']);
+  assert.ok(byUrl(result,'codeberg.org/ownername').confirmedBy.includes('b'));
+});
