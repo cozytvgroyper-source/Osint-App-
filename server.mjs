@@ -12,6 +12,7 @@ import {deepCallTimeout} from './scripts/deep-call-timeout.mjs';
 import {appendDeepSearchAudit,readDeepSearchAudit} from './scripts/deep-search-audit.mjs';
 import {CaseStore,MAX_EVIDENCE_BYTES,handleCaseRequest} from './scripts/cases.mjs';
 import {DeepRunStore,MAX_DEEP_RUN_BYTES} from './scripts/deep-search-runs.mjs';
+import {handleDeepHistoryRequest} from './scripts/deep-history-routes.mjs';
 
 const ROOT = fileURLToPath(new URL('./public/', import.meta.url));
 const UPLOAD_ROOT = fileURLToPath(new URL('./work/uploads/', import.meta.url));
@@ -532,6 +533,8 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/deep-search/runs') {
       return json(res,200,await deepRuns.save(await body(req,MAX_DEEP_RUN_BYTES+100_000)));
     }
+    const handledHistory=await handleDeepHistoryRequest({runs:deepRuns,auditFile:DEEP_SEARCH_AUDIT_FILE},req.method,url.pathname,()=>body(req,10_000));
+    if (handledHistory) return json(res,handledHistory.status,handledHistory.body);
     const deepRunRoute=url.pathname.match(/^\/api\/deep-search\/runs\/([a-z0-9-]{8,64})$/);
     if (req.method === 'GET' && deepRunRoute) {
       return json(res,200,await deepRuns.read(deepRunRoute[1]));

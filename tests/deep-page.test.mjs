@@ -64,3 +64,49 @@ test('saving Deep Search results uses the evidence record and existing case work
   assert.match(app,/state\.lastResult=deepEvidenceRecord\(state\.deepCurrent\)/);
   assert.match(app,/saveLastResultToCase\(\)/);
 });
+
+const history=html.match(/<section class="deep-history"[\s\S]*?<\/section>/)[0];
+
+test('Run history has Delete all, a status line and a busy note',()=>{
+  assert.match(history,/<button class="text-button" id="deleteAllDeepHistory" hidden>Delete all<\/button>/);
+  assert.match(history,/id="deepHistoryStatus"[^>]*role="status"/);
+  assert.match(history,/<p id="deepHistoryBusy" class="subtle" hidden>Wait for the current search to finish before deleting\.<\/p>/);
+  assert.match(history,/<h2 id="deepHistoryHeading" tabindex="-1">Run history<\/h2>/);
+});
+
+test('each history row gets an escaped Delete button',()=>{
+  assert.match(app,/data-delete-deep-run="\$\{escapeHtml\(entry\.runId\)\}"/);
+  assert.match(app,/aria-label="Delete search: \$\{escapeHtml\(entry\.target\)\}"/);
+  assert.match(app,/data-delete-deep-time="\$\{escapeHtml\(entry\.time\)\}" data-delete-deep-target="\$\{escapeHtml\(entry\.target\)\}"/);
+});
+
+test('deletes go through confirmAction with the exact wording',()=>{
+  assert.match(app,/confirmAction\(\{title:'Delete this search\?',message:"Its results and its history entry will be removed for good\. This can't be undone\.",confirmLabel:'Delete'\}\)/);
+  assert.match(app,/title:count===1\?'Delete this search\?':count\?`Delete all \$\{count\} searches\?`:'Delete all searches\?'/);
+  assert.match(app,/state\.deepHistoryCount=total>entries\.length\?null:runs\.length/);
+  assert.match(app,/message:"Every search's results and history entry will be removed for good\. This can't be undone\.",confirmLabel:'Delete all'/);
+  assert.match(app,/api\(`\/api\/deep-search\/runs\/\$\{encodeURIComponent\(runId\)\}\/delete`,\{\}\)/);
+  assert.match(app,/api\('\/api\/deep-search\/history\/delete',\{time,target\}\)/);
+  assert.match(app,/api\('\/api\/deep-search\/history\/delete-all',\{\}\)/);
+});
+
+test('deleting is blocked while a search runs',()=>{
+  assert.match(app,/async function deleteDeepRun\([^)]*\)\{\s*if\(state\.deepRun\)return;/);
+  assert.match(app,/async function deleteAllDeepRuns\(\)\{\s*if\(state\.deepRun\)return;/);
+  assert.match(app,/const busy=Boolean\(state\.deepRun\)/);
+  assert.match(app,/\$\{busy\?' disabled':''\}/);
+  assert.match(app,/\$\('#deepHistoryBusy'\)\.hidden=!busy/);
+  assert.match(app,/state\.deepRun=\{id,target,level\};[^\n]*\n[^\n]*\n[^\n]*loadDeepHistory\(\)/);
+});
+
+test('after a delete, focus and status move sensibly',()=>{
+  assert.match(app,/function setDeepHistoryStatus\(text\)\{const box=\$\('#deepHistoryStatus'\);if\(box\.textContent!==text\)box\.textContent=text;\}/);
+  assert.match(app,/afterDeepDelete\(\{runId:runId\|\|null\},'Search deleted\.'\)/);
+  assert.match(app,/afterDeepDelete\(\{all:true\},'All searches deleted\.'\)/);
+  assert.match(app,/await loadDeepHistory\(\);setDeepHistoryStatus\(message\);/);
+  assert.match(app,/setDeepHistoryStatus\(''\);/);
+  assert.match(app,/if\(state\.deepCurrent&&\(all\|\|state\.deepCurrent\.id===runId\)\)\{state\.deepCurrent=null;\$\('#deepResults'\)\.hidden=true;\$\('#deepResults'\)\.innerHTML='';\$\('#deepSetup'\)\.hidden=false;\}/);
+  assert.match(app,/\$\('#deepHistoryHeading'\)\.focus\(\)/);
+});
+
+test('index.html loads app.js?v=59',()=>assert.match(html,/src="\/app\.js\?v=59"/));

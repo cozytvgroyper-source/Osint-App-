@@ -1,5 +1,5 @@
 import {randomBytes} from 'node:crypto';
-import {chmod,mkdir,readFile,rename,writeFile} from 'node:fs/promises';
+import {chmod,lstat,mkdir,readFile,readdir,rename,unlink,writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
 
 export const MAX_DEEP_RUN_BYTES=25_000_000;
@@ -32,5 +32,27 @@ export class DeepRunStore{
     try{raw=await readFile(this.file(id),'utf8');}
     catch(error){if(error.code==='ENOENT')throw fail('DEEP_RUN_NOT_FOUND','These Deep Search results no longer exist.');throw error;}
     try{return JSON.parse(raw);}catch{throw fail('DEEP_RUN_DAMAGED','This Deep Search result file is damaged.');}
+  }
+  // Deletes one run's results. Returns false when there was nothing to delete (older runs may have no file).
+  async remove(id){
+    try{await unlink(this.file(id));return true;}
+    catch(error){if(error.code==='ENOENT')return false;throw error;}
+  }
+  // Deletes every saved, temporary or orphaned results file. Returns how many files were removed.
+  async removeAll(){
+    let names;
+    try{names=await readdir(this.dir);}catch(error){if(error.code==='ENOENT')return 0;throw error;}
+    let removed=0;
+    for(const name of names){
+      if(!/\.(?:json|tmp)$/.test(name))continue;
+      const path=join(this.dir,name);
+      // A file can vanish between readdir and here (another Delete all, or a save renaming its temp file):
+      // that is "already gone", not a failure.
+      try{
+        if(!(await lstat(path)).isFile())continue;
+        await unlink(path);removed++;
+      }catch(error){if(error.code!=='ENOENT')throw error;}
+    }
+    return removed;
   }
 }
