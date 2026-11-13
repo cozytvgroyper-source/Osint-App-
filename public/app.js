@@ -11,7 +11,7 @@ import {activeCaseId,defaultCaseName,newestFirst,shortFingerprint} from './cases
 import {selfCheckPlan,summarizeSelfCheck} from './self-check.js';
 import {argsForSearch,extractTarget,searchIntent,searchSubjectFor} from './search-query.js?v=1';
 import {renderRankedReport} from './search-results-view.js?v=4';
-import {loadStoredState,mergeStoredServers,persistStoredState} from './browser-storage.js';
+import {loadStoredState,mergeStoredServers,persistStoredState,safeStorage} from './browser-storage.js';
 import {TIERS,groupToolsByTier,runRequirements,toolRisk} from './tool-tiers.js?v=1';
 import {resultPivot} from './result-pivots.js?v=1';
 import {buildRunGrantRequest} from './run-grant-client.js?v=1';
@@ -26,8 +26,9 @@ const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
 const bootstrapFragment=new URLSearchParams(location.hash.slice(1));
 const fragmentAccess=bootstrapFragment.get('access');
-if(fragmentAccess){sessionStorage.setItem('publicDesk.access',fragmentAccess);history.replaceState({},'',`${location.pathname}${location.search}`);}
-const publicDeskAccess=sessionStorage.getItem('publicDesk.access')||'';
+const localStore=safeStorage(()=>localStorage);const sessionStore=safeStorage(()=>sessionStorage);
+if(fragmentAccess){sessionStore.setItem('publicDesk.access',fragmentAccess);history.replaceState({},'',`${location.pathname}${location.search}`);}
+const publicDeskAccess=sessionStore.getItem('publicDesk.access')||'';
 const accessHeaders=()=>publicDeskAccess?{'x-public-desk-token':publicDeskAccess}:{};
 const bundledServers=[
   { id: 'osint-local', name: 'Open OSINT', endpoint: 'http://127.0.0.1:8892/mcp', status: 'offline', tools: [] },
@@ -36,7 +37,7 @@ const bundledServers=[
   { id: 'consensus', name: 'Consensus', endpoint: 'https://mcp.consensus.app/mcp', status: 'offline', tools: [], oauth: 'consensus' }
 ];
 // Storage keys keep the original 'signaldesk.' prefix so saved data survives the Public Desk rename.
-const storedState=loadStoredState(localStorage);
+const storedState=loadStoredState(localStore);
 const removedBundledEndpoints=new Set(storedState.disabledBundledEndpoints);
 const startupServers=mergeStoredServers(bundledServers,storedState.servers,removedBundledEndpoints);
 const state = {
@@ -55,11 +56,11 @@ const state = {
   deepCurrent: null,
   deepController: null,
   cases: [],
-  activeCaseId: localStorage.getItem('signaldesk.activeCase'),
+  activeCaseId: localStore.getItem('signaldesk.activeCase'),
   activeCase: null
 };
-const clientSessionId=sessionStorage.getItem('signaldesk.clientSessionId')||crypto.randomUUID();
-sessionStorage.setItem('signaldesk.clientSessionId',clientSessionId);
+const clientSessionId=sessionStore.getItem('signaldesk.clientSessionId')||crypto.randomUUID();
+sessionStore.setItem('signaldesk.clientSessionId',clientSessionId);
 const sessionKeyFor=serverId=>`${clientSessionId}:${serverId}`;
 // Development mode: open Public Desk at /?diagnostics to see why the planner chose each tool.
 const diagnosticsEnabled=new URLSearchParams(location.search).has('diagnostics');
@@ -69,7 +70,7 @@ let lastStorageWarning='';
 const intelNews={events:[],metrics:null,categories:[],generatedAt:'',loaded:false,loading:false,error:'',visibleLimit:30};
 
 function persist() {
-  const saved=persistStoredState(localStorage,state);
+  const saved=persistStoredState(localStore,state);
   state.evidence=saved.evidence;
   const warning=[...pendingStorageWarnings,...saved.warnings].at(-1)||'';
   pendingStorageWarnings=[];
@@ -129,7 +130,7 @@ function setupMenu(button,menu){
 }
 // After a data source changes, focus its Connect/Change key button so keyboard users keep their place.
 function focusSourceCard(id){document.querySelector(`[data-source-edit="${CSS.escape(id)}"]`)?.focus();}
-function toast(message) { const el=$('#toast'); el.textContent=message; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2400); }
+function toast(message,ms=2400) { const el=$('#toast'); el.textContent=message; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),ms); }
 function iconFor(name='') { if(/cyber|cve|threat|domain|ip/i.test(name))return'⌁'; if(/geo|satellite|place|flight|vessel/i.test(name))return'◈'; if(/sanction|entity|company/i.test(name))return'◎'; return'▤'; }
 
 // Each view's name and one plain line on what it is for, shown in the page header and the browser tab.
@@ -349,7 +350,7 @@ async function loadDeepHistory(){
     // The count is exact only when the whole log was read; otherwise Delete all doesn't name a number.
     state.deepHistoryCount=total>entries.length?null:runs.length;
     $('#deleteAllDeepHistory').hidden=!runs.length;$('#deleteAllDeepHistory').disabled=busy;$('#deepHistoryBusy').hidden=!busy;
-    box.innerHTML=runs.length?`<table class="deep-history-table"><thead><tr><th scope="col">When</th><th scope="col">Target</th><th scope="col">Max level</th><th scope="col">Tools</th><th scope="col">Outcome</th><th scope="col">Results</th></tr></thead><tbody>${runs.map(entry=>`<tr><td>${escapeHtml(new Date(entry.time).toLocaleString())}</td><td><code>${escapeHtml(entry.target)}</code></td><td>${escapeHtml(levelName(entry.level))}</td><td title="${escapeHtml((entry.tools||[]).join(', '))}">${entry.toolCount??(entry.tools||[]).length} tool${(entry.toolCount??(entry.tools||[]).length)===1?'':'s'}</td><td>${escapeHtml(entry.outcome)}</td><td>${entry.runId?`<button type="button" class="text-button" data-open-deep="${escapeHtml(entry.runId)}">Open results</button>`:'Results weren\'t kept for this run'} ${deleteButton(entry)}</td></tr>`).join('')}</tbody></table>${total>runs.length?`<p class="subtle">Showing the latest ${runs.length} of ${total} audit entries.</p>`:''}${skipped?`<p class="subtle">${skipped} damaged line${skipped===1?' was':'s were'} skipped in the audit log.</p>`:''}`:'<div class="empty-state">No Deep Search runs yet.</div>';
+    box.innerHTML=runs.length?`<div class="table-scroll" role="region" tabindex="0" aria-label="Run history table"><table class="deep-history-table"><thead><tr><th scope="col">When</th><th scope="col">Target</th><th scope="col">Max level</th><th scope="col">Tools</th><th scope="col">Outcome</th><th scope="col">Results</th></tr></thead><tbody>${runs.map(entry=>`<tr><td>${escapeHtml(new Date(entry.time).toLocaleString())}</td><td><code>${escapeHtml(entry.target)}</code></td><td>${escapeHtml(levelName(entry.level))}</td><td title="${escapeHtml((entry.tools||[]).join(', '))}">${entry.toolCount??(entry.tools||[]).length} tool${(entry.toolCount??(entry.tools||[]).length)===1?'':'s'}</td><td>${escapeHtml(entry.outcome)}</td><td>${entry.runId?`<button type="button" class="text-button" data-open-deep="${escapeHtml(entry.runId)}">Open results</button>`:'Results weren\'t kept for this run'} ${deleteButton(entry)}</td></tr>`).join('')}</tbody></table></div>${total>runs.length?`<p class="subtle">Showing the latest ${runs.length} of ${total} audit entries.</p>`:''}${skipped?`<p class="subtle">${skipped} damaged line${skipped===1?' was':'s were'} skipped in the audit log.</p>`:''}`:'<div class="empty-state">No Deep Search runs yet.</div>';
   }catch(error){$('#deleteAllDeepHistory').hidden=true;box.innerHTML=`<div class="empty-state">Could not read the audit log: ${escapeHtml(error.message)}</div>`;}
 }
 const selfCheck={running:false,stop:false};
@@ -357,7 +358,7 @@ function renderSelfCheck(results,pending=0){
   $('#selfCheckSummary').textContent=results.length?`${summarizeSelfCheck(results).label}${pending?` · ${pending} to go`:''}`:'';
   // Each result is a word with an icon (never color alone).
   const label={working:['✓','Working'],empty:['○','Returned nothing'],failing:['✕','Failing'],skipped:['–','Skipped']};
-  $('#selfCheckResults').innerHTML=results.length?`<table class="deep-history-table"><thead><tr><th scope="col">Tool</th><th scope="col">Server</th><th scope="col">Test target</th><th scope="col">Result</th><th scope="col">Time</th></tr></thead><tbody>${results.map(r=>`<tr class="self-check-${r.outcome}"><td><code>${escapeHtml(r.tool)}</code></td><td>${escapeHtml(r.server)}</td><td><code>${escapeHtml(r.target)}</code></td><td>${label[r.outcome]?`<span aria-hidden="true">${label[r.outcome][0]} </span>${escapeHtml(label[r.outcome][1])}`:escapeHtml(r.outcome)}${r.detail?`<br><small>${escapeHtml(r.detail)}</small>`:''}</td><td>${r.ms==null?'':`${(r.ms/1000).toFixed(1)} s`}</td></tr>`).join('')}</tbody></table>`:'';
+  $('#selfCheckResults').innerHTML=results.length?`<div class="table-scroll" role="region" tabindex="0" aria-label="Tool check results table"><table class="deep-history-table"><thead><tr><th scope="col">Tool</th><th scope="col">Server</th><th scope="col">Test target</th><th scope="col">Result</th><th scope="col">Time</th></tr></thead><tbody>${results.map(r=>`<tr class="self-check-${r.outcome}"><td><code>${escapeHtml(r.tool)}</code></td><td>${escapeHtml(r.server)}</td><td><code>${escapeHtml(r.target)}</code></td><td>${label[r.outcome]?`<span aria-hidden="true">${label[r.outcome][0]} </span>${escapeHtml(label[r.outcome][1])}`:escapeHtml(r.outcome)}${r.detail?`<br><small>${escapeHtml(r.detail)}</small>`:''}</td><td>${r.ms==null?'':`${(r.ms/1000).toFixed(1)} s`}</td></tr>`).join('')}</tbody></table></div>`:'';
 }
 async function runSelfCheck(){
   if(selfCheck.running)return;
@@ -391,7 +392,7 @@ async function loadCases(){
     state.activeCaseId=activeCaseId(state.cases,state.activeCaseId);
     state.activeCase=state.activeCaseId?await apiGet(`/api/cases/${state.activeCaseId}`):null;
   }catch(error){toast(`Could not load cases: ${error.message}`);}
-  if(state.activeCaseId)localStorage.setItem('signaldesk.activeCase',state.activeCaseId);else localStorage.removeItem('signaldesk.activeCase');
+  if(state.activeCaseId)localStore.setItem('signaldesk.activeCase',state.activeCaseId);else localStore.removeItem('signaldesk.activeCase');
   renderEvidence();
 }
 async function selectCase(id){state.activeCaseId=id||null;await loadCases();}
@@ -843,7 +844,7 @@ $('#saveServer').addEventListener('click',e=>{e.preventDefault();const form=new 
   clearServerFormErrors();const problem=validateServerForm(server);
   if(problem){const field=$(`#${problem.field}`);$(`#${problem.field}-error`).textContent=problem.message;field.setAttribute('aria-invalid','true');if(document.activeElement===field)announceServerProblem(problem.message);else field.focus();return;}
  removedBundledEndpoints.delete(server.endpoint);state.servers.push(server);state.tokens.set(server.id,form.get('token'));$('#serverDialog').close();renderAll();connect(server);});
-$('#executeTool').addEventListener('click',async e=>{e.preventDefault();const blocked=runBlockedReason(state.activeTool.tool);if(blocked){$('#runError').textContent=blocked;return;}try{const args=JSON.parse($('#runArgs').value);const grant=await requestRunGrant(state.activeTool.tool,state.activeTool.serverId,args);$('#runDialog').close();await runTool(state.activeTool.tool,state.activeTool.serverId,args,state.activeTool.tool.name,grant);}catch(error){$('#runError').textContent=error.message;}});
+$('#executeTool').addEventListener('click',async e=>{e.preventDefault();const blocked=runBlockedReason(state.activeTool.tool);if(blocked){$('#runError').textContent=blocked;return;}try{const args=JSON.parse($('#runArgs').value);const grant=await requestRunGrant(state.activeTool.tool,state.activeTool.serverId,args);$('#runDialog').close();await runTool(state.activeTool.tool,state.activeTool.serverId,args,state.activeTool.tool.name,grant);}catch(error){$('#runDialog').open?$('#runError').textContent=error.message:toast(`${state.activeTool.tool.name} failed: ${error.message}`,8000);}});
 $('#deepTarget').oninput=updateDeepSetup;
 $('#deepLevel').onchange=()=>{explainDeepLevel();updateDeepSetup();};
 $('#startDeepSearch').onclick=startDeepSearch;
@@ -886,8 +887,8 @@ function applyTheme(theme){
   document.documentElement.dataset.theme=theme;
   const toggle=$('#themeToggle');toggle.setAttribute('aria-pressed',String(theme==='dark'));toggle.setAttribute('aria-label','Dark theme');
 }
-$('#themeToggle').onclick=()=>{const next=document.documentElement.dataset.theme==='dark'?'light':'dark';applyTheme(next);localStorage.setItem('signaldesk.theme',next);};
-applyTheme(localStorage.getItem('signaldesk.theme')||'light');
+$('#themeToggle').onclick=()=>{const next=document.documentElement.dataset.theme==='dark'?'light':'dark';applyTheme(next);localStore.setItem('signaldesk.theme',next);};
+applyTheme(localStore.getItem('signaldesk.theme')||'light');
 if(new URLSearchParams(location.search).get('consensus')==='connected'){
   history.replaceState({},'',location.pathname);
   toast('Consensus sign-in complete');
