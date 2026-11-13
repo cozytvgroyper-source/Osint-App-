@@ -15,7 +15,10 @@ import {loadStoredState,mergeStoredServers,persistStoredState} from './browser-s
 import {TIERS,groupToolsByTier,runRequirements,toolRisk} from './tool-tiers.js?v=1';
 import {resultPivot} from './result-pivots.js?v=1';
 import {buildRunGrantRequest} from './run-grant-client.js?v=1';
-import {deepRunBlocked,deepSearchPlan} from './deep-search.js?v=3';
+import {deepRunBlocked,deepToolsFor,detectDeepTarget,isPersonType} from './deep-search.js?v=3';
+import {runDeepSearch as runDeepEngine} from './deep-engine.js?v=1';
+import {deepStatusLine,initialProgress,reduceProgress,renderProgress} from './deep-progress.js?v=1';
+import {deepEvidenceRecord,renderDeepResults} from './deep-results-view.js?v=1';
 
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
@@ -45,7 +48,9 @@ const state = {
   lastResult: null,
   pendingFile: null,
   tierFilter: 'all',
-  deepPlan: [],
+  deepRun: null,
+  deepProgress: null,
+  deepCurrent: null,
   deepController: null,
   cases: [],
   activeCaseId: localStorage.getItem('signaldesk.activeCase'),
@@ -333,7 +338,8 @@ async function loadDeepHistory(){
   try{
     const {entries,total,skipped}=await apiGet('/api/deep-search/audit');
     const levelName=level=>TIERS[level]?.label||`Level ${level}`;
-    box.innerHTML=entries.length?`<table class="deep-history-table"><thead><tr><th scope="col">When</th><th scope="col">Target</th><th scope="col">Max level</th><th scope="col">Tools</th><th scope="col">Outcome</th></tr></thead><tbody>${entries.map(entry=>`<tr><td>${escapeHtml(new Date(entry.time).toLocaleString())}</td><td><code>${escapeHtml(entry.target)}</code></td><td>${escapeHtml(levelName(entry.level))}</td><td title="${escapeHtml((entry.tools||[]).join(', '))}">${(entry.tools||[]).length} tool${(entry.tools||[]).length===1?'':'s'}</td><td>${escapeHtml(entry.outcome)}</td></tr>`).join('')}</tbody></table>${total>entries.length?`<p class="subtle">Showing the latest ${entries.length} of ${total} runs.</p>`:''}${skipped?`<p class="subtle">${skipped} damaged line${skipped===1?' was':'s were'} skipped in the audit log.</p>`:''}`:'<div class="empty-state">No Deep Search runs yet.</div>';
+    const seen=new Set();const runs=entries.filter(entry=>{const key=entry.runId||`${entry.time}:${entry.target}`;if(seen.has(key))return false;seen.add(key);return true;});
+    box.innerHTML=runs.length?`<table class="deep-history-table"><thead><tr><th scope="col">When</th><th scope="col">Target</th><th scope="col">Max level</th><th scope="col">Tools</th><th scope="col">Outcome</th><th scope="col">Results</th></tr></thead><tbody>${runs.map(entry=>`<tr><td>${escapeHtml(new Date(entry.time).toLocaleString())}</td><td><code>${escapeHtml(entry.target)}</code></td><td>${escapeHtml(levelName(entry.level))}</td><td title="${escapeHtml((entry.tools||[]).join(', '))}">${entry.toolCount??(entry.tools||[]).length} tool${(entry.toolCount??(entry.tools||[]).length)===1?'':'s'}</td><td>${escapeHtml(entry.outcome)}</td><td>${entry.runId?`<button type="button" class="text-button" data-open-deep="${escapeHtml(entry.runId)}">Open results</button>`:'Results weren\'t kept for this run'}</td></tr>`).join('')}</tbody></table>${total>runs.length?`<p class="subtle">Showing the latest ${runs.length} of ${total} audit entries.</p>`:''}${skipped?`<p class="subtle">${skipped} damaged line${skipped===1?' was':'s were'} skipped in the audit log.</p>`:''}`:'<div class="empty-state">No Deep Search runs yet.</div>';
   }catch(error){box.innerHTML=`<div class="empty-state">Could not read the audit log: ${escapeHtml(error.message)}</div>`;}
 }
 const selfCheck={running:false,stop:false};
@@ -409,7 +415,7 @@ async function importBrowserEvidence(){
 // Keep each part ("116 tools", "98 working") on one line so narrow cards wrap only between parts.
 function toolCountHtml(server){return escapeHtml(toolCountLabel(server,state.toolHealth).replace(/(?<!·) (?!·)/g,'\u00a0'));}
 function noteToolHealth(serverId,toolName,kind){state.toolHealth=recordToolHealth(state.toolHealth,serverId,toolName,kind,new Date().toISOString());}
-function renderAll(){renderRecentSearches();renderSourcesStatus();renderServers();renderDataSources();renderTools();renderEvidence();persist();}
+function renderAll(){renderRecentSearches();renderSourcesStatus();renderServers();renderDataSources();renderTools();renderEvidence();updateDeepSetup();persist();}
 
 function openTool(tool, serverId){
   state.activeTool={tool,serverId}; $('#runToolName').textContent=tool.name; $('#runToolDescription').textContent=tool.description||'';
@@ -459,7 +465,7 @@ async function runTool(tool,serverId,args,title=tool.name,grant=null){
 
 async function callTool(tool,serverId,args,grant=null,options={}){
   const server=state.servers.find(s=>s.id===serverId); if(!server)throw new Error('Server not found');
-  return api('/api/mcp',{endpoint:server.endpoint,token:state.tokens.get(server.id)||'',sessionKey:sessionKeyFor(server.id),method:'tools/call',params:{name:tool.name,arguments:args},initialize:server.status!=='connected',runGrant:grant?.token||'',runTarget:grant?.target||''},{signal:options.signal});
+  return api('/api/mcp',{endpoint:server.endpoint,token:state.tokens.get(server.id)||'',sessionKey:sessionKeyFor(server.id),method:'tools/call',params:{name:tool.name,arguments:args},initialize:server.status!=='connected',runGrant:grant?.token||'',runTarget:grant?.target||'',deepSearch:Boolean(options.deepSearch),timeoutMs:options.timeoutMs},{signal:options.signal});
 }
 
 function humanize(value=''){return String(value).replace(/([a-z0-9])([A-Z])/g,'$1 $2').replace(/[_-]+/g,' ').replace(/\b\w/g,c=>c.toUpperCase());}
@@ -638,49 +644,100 @@ async function smartInvestigate(query){
   recordHistory({title:query,time:state.lastResult.time,server:state.lastResult.server,sourceLog:final.sourceLog}); renderAll();
 }
 
-function renderDeepPlan(){
-  const plan=state.deepPlan;
-  $('#deepPlan').innerHTML=plan.length?plan.map((item,index)=>`<label class="deep-tool"><input type="checkbox" data-deep-tool="${index}" ${item.selected?'checked':''} /><div><b>${escapeHtml(item.tool.name)}</b><p>${escapeHtml(item.tool.description||'No description provided.')}</p><p>${escapeHtml(item.risk.targetSees)}</p></div><div class="deep-tool-meta">${tierBadge(item.risk)}<br>${item.risk.level<=1?'about 30 seconds':item.risk.level===2?'up to 2 minutes':'up to 2 minutes'}</div></label>`).join(''):'<div class="empty-state">No reviewed Deep Search tools match this target and level on the connected servers.</div>';
-  $('#deepConfirmations').hidden=!plan.length;$('#deepConfirmHint').hidden=Boolean(plan.length);$('#deepConfirmHint').textContent=state.deepPlanBuilt?'Nothing to run yet: no reviewed tools match this target and level.':'Build a plan in step 1 first. Then confirm here and run it.';
-  $('#deepTypedWrap').hidden=Number($('#deepLevel').value)!==3;
+function deepCandidateTypes(target){return isPersonType(target?.type)?['email','username','phone','domain']:[target?.type].filter(Boolean);}
+
+function deepChoices(target,level){
+  return deepCandidateTypes(target).map(type=>{
+    const choiceLevel=isPersonType(target?.type)&&type==='domain'?1:level;
+    return{type,items:deepToolsFor(allTools(),{type,level:choiceLevel})};
+  }).filter(group=>group.items.length);
 }
 
-function addDeepLog(message){const log=$('#deepLog');log.hidden=false;log.textContent+=`${new Date().toLocaleTimeString()}  ${message}\n`;log.scrollTop=log.scrollHeight;}
+function selectedDeepTools(){return $$('[data-deep-exclude]:checked').map(input=>input.dataset.deepExclude);}
 
-function buildDeepPlan(){
-  state.deepPlanBuilt=true;
-  const target=$('#deepTarget').value.trim();const level=Number($('#deepLevel').value);
-  state.deepPlan=deepSearchPlan(allTools(),target,level);$('#deepError').textContent='';$('#deepLog').textContent='';$('#deepLog').hidden=true;renderDeepPlan();
+function renderDeepChoices(target,level){
+  const groups=target?deepChoices(target,level):[];
+  $('#deepTools').innerHTML=groups.length?groups.map(group=>`<section class="deep-tool-group"><h3>${escapeHtml(humanize(group.type))}</h3>${group.items.map(item=>{const key=`${item.tool.serverName}::${item.tool.name}`;return`<label class="deep-tool"><input type="checkbox" data-deep-exclude="${escapeHtml(key)}" checked /><span><b>${escapeHtml(item.tool.name)}</b><small>${escapeHtml(item.tool.serverName)} · ${escapeHtml(item.risk.label)}</small></span></label>`;}).join('')}</section>`).join(''):'<p class="subtle">No connected, reviewed tools fit this target yet.</p>';
+  return groups.flatMap(group=>group.items);
 }
 
-async function runDeepSearch(){
-  state.deepPlan.forEach((item,index)=>item.selected=$(`[data-deep-tool="${index}"]`)?.checked!==false);
-  const selected=state.deepPlan.filter(item=>item.selected);const target=$('#deepTarget').value.trim();const level=Number($('#deepLevel').value);
-  const blocked=deepRunBlocked({target,level,authorization:$('#deepAuthorize').checked,typedTarget:$('#deepTypedTarget').value,selectedCount:selected.length});
+function updateDeepSetup(){
+  if(state.deepRun)return;
+  const input=$('#deepTarget')?.value||'';const status=deepStatusLine(input);const target=detectDeepTarget(input);const person=isPersonType(target?.type);
+  const deepStatus=$('#deepStatus');if(!deepStatus)return;
+  if(status.kind==='unsupported'){
+    if(deepStatus.dataset.message!==status.message)deepStatus.innerHTML=`${escapeHtml(status.message)} <button type="button" class="text-button" data-view-link="workspace">Open Search</button>`;
+  }else if(deepStatus.textContent!==status.message)deepStatus.textContent=status.message;
+  deepStatus.dataset.message=status.message;
+  $('#deepLevelWrap').hidden=!target||person||!['domain','ip'].includes(target.type);
+  const level=person?0:Number($('#deepLevel').value||0);const available=renderDeepChoices(target,level);
+  const needsAuthorization=Boolean(target&&!person&&['domain','ip'].includes(target.type));
+  $('#deepConfirmations').hidden=!needsAuthorization;
+  $('#deepTypedWrap').hidden=level!==3;
+  $('#deepAuthorize').disabled=!needsAuthorization;
+  $('#startDeepSearch').disabled=!target||!available.length;
+  $('#deepError').textContent='';
+}
+
+const explainDeepLevel=()=>{$('#deepLevelExplain').textContent=`${TIERS[Number($('#deepLevel').value)].label}: ${TIERS[Number($('#deepLevel').value)].targetSees}`;};
+let deepRenderQueued=false,deepLastRender=0,deepRenderTimer=0;
+function renderDeepProgressSoon(force=false){
+  const draw=()=>{deepRenderQueued=false;deepLastRender=performance.now();if(state.deepProgress)$('#deepProgress').innerHTML=renderProgress(state.deepProgress);};
+  if(force){clearTimeout(deepRenderTimer);deepRenderQueued=false;draw();return;}
+  if(deepRenderQueued)return;deepRenderQueued=true;
+  const wait=Math.max(0,250-(performance.now()-deepLastRender));
+  deepRenderTimer=setTimeout(()=>requestAnimationFrame(draw),wait);
+}
+
+const warnDeepUnload=event=>{event.preventDefault();event.returnValue='';};
+
+async function startDeepSearch(){
+  if(state.deepRun){switchView('deep');$('#deepProgress').hidden=false;requestAnimationFrame(()=>document.getElementById('deepProgressHeading')?.focus());return;}
+  const target=detectDeepTarget($('#deepTarget').value);const person=isPersonType(target?.type);const level=person?0:Number($('#deepLevel').value||0);
+  const choices=deepChoices(target,level).flatMap(group=>group.items);const selectedKeys=new Set(selectedDeepTools());
+  const excluded=new Set(choices.map(item=>`${item.tool.serverName}::${item.tool.name}`).filter(key=>!selectedKeys.has(key)));
+  const confirmation={acknowledged:true,authorization:$('#deepAuthorize').checked,typedTarget:$('#deepTypedTarget').value.trim()};
+  const blocked=deepRunBlocked({target,level,authorization:confirmation.authorization,typedTarget:confirmation.typedTarget,person,selectedCount:choices.length-excluded.size});
   if(blocked){$('#deepError').textContent=blocked;return;}
-  $('#deepError').textContent='';$('#runDeepSearch').disabled=true;$('#cancelDeepRun').disabled=false;state.deepController=new AbortController();
-  const tools=selected.map(item=>{const server=state.servers.find(entry=>entry.id===item.tool.serverId);return{endpoint:server.endpoint,name:item.tool.name,arguments:item.args};});
-  let outcome='completed';let failures=0;
+  const id=crypto.randomUUID(),controller=new AbortController(),toolNames=choices.filter(item=>!excluded.has(`${item.tool.serverName}::${item.tool.name}`)).map(item=>item.tool.name);
+  state.deepRun={id,target,level};state.deepController=controller;state.deepProgress=initialProgress(target,level);state.deepCurrent=null;
+  $('#deepSetup').hidden=true;$('#deepResults').hidden=true;$('#deepProgress').hidden=false;renderDeepProgressSoon(true);document.getElementById('deepProgressHeading')?.focus();
+  window.addEventListener('beforeunload',warnDeepUnload);
+  const grantTargets=new Map();let run;
+  await api('/api/deep-search/audit',{target:target.value,level,tools:toolNames,toolCount:toolNames.length,runId:id,outcome:'started'}).catch(error=>toast(`Audit log warning: ${error.message}`));
   try{
-    const grant=await api('/api/run-grants',{purpose:'deep-search',target,level,tools,confirmation:{acknowledged:true,authorization:true,typedTarget:$('#deepTypedTarget').value}});
-    addDeepLog(`Confirmed ${selected.length} tool${selected.length===1?'':'s'} for ${target}.`);
-    for(const item of selected){
-      if(state.deepController.signal.aborted)throw new DOMException('Cancelled','AbortError');
-      addDeepLog(`Running ${item.tool.name}…`);
-      try{const response=await callTool(item.tool,item.tool.serverId,item.args,grant,{signal:state.deepController.signal});if(response.error)throw new Error(response.error.message||'Tool call failed');addDeepLog(`Finished ${item.tool.name}.`);}
-      catch(error){if(error.name==='AbortError')throw error;failures++;addDeepLog(`${item.tool.name} failed: ${error.message}`);}
-    }
-    if(failures)outcome=`completed-with-${failures}-errors`;
-  }catch(error){outcome=error.name==='AbortError'?'cancelled':'failed';addDeepLog(outcome==='cancelled'?'Run cancelled.':`Run stopped: ${error.message}`);}
-  finally{
-    await api('/api/deep-search/audit',{target,level,tools:selected.map(item=>item.tool.name),outcome}).catch(error=>addDeepLog(`Audit log failed: ${error.message}`));
-    loadDeepHistory();
-    if(outcome.startsWith('completed'))addDeepLog(`Run ${outcome}. Audit saved on this Mac.`);
-    state.deepController=null;$('#runDeepSearch').disabled=false;$('#cancelDeepRun').disabled=true;
+    run=await runDeepEngine({id,target,level,tools:allTools(),excluded,confirmation,signal:controller.signal,
+      callTool:async(tool,args,options)=>callTool(tool,tool.serverId,args,options.grant?{token:options.grant,target:grantTargets.get(options.grant)||target.value}:null,options),
+      requestGrant:async request=>{
+        const tools=request.tools.map(item=>{const server=state.servers.find(entry=>entry.id===item.tool.serverId);return{endpoint:server.endpoint,name:item.tool.name,arguments:item.args};});
+        const grant=await api('/api/run-grants',{purpose:'deep-search',target:request.target,level:request.level,runId:request.runId,ttlMs:request.ttlMs,tools,confirmation:request.confirmation});grantTargets.set(grant.token,request.target);return grant;
+      },
+      releaseGrants:runId=>api('/api/run-grants/release',{runId}).catch(()=>({released:0})),
+      onEvent:event=>{if(event.type==='tool-start'&&person&&event.identifier?.type==='domain')state.deepProgress=reduceProgress(state.deepProgress,{type:'stage',stage:'sites',round:state.deepProgress.round});state.deepProgress=reduceProgress(state.deepProgress,event);renderDeepProgressSoon(event.type==='done');}
+    });
+  }catch(error){
+    const now=new Date().toISOString();run={id,target,level,startedAt:now,finishedAt:now,outcome:controller.signal.aborted?'stopped':'failed',rounds:state.deepProgress?.round||0,calls:[],findings:[],leadsNotFollowed:[],raw:{},error:error.message};
+  }finally{
+    await api('/api/deep-search/runs',run).catch(error=>toast(`Could not keep these results: ${error.message}`));
+    await api('/api/deep-search/audit',{target:target.value,level,tools:toolNames,toolCount:toolNames.length,runId:id,outcome:run.outcome}).catch(error=>toast(`Audit log warning: ${error.message}`));
+    state.deepCurrent=run;state.deepRun=null;state.deepController=null;window.removeEventListener('beforeunload',warnDeepUnload);
+    $('#deepProgress').hidden=true;$('#deepResults').hidden=false;$('#deepResults').innerHTML=renderDeepResults(run);document.getElementById('deepResultsHeading')?.focus();loadDeepHistory();
   }
 }
 
+async function cancelDeepSearch(){
+  if(!state.deepController)return;
+  if(await confirmAction({title:'Stop the search?',message:"Stop the search? What's been found so far will be kept.",confirmLabel:'Stop search'}))state.deepController.abort();
+}
+
+function resetDeepSearch(value=''){
+  $('#deepSetup').hidden=false;$('#deepProgress').hidden=true;$('#deepResults').hidden=true;$('#deepTarget').value=value;$('#deepAuthorize').checked=false;$('#deepTypedTarget').value='';updateDeepSetup();window.scrollTo({top:0,behavior:'smooth'});$('#deepTarget').focus();
+}
+
 document.addEventListener('click',async event=>{
+  if(event.target.closest('[data-deep-cancel]')){cancelDeepSearch();return;}
+  if(event.target.closest('[data-deep-new]')){resetDeepSearch();return;}
+  const deepTarget=event.target.closest('[data-deep-target]');if(deepTarget){switchView('deep');resetDeepSearch(deepTarget.dataset.deepTarget);return;}
   const consensusSignIn=event.target.closest('[data-consensus-sign-in]');if(consensusSignIn){try{const {authorize}=await api('/api/oauth/consensus/start',{});location.assign(authorize);}catch(error){toast(`Could not start sign-in: ${error.message}`);}return;}
   const pivot=event.target.closest('[data-pivot]');if(pivot){event.preventDefault();const target=pivot.dataset.pivot;$('#resultDialog').close();switchView('workspace');$('#query').value=target;$('#query').focus();try{await smartInvestigate(target);}catch(error){toast(error.message);}return;}
   const nav=event.target.closest('[data-view]'); if(nav)switchView(nav.dataset.view);
@@ -722,13 +779,10 @@ $('#saveServer').addEventListener('click',e=>{e.preventDefault();const form=new 
   if(problem){const field=$(`#${problem.field}`);$(`#${problem.field}-error`).textContent=problem.message;field.setAttribute('aria-invalid','true');if(document.activeElement===field)announceServerProblem(problem.message);else field.focus();return;}
  removedBundledEndpoints.delete(server.endpoint);state.servers.push(server);state.tokens.set(server.id,form.get('token'));$('#serverDialog').close();renderAll();connect(server);});
 $('#executeTool').addEventListener('click',async e=>{e.preventDefault();const blocked=runBlockedReason(state.activeTool.tool);if(blocked){$('#runError').textContent=blocked;return;}try{const args=JSON.parse($('#runArgs').value);const grant=await requestRunGrant(state.activeTool.tool,state.activeTool.serverId,args);$('#runDialog').close();await runTool(state.activeTool.tool,state.activeTool.serverId,args,state.activeTool.tool.name,grant);}catch(error){$('#runError').textContent=error.message;}});
-$('#buildDeepPlan').onclick=buildDeepPlan;
-// Explain the chosen Deep Search level in plain words (the tier's own description of what the target sees).
-const explainDeepLevel=()=>{$('#deepLevelExplain').textContent=`${TIERS[Number($('#deepLevel').value)].label}: ${TIERS[Number($('#deepLevel').value)].targetSees}`;};
-$('#deepLevel').onchange=()=>{$('#deepTypedWrap').hidden=Number($('#deepLevel').value)!==3;explainDeepLevel();if(state.deepPlan.length)buildDeepPlan();};
-explainDeepLevel();
-$('#runDeepSearch').onclick=runDeepSearch;
-$('#cancelDeepRun').onclick=()=>state.deepController?.abort();
+$('#deepTarget').oninput=updateDeepSetup;
+$('#deepLevel').onchange=()=>{explainDeepLevel();updateDeepSetup();};
+$('#startDeepSearch').onclick=startDeepSearch;
+explainDeepLevel();updateDeepSetup();
 $$('[data-close-result]').forEach(b=>b.onclick=()=>$('#resultDialog').close());
 $$('[data-close-dialog]').forEach(button=>button.onclick=()=>button.closest('dialog')?.close());
 $('#saveEvidence').onclick=()=>saveLastResultToCase().catch(error=>toast(`Could not save: ${error.message}`));

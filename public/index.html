@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#07110f" />
   <title>Public Desk — OSINT workspace</title>
-  <link rel="stylesheet" href="/ui.css?v=24" />
+  <link rel="stylesheet" href="/ui.css?v=25" />
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -85,17 +85,28 @@
       </section>
 
       <section id="deep" class="view deep-view">
-        <section class="deep-step" aria-labelledby="deep-step-1"><h2 id="deep-step-1">1. Choose a target and level</h2>
-        <div class="deep-setup"><label>Target<input id="deepTarget" autocomplete="off" placeholder="example.com" /></label><label>Maximum level<select id="deepLevel" aria-describedby="deepLevelExplain"><option value="0">Passive</option><option value="1" selected>Light touch</option><option value="2">Active</option><option value="3">Intrusive</option></select></label><p id="deepLevelExplain" class="field-hint deep-level-explain" aria-live="polite"></p><button class="primary" id="buildDeepPlan">Build plan</button></div>
+        <section id="deepSetup" class="deep-search-box" aria-labelledby="deepSearchHeading">
+          <h2 id="deepSearchHeading">Find everything about one email, username, website or IP</h2>
+          <p class="subtle">Takes a few minutes. Keep this tab open.</p>
+          <label for="deepTarget">What should Deep Search check?</label>
+          <input id="deepTarget" autocomplete="off" placeholder="Email, username, website or IP" />
+          <p id="deepStatus" class="deep-status" role="status"></p>
+          <div id="deepLevelWrap" class="deep-level" hidden>
+            <label for="deepLevel">How far may Deep Search go?</label>
+            <select id="deepLevel" aria-describedby="deepLevelExplain"><option value="0">Passive</option><option value="1" selected>Light touch</option><option value="2">Active</option><option value="3">Intrusive</option></select>
+            <p id="deepLevelExplain" class="field-hint deep-level-explain"></p>
+          </div>
+          <div id="deepConfirmations" class="deep-confirmations" hidden>
+            <label class="run-check"><input type="checkbox" id="deepAuthorize" /> I own this target or have written permission to test it.</label>
+            <label id="deepTypedWrap" hidden>Type the target exactly to confirm Intrusive testing<input id="deepTypedTarget" autocomplete="off" /></label>
+          </div>
+          <p id="deepError" class="form-error"></p>
+          <button class="primary" id="startDeepSearch" disabled>Start Deep Search</button>
+          <details class="deep-tool-choices"><summary>Choose tools</summary><div id="deepTools"><p class="subtle">Type a supported target to see the tools Deep Search can use.</p></div></details>
         </section>
-        <section class="deep-step" aria-labelledby="deep-step-2"><h2 id="deep-step-2">2. Review the plan</h2>
-        <div id="deepPlan" class="deep-plan"><div class="empty-state">Type a target and build a plan. Nothing runs automatically.</div></div>
-        </section>
-        <section class="deep-step" aria-labelledby="deep-step-3"><h2 id="deep-step-3">3. Confirm and run</h2><p id="deepConfirmHint" class="field-hint">Build a plan in step 1 first. Then confirm here and run it.</p>
-        <div id="deepConfirmations" class="deep-confirmations" hidden><label class="run-check"><input type="checkbox" id="deepAuthorize" /> I own this target or have written permission to test it.</label><label id="deepTypedWrap" hidden>Type the target exactly to confirm Intrusive testing<input id="deepTypedTarget" autocomplete="off" /></label><p id="deepError" class="form-error"></p><div class="deep-actions"><button class="ghost" id="cancelDeepRun" disabled>Cancel</button><button class="primary" id="runDeepSearch">Run selected tools</button></div></div>
-        </section>
-        <div id="deepLog" class="deep-log" hidden aria-live="polite"></div>
-        <div class="deep-history"><div class="section-heading"><div><h3>Run history</h3><p class="subtle">Every Deep Search run, from the private audit log on this Mac (<code>work/deep-search-audit.jsonl</code>).</p></div><button class="text-button" id="refreshDeepHistory">Refresh</button></div><div id="deepHistory"></div></div>
+        <div id="deepProgress" hidden></div>
+        <div id="deepResults" hidden></div>
+        <section class="deep-history" aria-labelledby="deepHistoryHeading"><div class="section-heading"><div><h2 id="deepHistoryHeading">Run history</h2><p class="subtle">Every Deep Search run, from the private audit log on this Mac (<code>work/deep-search-audit.jsonl</code>).</p></div><button class="text-button" id="refreshDeepHistory">Refresh</button></div><div id="deepHistory"></div></section>
       </section>
 
       <section id="news" class="view">
@@ -159,6 +170,6 @@
   </dialog>
 
   <div id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/app.js?v=56"></script>
+  <script type="module" src="/app.js?v=57"></script>
 </body>
 </html>

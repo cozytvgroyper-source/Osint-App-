@@ -2,37 +2,44 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-// Deep Search as three numbered steps. The safety steps (authorization checkbox, typed target at Intrusive, Cancel)
-// must all still be there; only the layout and the level explanation are new.
 const read=file=>fs.readFileSync(new URL(`../public/${file}`,import.meta.url),'utf8');
-const html=read('index.html'),app=read('app.js');
-const deep=html.match(/<section id="deep"[\s\S]*?<div class="deep-history"/)[0];
+const html=read('index.html'),app=read('app.js'),progress=read('deep-progress.js');
+const deep=html.match(/<section id="deep"[\s\S]*?<section id="news"/)[0];
 
-test('Deep Search reads as three numbered steps',()=>{
-  for(const [n,title] of [[1,'1\\. Choose a target and level'],[2,'2\\. Review the plan'],[3,'3\\. Confirm and run']])
-    assert.match(deep,new RegExp(`aria-labelledby="deep-step-${n}"[\\s\\S]*?<h2 id="deep-step-${n}">${title}</h2>`));
+test('Deep Search is one clear box with one start button and optional tool choices',()=>{
+  assert.match(deep,/Find everything about one email, username, website or IP/);
+  assert.equal((deep.match(/id="deepTarget"/g)||[]).length,1);
+  assert.match(deep,/id="deepStatus"[^>]*role="status"/);
+  assert.match(deep,/id="deepLevelWrap"[^>]*hidden/);
+  for(const id of ['deepLevel','deepAuthorize','deepTypedTarget'])assert.match(deep,new RegExp(`id="${id}"`));
+  assert.equal((deep.match(/id="startDeepSearch"/g)||[]).length,1);
+  assert.match(deep,/<details[^>]*>[\s\S]*<summary>Choose tools<\/summary>/);
 });
 
-test('the safety steps are still all there',()=>{
-  for(const id of ['deepAuthorize','deepTypedWrap','deepTypedTarget','runDeepSearch','cancelDeepRun','deepTarget','deepLevel','buildDeepPlan','deepPlan'])assert.match(deep,new RegExp(`id="${id}"`),id);
-  assert.match(app,/\$\('#deepTypedWrap'\)\.hidden=Number\(\$\('#deepLevel'\)\.value\)!==3/);
+test('unsupported input explains the limit, links to Search and disables Start',()=>{
+  assert.match(progress,/Deep Search needs an email, username, website or IP\. To search a name, use Search\./);
+  assert.match(app,/data-view-link="workspace"/);
+  assert.match(app,/startDeepSearch[^\n]*disabled/);
 });
 
-test('the chosen level is explained',()=>{
-  assert.match(deep,/id="deepLevelExplain"[^>]*aria-live="polite"/);
-  assert.match(app,/#deepLevelExplain[\s\S]{0,120}TIERS\[/);
+test('the run guard, unload warning, focus and cancel confirmation are wired',()=>{
+  assert.match(app,/if\(state\.deepRun\)[\s\S]{0,180}deepProgressHeading/);
+  assert.match(app,/beforeunload/);
+  assert.match(app,/deepProgressHeading[^\n]*focus/);
+  assert.match(app,/deepResultsHeading[^\n]*focus/);
+  assert.match(app,/deepTarget[^\n]*focus/);
+  assert.match(app,/Stop the search\? What&#39;s been found so far will be kept\.|Stop the search\? What's been found so far will be kept\./);
+  assert.match(app,/confirmAction/);
 });
 
-// Step 3 is empty until a plan exists; it must say what to do instead of showing a blank card.
-test('step 3 explains itself before there is a plan',()=>{
-  assert.match(deep,/<p id="deepConfirmHint" class="field-hint">Build a plan in step 1 first\. Then confirm here and run it\.<\/p>/);
-  assert.match(app,/\$\('#deepConfirmHint'\)\.hidden=Boolean\(plan\.length\)/);
+test('audit starts before the engine and completed runs are always stored',()=>{
+  const started=app.indexOf("outcome:'started'");
+  const engine=app.indexOf('runDeepEngine({');
+  assert.ok(started>0&&engine>started);
+  assert.match(app,/finally\{[\s\S]*\/api\/deep-search\/runs/);
 });
 
-test('the level explanation spans the row and is read with the level field',()=>{
-  assert.match(read('ui.css'),/\.deep-level-explain\{grid-column:1\/-1\}/);
-  assert.match(deep,/id="deepLevel"[^>]*aria-describedby="deepLevelExplain"/);
-});
-test('step 3 says something true after a plan with no tools',()=>{
-  assert.match(app,/Nothing to run yet: no reviewed tools match this target and level\./);
+test('history offers stored results',()=>{
+  assert.match(app,/entry\.runId[\s\S]{0,180}Open results/);
+  assert.match(app,/data-open-deep/);
 });

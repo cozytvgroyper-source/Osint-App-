@@ -87,7 +87,7 @@ function searchDetails(run){
 
 function resultHeader(run){
   const target=run.target?.value||'Unknown target';const tier=TIERS[Math.max(0,Math.min(3,Number(run.level)||0))];
-  return `<header class="deep-results-header"><h2>Deep Search results</h2><p><strong>${escapeHtml(target)}</strong> · ${escapeHtml(tier.label)}</p>${run.outcome==='stopped'?'<p class="notice">Stopped early. Everything found before stopping is shown below.</p>':''}</header>`;
+  return `<header class="deep-results-header"><h2 id="deepResultsHeading" tabindex="-1">Deep Search results</h2><p><strong>${escapeHtml(target)}</strong> · ${escapeHtml(tier.label)}</p>${run.outcome==='stopped'?'<p class="notice">Stopped early. Everything found before stopping is shown below.</p>':''}</header>`;
 }
 
 function resultActions(){return `<div class="deep-result-actions">${button({label:'Save to evidence',kind:'primary',attrs:{'data-deep-save':true}})}${button({label:'New search',attrs:{'data-deep-new':true}})}</div>`;}
