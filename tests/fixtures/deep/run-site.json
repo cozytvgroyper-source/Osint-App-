@@ -1,0 +1,22 @@
+{
+  "id": "site-run-123456",
+  "target": {"type": "domain", "value": "owner-site.example"},
+  "level": 2,
+  "startedAt": "2026-11-13T12:00:00.000Z",
+  "finishedAt": "2026-11-13T12:03:00.000Z",
+  "outcome": "completed",
+  "rounds": 1,
+  "calls": [
+    {"tool": "whois_lookup", "serverName": "OSINT Toolbox", "identifier": {"type": "domain", "value": "owner-site.example"}, "outcome": "data", "ms": 400},
+    {"tool": "omega_ports", "serverName": "Omega MCP", "identifier": {"type": "domain", "value": "owner-site.example"}, "outcome": "data", "ms": 900}
+  ],
+  "findings": [
+    {"id": "owner", "kind": "fact", "status": "linked", "reason": "Found for the domain.", "fact": {"label": "Owner", "value": "Example Org <bad>", "group": "owner"}, "sources": [{"name": "whois_lookup", "serverName": "OSINT Toolbox"}], "trail": []},
+    {"id": "host-1", "kind": "host", "status": "linked", "reason": "Found for the domain.", "host": {"value": "api.owner-site.example", "relation": "subdomain"}, "sources": [{"name": "crtsh_certificate_search", "serverName": "OSINT Toolbox"}], "trail": []},
+    {"id": "problem-low", "kind": "problem", "status": "linked", "reason": "Found for the domain.", "problem": {"severity": "low", "title": "Old header", "meaning": "A minor header is old.", "fix": "Update the header."}, "sources": [{"name": "omega_headers", "serverName": "Omega MCP"}], "trail": []},
+    {"id": "problem-high", "kind": "problem", "status": "linked", "reason": "Found for the domain.", "problem": {"severity": "high", "title": "Open admin port", "meaning": "An admin service is public.", "fix": "Restrict the service."}, "sources": [{"name": "omega_ports", "serverName": "Omega MCP"}], "trail": []},
+    {"id": "problem-medium", "kind": "problem", "status": "linked", "reason": "Found for the domain.", "problem": {"severity": "medium", "title": "DMARC is not enforced", "meaning": "Spoofed mail may be accepted.", "fix": "Enforce DMARC."}, "sources": [{"name": "omega_spoofcheck", "serverName": "Omega MCP"}], "trail": []}
+  ],
+  "leadsNotFollowed": [],
+  "raw": {}
+}

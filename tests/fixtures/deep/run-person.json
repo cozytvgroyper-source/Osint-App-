@@ -1,0 +1,46 @@
+{
+  "id": "person-run-1234",
+  "target": {"type": "email", "value": "owner@example.com"},
+  "level": 0,
+  "startedAt": "2026-11-13T12:00:00.000Z",
+  "finishedAt": "2026-11-13T12:02:00.000Z",
+  "outcome": "stopped",
+  "rounds": 2,
+  "calls": [
+    {"tool": "holehe_email_search", "serverName": "OSINT Toolbox", "identifier": {"type": "email", "value": "owner@example.com"}, "outcome": "data", "ms": 800},
+    {"tool": "maigret_username_search", "serverName": "OSINT Toolbox", "identifier": {"type": "username", "value": "ownername"}, "outcome": "error", "error": "Timed out", "ms": 600000}
+  ],
+  "findings": [
+    {
+      "id": "name-1", "kind": "fact", "status": "linked", "reason": "Found while checking owner@example.com.",
+      "fact": {"label": "Name", "value": "Owner Example", "group": "owner"},
+      "evidence": {"names": ["Owner Example"], "emails": ["owner@example.com"], "usernames": [], "phones": [], "urls": [], "places": ["Example City"]},
+      "sources": [{"name": "omega_identity", "serverName": "Omega MCP"}],
+      "trail": [{"from": {"type": "email", "value": "owner@example.com"}, "tool": "omega_identity", "note": "Found while checking the email."}]
+    },
+    {
+      "id": "account-1", "kind": "account", "status": "linked", "reason": "Profile shows owner@example.com.",
+      "account": {"site": "GitHub <script>", "url": "https://github.com/ownername", "displayName": "Owner Example", "category": "developer"},
+      "evidence": {"names": ["Owner Example"], "emails": ["owner@example.com"], "usernames": ["ownername"], "phones": [], "urls": ["https://github.com/ownername"], "places": []},
+      "sources": [{"name": "omega_gitrecon", "serverName": "Omega MCP"}],
+      "trail": [
+        {"from": {"type": "email", "value": "owner@example.com"}, "tool": "omega_identity", "note": "Found @ownername."},
+        {"from": {"type": "username", "value": "ownername"}, "tool": "omega_gitrecon", "note": "Profile shows the email."}
+      ]
+    },
+    {
+      "id": "site-1", "kind": "host", "status": "linked", "reason": "Linked from the profile.",
+      "host": {"value": "owner-site.example", "relation": "personal website"},
+      "evidence": {"names": [], "emails": [], "usernames": [], "phones": [], "urls": ["https://owner-site.example"], "places": []},
+      "sources": [{"name": "maigret_username_search", "serverName": "OSINT Toolbox"}], "trail": []
+    },
+    {
+      "id": "possible-1", "kind": "account", "status": "possible", "reason": "Same username; nothing else links it.",
+      "account": {"site": "Forum", "url": "https://forum.example/ownername", "category": "forums"},
+      "evidence": {"names": [], "emails": [], "usernames": ["ownername"], "phones": [], "urls": [], "places": []},
+      "sources": [{"name": "sherlock_username_search", "serverName": "OSINT Toolbox"}], "trail": []
+    }
+  ],
+  "leadsNotFollowed": [{"type": "username", "value": "owner-alt"}],
+  "raw": {}
+}
