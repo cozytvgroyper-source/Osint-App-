@@ -1,4 +1,5 @@
 import {explainSearchPlan,summarizePlanDiagnostics,toolUsage} from './search-planner.js?v=1';
+import {tierChips,toolCard} from './tools-view.js?v=1';
 import {serverCard,validateServerForm} from './servers-view.js?v=2';
 import {browserOnlyNotice,caseSummary,evidenceEmpty,findingCard} from './evidence-view.js?v=2';
 import {newsCard,newsMetrics,relativeTime} from './news-view.js?v=1';
@@ -292,21 +293,17 @@ async function dataSourceAction(action,id,values){
 
 function allTools(){ return state.servers.flatMap(server=>(server.tools||[]).map(tool=>({...tool,serverId:server.id,serverName:server.name}))); }
 // Tool Library groups tools by risk tier (tool-tiers.js): what running each one does to the target.
-const FLAG_LABELS={credits:'💳 Uses AI credits','side-effects':'⚙ Side effects'};
 function tierBadge(risk){return `<span class="tier-badge tier-${escapeHtml(risk.key)}" title="${escapeHtml(risk.targetSees)}">${escapeHtml(risk.label)}</span>`;}
 function renderTools(){
   const filter=$('#toolFilter').value.trim().toLowerCase();
   const matching=allTools().filter(t=>(t.name+' '+(t.description||'')+' '+(t.serverName||'')).toLowerCase().includes(filter));
   const groups=groupToolsByTier(matching);
-  const chips=[['all','All',matching.length],...groups.map(group=>[group.tier.key,group.tier.label,group.tools.length])];
-  if(!chips.some(([key])=>key===state.tierFilter))state.tierFilter='all';
-  $('#tierFilters').innerHTML=matching.length?chips.map(([key,label,count])=>`<button class="tier-chip${state.tierFilter===key?' active':''}" data-tier-filter="${escapeHtml(key)}">${escapeHtml(label)} <span>${count}</span></button>`).join(''):'';
+  const chips=[{key:'all',label:'All',count:matching.length,explain:'Every tool from your connected MCP servers.'},...groups.map(group=>({key:group.tier.key,label:group.tier.label,count:group.tools.length,explain:group.tier.targetSees}))];
+  if(!chips.some(chip=>chip.key===state.tierFilter))state.tierFilter='all';
+  $('#tierFilters').innerHTML=matching.length?tierChips(chips,state.tierFilter):'';
   const shown=groups.filter(group=>state.tierFilter==='all'||group.tier.key===state.tierFilter);
-  $('#toolCount').textContent=matching.length?`${matching.length} tools across ${new Set(matching.map(t=>t.serverId)).size} connected server(s), grouped by what running them does to the target.`:'Connect a server to discover tools.';
-  $('#toolLibrary').innerHTML=shown.length?shown.map(group=>`<section class="tier-group"><div class="tier-group-head">${tierBadge(toolRisk(group.tools[0]))}<p class="subtle">${escapeHtml(group.tier.targetSees)}</p></div><div class="tool-grid">${group.tools.map(t=>{
-    const risk=toolRisk(t);const flags=risk.flags.map(flag=>`<span class="badge">${escapeHtml(FLAG_LABELS[flag]||flag)}</span>`).join('');
-    return `<article class="tool-card"><div class="tool-card-head"><code>${escapeHtml(t.name)}</code>${tierBadge(risk)}</div><p class="tool-meta">${escapeHtml(t.serverName)} · ${escapeHtml(toolUsage(t))}${risk.needsReview?' · <span title="Tier set from a short description; confirm in docs/search-overhaul.md">needs review</span>':''}</p>${flags?`<div class="tool-flags">${flags}</div>`:''}<p class="tool-desc" title="${escapeHtml(t.description||'')}">${escapeHtml(t.description||'No description provided.')}</p><button class="text-button" data-run="${escapeHtml(t.serverId)}::${escapeHtml(t.name)}">${risk.level>=2?`Run ${escapeHtml(risk.label.toLowerCase())} tool →`:'Run tool →'}</button></article>`;
-  }).join('')}</div></section>`).join(''):'<div class="empty-state">No tools to show yet.</div>';
+  $('#toolCount').textContent=matching.length?`${matching.length} tools across ${new Set(matching.map(t=>t.serverId)).size} connected MCP server(s).`:'Connect an MCP server to see its tools.';
+  $('#toolLibrary').innerHTML=shown.length?shown.map(group=>`<section class="tier-group"><div class="tier-group-head">${tierBadge(toolRisk(group.tools[0]))}<p class="subtle">${escapeHtml(group.tier.targetSees)}</p></div><div class="tool-grid">${group.tools.map(t=>toolCard(t,{risk:toolRisk(t),usage:toolUsage(t)})).join('')}</div></section>`).join(''):emptyState({title:'No tools to show yet.',text:'Connect an MCP server to see its tools here.'});
 }
 function renderEvidence(){
   const options=state.cases.map(item=>`<option value="${escapeHtml(item.id)}"${item.id===state.activeCaseId?' selected':''}${item.damaged?' disabled':''}>${escapeHtml(item.name)}${item.damaged?'':` (${item.evidenceCount})`}</option>`).join('');
@@ -686,7 +683,7 @@ document.addEventListener('click',async event=>{
   const open=event.target.closest('[data-open-finding]');if(open){const item=state.activeCase?.evidence.find(entry=>entry.id===open.dataset.openFinding);if(item)showResult(item.title,item.result,{saved:true});return;}
   if(event.target.closest('[data-new-case]')){createCase().catch(error=>toast(error.message));return;}
   if(event.target.closest('#importBrowserEvidence'))importBrowserEvidence().catch(error=>toast(`Import stopped: ${error.message}. Your browser copy was kept.`));
-  const tierChip=event.target.closest('[data-tier-filter]');if(tierChip){state.tierFilter=tierChip.dataset.tierFilter;renderTools();}
+  const tierChip=event.target.closest('[data-tier-filter]');if(tierChip){const key=tierChip.dataset.tierFilter;state.tierFilter=key;renderTools();document.querySelector(`[data-tier-filter="${CSS.escape(key)}"]`)?.focus();}
   const moreNews=event.target.closest('[data-load-more-news]');if(moreNews){const shown=intelNews.visibleLimit;intelNews.visibleLimit+=30;renderIntelNews();document.querySelectorAll('#intelNewsList .news-card')[shown]?.focus();}
   const sourceEdit=event.target.closest('[data-source-edit]');if(sourceEdit){const source=dataSources.list.find(s=>s.id===sourceEdit.dataset.sourceEdit);if(source)openKeyDialog(source);}
   const sourceConnect=event.target.closest('[data-source-connect]');if(sourceConnect)dataSourceAction('connect',sourceConnect.dataset.sourceConnect);

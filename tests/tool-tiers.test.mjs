@@ -72,9 +72,9 @@ test('groups tools by tier, safest first, keeping empty tiers out',()=>{
 });
 
 test('says where each tool is used',()=>{
-  assert.equal(toolUsage(byName('get_whois')),'Main search can use it');
-  assert.equal(toolUsage(byName('subfinder_subdomain_search')),'Tool Library only');
-  assert.equal(toolUsage(byName('omega_ports')),'Tool Library only');
+  assert.equal(toolUsage(byName('get_whois')),'Used by the main search');
+  assert.equal(toolUsage(byName('subfinder_subdomain_search')),'Tool library only');
+  assert.equal(toolUsage(byName('omega_ports')),'Tool library only');
 });
 
 test('re-tiers Omega tools whose captured output showed target contact or outside writes',()=>{

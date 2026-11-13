@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#07110f" />
   <title>Public Desk — OSINT workspace</title>
-  <link rel="stylesheet" href="/ui.css?v=15" />
+  <link rel="stylesheet" href="/ui.css?v=16" />
   <link rel="stylesheet" href="/styles.css?v=20" />
   <link rel="stylesheet" href="/results.css?v=14" />
   <link rel="stylesheet" href="/theme.css?v=19" />
@@ -139,7 +139,7 @@
 
   <dialog id="runDialog" aria-labelledby="runToolName">
     <form method="dialog" id="runForm"><div class="dialog-head"><div><p class="eyebrow">RUN TOOL</p><h2 id="runToolName">Tool</h2></div><button type="button" data-close-dialog class="icon-button" aria-label="Close">×</button></div>
-      <p id="runToolDescription" class="subtle"></p><div id="runRisk"></div><label>Arguments (JSON)<textarea id="runArgs" rows="9">{}</textarea></label><p id="runError" class="form-error"></p>
+      <p id="runToolDescription" class="subtle"></p><div id="runRisk"></div><label>Tool settings (JSON)<textarea id="runArgs" rows="9" aria-describedby="runArgs-hint">{}</textarea></label><p id="runArgs-hint" class="field-hint">Leave as {} to use the defaults.</p><p id="runError" class="form-error"></p>
       <div class="dialog-actions"><button type="button" data-close-dialog class="ghost">Cancel</button><button value="default" class="primary" id="executeTool">Run tool</button></div>
     </form>
   </dialog>
@@ -152,6 +152,6 @@
   </dialog>
 
   <div id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/app.js?v=46"></script>
+  <script type="module" src="/app.js?v=47"></script>
 </body>
 </html>
