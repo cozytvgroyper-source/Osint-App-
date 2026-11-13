@@ -1,6 +1,6 @@
 import {isPersonType} from './deep-search.js';
 import {TIERS} from './tool-tiers.js';
-import {button,card,escapeHtml} from './ui.js';
+import {button,card,escapeHtml,safeHttpUrl} from './ui.js';
 
 const categories=Object.freeze([['social','Social'],['developer','Developer'],['forums','Forums'],['shopping','Shopping'],['other','Other']]);
 const detailGroups=Object.freeze([
@@ -16,9 +16,7 @@ function sources(finding){
 
 function sourceLine(finding){return `<p class="result-source">${sources(finding)}</p>`;}
 
-function safeUrl(value){
-  try{const url=new URL(String(value));return ['http:','https:'].includes(url.protocol)?url.toString():'';}catch{return'';}
-}
+const safeUrl=safeHttpUrl;
 
 function externalLink(url,label){
   const href=safeUrl(url);if(!href)return escapeHtml(label||url);
