@@ -15,7 +15,7 @@ import {loadStoredState,mergeStoredServers,persistStoredState} from './browser-s
 import {TIERS,groupToolsByTier,runRequirements,toolRisk} from './tool-tiers.js?v=1';
 import {resultPivot} from './result-pivots.js?v=1';
 import {buildRunGrantRequest} from './run-grant-client.js?v=1';
-import {deepRunBlocked,deepToolsFor,detectDeepTarget,isPersonType} from './deep-search.js?v=3';
+import {deepRunBlocked,deepToolsFor,detectDeepTarget,isPersonType} from './deep-search.js?v=4';
 import {runDeepSearch as runDeepEngine} from './deep-engine.js?v=1';
 import {deepStatusLine,initialProgress,reduceProgress,renderProgress} from './deep-progress.js?v=1';
 import {deepEvidenceRecord,renderDeepResults} from './deep-results-view.js?v=1';

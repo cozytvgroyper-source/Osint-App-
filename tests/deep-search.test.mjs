@@ -102,3 +102,25 @@ test('every listed tool exists, is reviewed, unflagged and read-only',()=>{
     }
   }
 });
+
+test('omega_asn is no longer an IP tool and GreyNoise is public-only',async()=>{
+  const {DEEP_SEARCH_TOOLS}=await import('../public/deep-search.js');
+  assert.equal(DEEP_SEARCH_TOOLS.ip.includes('omega_asn'),false);
+  assert.equal(DEEP_SEARCH_TOOLS.ip.includes('get_greynoise'),true);
+  assert.equal(DEEP_TOOLS.ip.find(entry=>entry.name==='get_greynoise').publicIpOnly,true);
+  const picked=deepToolsFor(FIXTURE_TOOLS.filter(tool=>['get_greynoise','get_bgp'].includes(tool.name)),{type:'ip'});
+  assert.deepEqual(picked.map(item=>[item.tool.name,item.publicIpOnly]).sort(),[['get_bgp',false],['get_greynoise',true]]);
+});
+
+test('isReservedIp knows the private and reserved ranges exactly',async()=>{
+  const {isReservedIp}=await import('../public/deep-search.js');
+  for(const value of ['10.0.0.1','172.16.0.1','172.31.255.255','192.168.1.1','127.0.0.1','169.254.1.1','100.64.0.0','100.127.255.255','198.18.0.0','198.19.255.255','192.0.2.10','198.51.100.1','203.0.113.5','0.1.2.3','224.0.0.1','255.255.255.255','::1','::','fe80::1','fd00::1','2001:db8::1','ff02::1'])
+    assert.equal(isReservedIp(value),true,value);
+  for(const value of ['8.8.8.8','1.1.1.1','172.32.0.1','172.15.255.255','100.63.255.255','100.128.0.0','198.17.255.255','198.20.0.0','2606:4700::1111'])
+    assert.equal(isReservedIp(value),false,value);
+});
+
+test('isReservedIp never throws on odd input',async()=>{
+  const {isReservedIp}=await import('../public/deep-search.js');
+  for(const value of ['','999.1.1.1','01.2.3.4','1.2.3','not an ip',undefined])assert.equal(isReservedIp(value),false,String(value));
+});

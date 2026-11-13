@@ -3,8 +3,9 @@ import {toolRisk} from './tool-tiers.js';
 
 const tool=(name,options={})=>Object.freeze({name,...options});
 
-// Provisional table from the approved design, section 6.6. Task 1 replaces this
-// with the table confirmed against recorded answers from the owner's local tools.
+// The reviewed tool table; see docs/deep-tool-review.md for why each tool is here or was removed.
+// publicIpOnly: the tool only knows public internet addresses, so it is skipped (and shown as skipped) for a
+// private or reserved IP.
 export const DEEP_TOOLS=Object.freeze({
   email:Object.freeze([
     tool('holehe_email_search'),tool('ghunt_google_search'),tool('omega_email'),tool('omega_breach'),
@@ -31,8 +32,8 @@ export const DEEP_TOOLS=Object.freeze({
     tool('omega_vuln'),tool('omega_fuzzer'),tool('omega_exfil')
   ]),
   ip:Object.freeze([
-    tool('get_bgp'),tool('get_greynoise'),tool('get_whois'),tool('omega_ipinfo'),tool('omega_ipdossier'),
-    tool('omega_intel'),tool('omega_asn'),tool('omega_reverseip'),
+    tool('get_bgp'),tool('get_greynoise',{publicIpOnly:true}),tool('get_whois'),tool('omega_ipinfo'),tool('omega_ipdossier'),
+    tool('omega_intel'),tool('omega_reverseip'),
     tool('omega_ssl'),tool('omega_headers'),tool('omega_infra'),tool('omega_network'),tool('omega_torcheck'),
     tool('omega_cvemap'),
     tool('omega_ports'),tool('spiderfoot_scan',{timeoutMs:600_000}),tool('omega_recon'),tool('omega_assetmap'),
@@ -91,6 +92,46 @@ export function detectDeepTarget(input){
 
 export function isPersonType(type){return PERSON_TYPES.has(String(type));}
 
+// Private, shared, loopback, link-local, documentation, benchmarking, multicast and reserved IPv4 ranges
+// (IANA special-purpose registry), as [first address, prefix length].
+const RESERVED_V4=[['0.0.0.0',8],['10.0.0.0',8],['100.64.0.0',10],['127.0.0.0',8],['169.254.0.0',16],['172.16.0.0',12],
+  ['192.0.0.0',24],['192.0.2.0',24],['192.168.0.0',16],['198.18.0.0',15],['198.51.100.0',24],['203.0.113.0',24],
+  ['224.0.0.0',4],['240.0.0.0',4]];
+const OCTET=/^(?:0|[1-9]\d{0,2})$/;
+
+function ipv4Number(value){
+  const parts=String(value).split('.');
+  if(parts.length!==4||!parts.every(part=>OCTET.test(part)&&Number(part)<=255))return null;
+  return parts.reduce((total,part)=>total*256+Number(part),0);
+}
+
+function ipv6Hextets(value){
+  const text=String(value).toLowerCase();
+  if(!/^[0-9a-f:]+$/.test(text)||(text.match(/::/g)||[]).length>1)return null;
+  const [head,tail]=text.includes('::')?text.split('::'):[text,null];
+  const left=head?head.split(':'):[];const right=tail?tail.split(':'):[];
+  const missing=8-left.length-right.length;
+  if(tail===null?left.length!==8:missing<1)return null;
+  const groups=[...left,...Array(tail===null?0:missing).fill('0'),...right];
+  if(!groups.every(group=>/^[0-9a-f]{1,4}$/.test(group)))return null;
+  return groups.map(group=>parseInt(group,16));
+}
+
+// True when an IP is private or reserved, so internet-wide services (like GreyNoise) know nothing about it.
+// Anything that is not a well-formed address is false: the tool then runs and answers for itself.
+export function isReservedIp(value){
+  try{
+    const v4=ipv4Number(value);
+    if(v4!==null)return RESERVED_V4.some(([first,bits])=>Math.floor(v4/2**(32-bits))===Math.floor(ipv4Number(first)/2**(32-bits)));
+    const v6=ipv6Hextets(value);
+    if(!v6)return false;
+    const [a,b]=v6;
+    if(v6.every(group=>group===0))return true;                     // ::
+    if(v6.slice(0,7).every(group=>group===0)&&v6[7]===1)return true; // ::1
+    return (a&0xffc0)===0xfe80||(a&0xfe00)===0xfc00||(a===0x2001&&b===0x0db8)||(a&0xff00)===0xff00;
+  }catch{return false;}
+}
+
 const ARG_OVERRIDES=Object.freeze({
   maigret_username_search:{all_sites:true,timeout:60},
   holehe_email_search:{only_used:true,timeout:30},
@@ -121,7 +162,7 @@ export function deepToolsFor(tools,{type,level=0,excluded=new Set()}={}){
     return levelOrder||order.get(a.name)-order.get(b.name);
   }).map(toolDefinition=>{
     const entry=byName.get(toolDefinition.name);
-    return {tool:toolDefinition,args:deepArgs(toolDefinition,{type,value:''}),risk:toolRisk(toolDefinition),timeoutMs:entry.timeoutMs||120_000};
+    return {tool:toolDefinition,args:deepArgs(toolDefinition,{type,value:''}),risk:toolRisk(toolDefinition),timeoutMs:entry.timeoutMs||120_000,publicIpOnly:Boolean(entry.publicIpOnly)};
   });
 }
 
