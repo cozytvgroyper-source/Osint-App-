@@ -18,3 +18,11 @@ test('classes built at runtime keep their rules',()=>{
   const css=sheets();
   for(const name of ['tier-passive','tier-light','tier-active','tier-unreviewed','run-risk-','self-check-','source-outcome-'])assert.match(css,new RegExp(`\\.${name}`),name);
 });
+
+// One stylesheet: the old page, results and theme sheets now live in ui.css, in their original order.
+test('one stylesheet',()=>{
+  for(const file of ['styles.css','results.css','theme.css'])assert.equal(exists(file),false,file);
+  const html=read('index.html');
+  assert.equal((html.match(/<link rel="stylesheet"/g)||[]).length,1);
+  assert.match(html,/<link rel="stylesheet" href="\/ui\.css\?v=\d+" \/>/);
+});
