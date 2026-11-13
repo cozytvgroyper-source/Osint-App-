@@ -32,3 +32,14 @@ test('custom servers are escaped and removable; sign-in shows for Consensus',()=
   assert.doesNotMatch(html,/server-purpose/);
   assert.match(serverCard({id:'consensus',name:'Consensus',endpoint:'https://mcp.consensus.app/mcp',needsAuth:true},{bundled:true}),/data-consensus-sign-in[^>]*>Sign in to Consensus</);
 });
+
+import {validateServerForm} from '../public/servers-view.js';
+test('the add-server form explains what is wrong, field by field',()=>{
+  assert.deepEqual(validateServerForm({name:'',endpoint:'https://e.com/mcp'}),{field:'serverName',message:'Enter a name for this server.'});
+  assert.deepEqual(validateServerForm({name:' ',endpoint:'https://e.com/mcp'}),{field:'serverName',message:'Enter a name for this server.'});
+  assert.deepEqual(validateServerForm({name:'x',endpoint:''}),{field:'serverEndpoint',message:'Enter the server address.'});
+  assert.deepEqual(validateServerForm({name:'x',endpoint:'not a url'}),{field:'serverEndpoint',message:"That isn't a web address. It should look like https://example.com/mcp."});
+  assert.deepEqual(validateServerForm({name:'x',endpoint:'http://e.com/mcp'}),{field:'serverEndpoint',message:'Custom servers must use https://.'});
+  assert.equal(validateServerForm({name:'x',endpoint:'http://127.0.0.1:8893/mcp'}),null);
+  assert.equal(validateServerForm({name:'x',endpoint:'https://e.com/mcp'}),null);
+});

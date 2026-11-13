@@ -36,3 +36,16 @@ export function serverCard(server,{bundled=false,toolCountText=''}={}){
     +`<div class="server-actions">${action(bundled?'Disable':'Remove','data-remove')}${primary}</div>`
     +`</article>`;
 }
+
+// The add-server form: which field is wrong and what to do, in plain words. The bundled loopback servers are the only
+// addresses allowed without https (the server enforces the same rule).
+const BUNDLED_LOCAL=new Set(['http://127.0.0.1:8892/mcp','http://127.0.0.1:8893/mcp','http://127.0.0.1:8894/mcp']);
+export function validateServerForm({name,endpoint}){
+  if(!String(name||'').trim())return {field:'serverName',message:'Enter a name for this server.'};
+  const address=String(endpoint||'').trim();
+  if(!address)return {field:'serverEndpoint',message:'Enter the server address.'};
+  let url;
+  try{url=new URL(address);}catch{return {field:'serverEndpoint',message:"That isn't a web address. It should look like https://example.com/mcp."};}
+  if(url.protocol!=='https:'&&!BUNDLED_LOCAL.has(url.href))return {field:'serverEndpoint',message:'Custom servers must use https://.'};
+  return null;
+}

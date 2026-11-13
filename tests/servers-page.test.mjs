@@ -12,3 +12,14 @@ test('server cards come from the view module, and focus follows card changes',()
   assert.match(app,/data-disconnect[\s\S]{0,200}focusServerCard\(/);
   assert.match(app,/data-remove[\s\S]{0,400}\$\('#addServer'\)\.focus\(\)/);
 });
+
+test('the add-server fields have visible hints and their own error slots',()=>{
+  assert.match(html,/id="serverName"[^>]*aria-describedby="serverName-hint serverName-error"/);
+  assert.match(html,/id="serverEndpoint"[^>]*aria-describedby="serverEndpoint-hint serverEndpoint-error"/);
+  assert.match(html,/id="serverEndpoint-hint"[^>]*>Must start with https:\/\/</);
+  assert.match(html,/id="serverToken"[^>]*aria-describedby="serverToken-hint"/);
+  assert.match(html,/id="serverToken-hint"[^>]*>Kept only until you close this tab\.</);
+  assert.match(html,/id="serverEndpoint-error"[^>]*role="alert"/);
+  assert.match(app,/validateServerForm\(/);
+  assert.match(app,/setAttribute\('aria-invalid','true'\)/);
+});

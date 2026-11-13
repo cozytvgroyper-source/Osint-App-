@@ -121,9 +121,9 @@
 
   <dialog id="serverDialog" aria-labelledby="serverDialogTitle">
     <form method="dialog" id="serverForm"><div class="dialog-head"><div><p class="eyebrow">NEW CONNECTION</p><h2 id="serverDialogTitle">Add MCP server</h2></div><button type="button" data-close-dialog class="icon-button" aria-label="Close">×</button></div>
-      <label>Name<input name="name" required placeholder="OSINT MCP" /></label>
-      <label>Endpoint<input name="endpoint" required type="url" placeholder="https://example.com/mcp" /></label>
-      <label>Bearer token <span>(optional)</span><input name="token" type="password" autocomplete="off" placeholder="Stored in this tab only" /></label>
+      <div class="field"><label for="serverName">Name</label><input id="serverName" name="name" autocomplete="off" placeholder="OSINT MCP" aria-describedby="serverName-hint serverName-error" /><p id="serverName-hint" class="field-hint">A name you'll recognize.</p><p id="serverName-error" class="field-error" role="alert"></p></div>
+      <div class="field"><label for="serverEndpoint">Endpoint</label><input id="serverEndpoint" name="endpoint" type="url" autocomplete="off" placeholder="https://example.com/mcp" aria-describedby="serverEndpoint-hint serverEndpoint-error" /><p id="serverEndpoint-hint" class="field-hint">Must start with https://</p><p id="serverEndpoint-error" class="field-error" role="alert"></p></div>
+      <div class="field"><label for="serverToken">Bearer token <span>(optional)</span></label><input id="serverToken" name="token" type="password" autocomplete="off" aria-describedby="serverToken-hint" /><p id="serverToken-hint" class="field-hint">Kept only until you close this tab.</p></div>
       <p class="form-note">Public Desk uses MCP Streamable HTTP. Added servers must use HTTPS and a public address. To bring back a bundled server you disabled, add its address: http://127.0.0.1:8892/mcp (Open OSINT), :8893 (OSINT Toolbox) or :8894 (Omega).</p>
       <div class="dialog-actions"><button type="button" data-close-dialog class="ghost">Cancel</button><button value="default" class="primary" id="saveServer">Connect server</button></div>
     </form>
@@ -152,6 +152,6 @@
   </dialog>
 
   <div id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/app.js?v=44"></script>
+  <script type="module" src="/app.js?v=45"></script>
 </body>
 </html>

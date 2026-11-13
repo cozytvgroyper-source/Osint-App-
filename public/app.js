@@ -1,5 +1,5 @@
 import {explainSearchPlan,summarizePlanDiagnostics,toolUsage} from './search-planner.js?v=1';
-import {serverCard} from './servers-view.js?v=1';
+import {serverCard,validateServerForm} from './servers-view.js?v=2';
 import {browserOnlyNotice,caseSummary,evidenceEmpty,findingCard} from './evidence-view.js?v=2';
 import {newsCard,newsMetrics,relativeTime} from './news-view.js?v=1';
 import {emptyState,escapeHtml,term} from './ui.js?v=4';
@@ -696,7 +696,14 @@ $('#addServer').onclick=()=>openDialog($('#serverDialog'),$('#addServer'));
 $('#newInvestigation').onclick=()=>{switchView('workspace');$('#query').focus();};
 $('#cmdButton').onclick=()=>{switchView('workspace');$('#query').focus();};
 document.addEventListener('keydown',event=>{if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='k'){event.preventDefault();switchView('workspace');$('#query').focus();}});
-$('#saveServer').addEventListener('click',e=>{e.preventDefault();const form=new FormData($('#serverForm'));const server={id:crypto.randomUUID(),name:form.get('name').trim(),endpoint:form.get('endpoint').trim(),status:'offline',tools:[]};if(!server.name||!server.endpoint)return;removedBundledEndpoints.delete(server.endpoint);state.servers.push(server);state.tokens.set(server.id,form.get('token'));$('#serverDialog').close();renderAll();connect(server);});
+// Add MCP server: a mistake is shown next to its field, the field is marked invalid and focused, and nothing is saved.
+function clearServerFormErrors(){for(const id of ['serverName','serverEndpoint']){$(`#${id}-error`).textContent='';$(`#${id}`).removeAttribute('aria-invalid');}}
+$('#serverForm').addEventListener('input',clearServerFormErrors);
+$('#addServer').addEventListener('click',clearServerFormErrors);
+$('#saveServer').addEventListener('click',e=>{e.preventDefault();const form=new FormData($('#serverForm'));const server={id:crypto.randomUUID(),name:form.get('name').trim(),endpoint:form.get('endpoint').trim(),status:'offline',tools:[]};
+  clearServerFormErrors();const problem=validateServerForm(server);
+  if(problem){$(`#${problem.field}-error`).textContent=problem.message;$(`#${problem.field}`).setAttribute('aria-invalid','true');$(`#${problem.field}`).focus();return;}
+ removedBundledEndpoints.delete(server.endpoint);state.servers.push(server);state.tokens.set(server.id,form.get('token'));$('#serverDialog').close();renderAll();connect(server);});
 $('#executeTool').addEventListener('click',async e=>{e.preventDefault();const blocked=runBlockedReason(state.activeTool.tool);if(blocked){$('#runError').textContent=blocked;return;}try{const args=JSON.parse($('#runArgs').value);const grant=await requestRunGrant(state.activeTool.tool,state.activeTool.serverId,args);$('#runDialog').close();await runTool(state.activeTool.tool,state.activeTool.serverId,args,state.activeTool.tool.name,grant);}catch(error){$('#runError').textContent=error.message;}});
 $('#buildDeepPlan').onclick=buildDeepPlan;
 $('#deepLevel').onchange=()=>{$('#deepTypedWrap').hidden=Number($('#deepLevel').value)!==3;if(state.deepPlan.length)buildDeepPlan();};
