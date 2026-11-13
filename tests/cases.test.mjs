@@ -129,3 +129,23 @@ test('new findings start unverified, and a note and status can be updated',async
   const route=await handleCaseRequest(store,'POST',`/api/cases/${id}/evidence/${item.id}/update`,async()=>({note:'via route'}));
   assert.equal(route.body.note,'via route');
 });
+
+test('a case deleted while a save to it is waiting stays deleted, and the save says the case is gone',async()=>{
+  for(let round=0;round<10;round++){
+    const {dir,store}=tempStore();
+    const {id}=await store.create({name:'Case'});
+    const [removed,added,renamed]=await Promise.allSettled([store.remove(id),store.addEvidence(id,{title:'late',result:1}),store.rename(id,{name:'Late'})]);
+    assert.equal(removed.status,'fulfilled');
+    assert.equal(added.status,'rejected');assert.equal(added.reason.code,'CASE_NOT_FOUND');
+    assert.equal(renamed.status,'rejected');assert.equal(renamed.reason.code,'CASE_NOT_FOUND');
+    assert.equal(fs.existsSync(path.join(dir,`${id}.json`)),false);
+    assert.deepEqual(await store.list(),[]);
+  }
+});
+
+test('deleting a case that is already gone says so',async()=>{
+  const {store}=tempStore();
+  const {id}=await store.create({name:'Case'});
+  await store.remove(id);
+  await assert.rejects(store.remove(id),{code:'CASE_NOT_FOUND'});
+});

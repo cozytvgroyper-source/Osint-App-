@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { loadStoredState, limitEvidence, mergeStoredServers, persistStoredState, STORAGE_KEYS } from '../public/browser-storage.js';
+import { loadStoredState, limitEvidence, mergeStoredServers, persistStoredState, safeStorage, STORAGE_KEYS } from '../public/browser-storage.js';
+import fs from 'node:fs';
 
 class MemoryStorage {
   constructor(entries = {}) { this.values = new Map(Object.entries(entries)); this.failKey = null; }
@@ -78,4 +79,41 @@ test('disabled bundled servers stay absent after startup while custom servers re
   const custom={id:'custom',name:'Custom',endpoint:'https://example.com/mcp'};
   assert.deepEqual(mergeStoredServers(bundled,[bundled[0],custom],new Set([bundled[0].endpoint])).map(server=>server.id),['custom']);
   assert.deepEqual(mergeStoredServers(bundled,[],[]).map(server=>server.id),['local']);
+});
+
+const blocked = () => { const error = new Error('The operation is insecure.'); error.name = 'SecurityError'; throw error; };
+const blockedStorage = { getItem: blocked, setItem: blocked, removeItem: blocked };
+
+test('blocked browser storage never stops startup', () => {
+  const loaded = loadStoredState(blockedStorage);
+  assert.deepEqual(loaded.servers, []);
+  assert.deepEqual(loaded.evidence, []);
+});
+
+test('safeStorage falls back to memory when the browser blocks storage', () => {
+  for (const open of [blocked, () => blockedStorage]) {
+    const storage = safeStorage(open);
+    assert.equal(storage.getItem('k'), null);
+    storage.setItem('k', 'v');
+    assert.equal(storage.getItem('k'), 'v');
+    storage.removeItem('k');
+    assert.equal(storage.getItem('k'), null);
+    assert.ok(Array.isArray(loadStoredState(storage).servers));
+  }
+});
+
+test('safeStorage uses real storage when it works and still reports a full store', () => {
+  const real = new MemoryStorage({ k: 'stored' });
+  const storage = safeStorage(() => real);
+  assert.equal(storage.getItem('k'), 'stored');
+  storage.setItem('n', '1');
+  assert.equal(real.getItem('n'), '1');
+  real.failKey = 'full';
+  assert.throws(() => storage.setItem('full', 'x'), error => error.name === 'QuotaExceededError');
+});
+
+test('the app reaches browser storage only through safeStorage', () => {
+  const source = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  const bare = source.replace(/safeStorage\(\(\)=>(?:local|session)Storage\)/g, '').match(/\b(?:local|session)Storage\b/g) || [];
+  assert.deepEqual(bare, []);
 });

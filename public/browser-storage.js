@@ -14,8 +14,41 @@ const validServer = value => isRecord(value) && typeof value.name === 'string' &
 const validHistory = value => isRecord(value) && typeof value.title === 'string';
 const validEvidence = value => isRecord(value) && typeof value.title === 'string' && 'result' in value;
 
+// Browser storage can be switched off (blocked site data, some private windows), and then even reading it throws.
+// This wraps it so the app always starts: reads and writes fall back to memory for this page, while a full store
+// (QuotaExceededError) is still reported to the caller so it can warn.
+export function safeStorage(open) {
+  const memory = new Map();
+  let real = null;
+  try { real = open(); real.getItem('signaldesk.storage-check'); } catch { real = null; }
+  const tryReal = action => {
+    if (!real) return { ok: false };
+    try { return { ok: true, value: action(real) }; } catch (error) {
+      if (error?.name === 'QuotaExceededError') throw error;
+      return { ok: false };
+    }
+  };
+  return {
+    getItem(key) {
+      if (memory.has(key)) return memory.get(key);
+      const read = tryReal(storage => storage.getItem(key));
+      return read.ok ? read.value : null;
+    },
+    setItem(key, value) {
+      const text = String(value);
+      if (!tryReal(storage => storage.setItem(key, text)).ok) memory.set(key, text);
+      else memory.delete(key);
+    },
+    removeItem(key) {
+      memory.delete(key);
+      tryReal(storage => storage.removeItem(key));
+    }
+  };
+}
+
 function readEntry(storage, key, fallback, validate, recover, label) {
-  const raw = storage.getItem(key);
+  let raw;
+  try { raw = storage.getItem(key); } catch { return { value: fallback, warnings: [] }; }
   if (raw == null) return { value: fallback, warnings: [] };
   try {
     const parsed = JSON.parse(raw);

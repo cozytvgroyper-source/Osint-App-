@@ -62,11 +62,16 @@ export class CaseStore{
     catch{throw fail('CASE_DAMAGED','This case file is damaged and could not be read.');}
   }
 
-  // Runs changes to one case one after another.
-  async change(id,update){
+  // Runs changes to one case one after another. Deleting runs in the same line, so a change waiting behind a delete
+  // finds the case gone (CASE_NOT_FOUND) instead of writing it back.
+  async change(id,update,{remove=false}={}){
     caseId(id);
     const previous=this.queues.get(id)||Promise.resolve();
-    const next=previous.catch(()=>{}).then(async()=>{const record=await this.read(id);const result=await update(record);await this.write({...record,updatedAt:new Date().toISOString()});return result;});
+    const next=previous.catch(()=>{}).then(async()=>{
+      const record=await this.read(id);const result=await update(record);
+      if(remove)await unlink(this.file(id));else await this.write({...record,updatedAt:new Date().toISOString()});
+      return result;
+    });
     this.queues.set(id,next);
     return next.finally(()=>{if(this.queues.get(id)===next)this.queues.delete(id);});
   }
@@ -101,8 +106,7 @@ export class CaseStore{
   }
 
   async remove(id){
-    await this.change(id,()=>null);
-    await unlink(this.file(id));
+    await this.change(id,()=>null,{remove:true});
   }
 
   async addEvidence(id,value,{now=new Date()}={}){

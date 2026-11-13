@@ -37,3 +37,21 @@ test('does not replace source lists when nothing overlaps', () => {
   const second = extractIndicatorLists({hostnames: ['two.example.com']});
   assert.equal(consolidateIndicatorLists([{...first, source: 'one'}, {...second, source: 'two'}]).hasDuplicates, false);
 });
+
+test('values that are not recognised stay in the source answer instead of disappearing', () => {
+  const extracted = extractIndicatorLists({
+    hosts: ['a.example.com', '2001:db8::1', 'localhost'],
+    addresses: ['1.2.3.4', '10 Downing Street, London'],
+    urls: ['https://x.example/page', 'ftp://files.example/pub']
+  });
+  assert.deepEqual(extracted.data, {hosts: ['localhost'], addresses: ['10 Downing Street, London'], urls: ['ftp://files.example/pub']});
+  assert.deepEqual(extracted.findings.map(item => [item.type, item.normalized]), [
+    ['domains', 'a.example.com'], ['ipAddresses', '2001:db8::1'], ['ipAddresses', '1.2.3.4'], ['urls', 'https://x.example/page']
+  ]);
+});
+
+test('a list where nothing is recognised is left exactly as the tool sent it', () => {
+  const extracted = extractIndicatorLists({addresses: ['10 Downing Street, London']});
+  assert.equal(extracted.changed, false);
+  assert.deepEqual(extracted.data, {addresses: ['10 Downing Street, London']});
+});
