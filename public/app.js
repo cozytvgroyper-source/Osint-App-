@@ -1,16 +1,16 @@
 import {explainSearchPlan,summarizePlanDiagnostics,toolUsage} from './search-planner.js?v=1';
-import {tierChips,toolCard} from './tools-view.js?v=1';
-import {normalizeEndpoint,serverCard,serverFocusTarget,validateServerForm} from './servers-view.js?v=3';
-import {browserOnlyNotice,caseSummary,evidenceEmpty,findingCard} from './evidence-view.js?v=2';
-import {newsCard,newsMetrics,relativeTime} from './news-view.js?v=1';
-import {emptyState,escapeHtml,term} from './ui.js?v=4';
+import {tierChips,toolCard} from './tools-view.js?v=2';
+import {normalizeEndpoint,serverCard,serverFocusTarget,validateServerForm} from './servers-view.js?v=4';
+import {browserOnlyNotice,caseSummary,evidenceEmpty,findingCard} from './evidence-view.js?v=3';
+import {newsCard,newsMetrics,relativeTime} from './news-view.js?v=2';
+import {emptyState,escapeHtml,term} from './ui.js?v=5';
 import {classifyToolResult,hasUsefulData,parseToolResult} from './result-classifier.js';
 import {buildSearchReport,reportHasFindings} from './search-report.js?v=4';
 import {recordToolHealth,toolCountLabel} from './tool-health.js';
 import {activeCaseId,defaultCaseName,newestFirst,shortFingerprint} from './cases-client.js';
 import {selfCheckPlan,summarizeSelfCheck} from './self-check.js';
 import {argsForSearch,extractTarget,searchIntent,searchSubjectFor} from './search-query.js?v=1';
-import {renderRankedReport} from './search-results-view.js?v=3';
+import {renderRankedReport} from './search-results-view.js?v=4';
 import {loadStoredState,mergeStoredServers,persistStoredState} from './browser-storage.js';
 import {TIERS,groupToolsByTier,runRequirements,toolRisk} from './tool-tiers.js?v=1';
 import {resultPivot} from './result-pivots.js?v=1';
@@ -82,10 +82,15 @@ function openDialog(dialog,trigger=document.activeElement){
 // user presses the confirm button; Cancel, Escape and the backdrop all resolve false. Text is set as text, never HTML.
 function confirmAction({title,message,confirmLabel}){
   const dialog=$('#confirmDialog');
+  // One question at a time: a second ask while one is open is answered "no" and leaves the open one as it is.
+  if(dialog.open)return Promise.resolve(false);
   $('#confirmTitle').textContent=title;$('#confirmMessage').textContent=message;dialog.querySelector('[data-confirm="yes"]').textContent=confirmLabel;
   return new Promise(resolve=>{
     let answer=false;
-    const choose=event=>{const button=event.target.closest('[data-confirm]');if(button){answer=button.dataset.confirm==='yes';dialog.close();}else if(event.target===dialog)dialog.close();};
+    // A click on the backdrop and a click on the dialog's own padding both target the <dialog>; only the backdrop,
+    // outside the dialog's box, cancels.
+    const outside=event=>{const box=dialog.getBoundingClientRect();return event.clientX<box.left||event.clientX>box.right||event.clientY<box.top||event.clientY>box.bottom;};
+    const choose=event=>{const button=event.target.closest('[data-confirm]');if(button){answer=button.dataset.confirm==='yes';dialog.close();}else if(event.target===dialog&&outside(event))dialog.close();};
     dialog.addEventListener('click',choose);
     dialog.addEventListener('close',()=>{dialog.removeEventListener('click',choose);resolve(answer);},{once:true});
     openDialog(dialog);
@@ -475,7 +480,7 @@ function readableValue(key,value){
 }
 function pivotButton(value){
   const pivot=resultPivot(value);
-  return pivot?`<button type="button" class="pivot-button" data-pivot="${escapeHtml(pivot.target)}" aria-label="${escapeHtml(`${pivot.label}: ${pivot.target}`)}">Pivot →</button>`:'';
+  return pivot?`<button type="button" class="pivot-button" data-pivot="${escapeHtml(pivot.target)}" aria-label="${escapeHtml(`Pivot: ${pivot.label[0].toLowerCase()}${pivot.label.slice(1)} ${pivot.target}`)}">Pivot →</button>`:'';
 }
 function renderRecord(data){
   // Multi-line text (Omega's captured module output) keeps its line breaks and column alignment.
@@ -706,12 +711,15 @@ $('#newInvestigation').onclick=()=>{switchView('workspace');$('#query').focus();
 $('#cmdButton').onclick=()=>{switchView('workspace');$('#query').focus();};
 document.addEventListener('keydown',event=>{if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='k'){event.preventDefault();switchView('workspace');$('#query').focus();}});
 // Add MCP server: a mistake is shown next to its field, the field is marked invalid and focused, and nothing is saved.
-function clearServerFormErrors(){for(const id of ['serverName','serverEndpoint']){$(`#${id}-error`).textContent='';$(`#${id}`).removeAttribute('aria-invalid');}}
+function clearServerFormErrors(){for(const id of ['serverName','serverEndpoint']){$(`#${id}-error`).textContent='';$(`#${id}`).removeAttribute('aria-invalid');}$('#serverFormStatus').textContent='';}
+// Enter inside the field with the mistake submits while focus is already there, so moving focus cannot read the error.
+// The status line says it then; it is emptied first so the same message is read again on a second try.
+function announceServerProblem(message){const status=$('#serverFormStatus');status.textContent='';setTimeout(()=>{status.textContent=message;},50);}
 $('#serverForm').addEventListener('input',clearServerFormErrors);
 $('#addServer').addEventListener('click',clearServerFormErrors);
 $('#saveServer').addEventListener('click',e=>{e.preventDefault();const form=new FormData($('#serverForm'));const server={id:crypto.randomUUID(),name:form.get('name').trim(),endpoint:normalizeEndpoint(form.get('endpoint')),status:'offline',tools:[]};
   clearServerFormErrors();const problem=validateServerForm(server);
-  if(problem){$(`#${problem.field}-error`).textContent=problem.message;$(`#${problem.field}`).setAttribute('aria-invalid','true');$(`#${problem.field}`).focus();return;}
+  if(problem){const field=$(`#${problem.field}`);$(`#${problem.field}-error`).textContent=problem.message;field.setAttribute('aria-invalid','true');if(document.activeElement===field)announceServerProblem(problem.message);else field.focus();return;}
  removedBundledEndpoints.delete(server.endpoint);state.servers.push(server);state.tokens.set(server.id,form.get('token'));$('#serverDialog').close();renderAll();connect(server);});
 $('#executeTool').addEventListener('click',async e=>{e.preventDefault();const blocked=runBlockedReason(state.activeTool.tool);if(blocked){$('#runError').textContent=blocked;return;}try{const args=JSON.parse($('#runArgs').value);const grant=await requestRunGrant(state.activeTool.tool,state.activeTool.serverId,args);$('#runDialog').close();await runTool(state.activeTool.tool,state.activeTool.serverId,args,state.activeTool.tool.name,grant);}catch(error){$('#runError').textContent=error.message;}});
 $('#buildDeepPlan').onclick=buildDeepPlan;
@@ -756,7 +764,7 @@ $('#exportEvidence').onclick=()=>{const c=state.activeCase;if(!c)return;const bl
 // The switch is a toggle for the dark theme: it says which theme is on, so screen readers announce its state.
 function applyTheme(theme){
   document.documentElement.dataset.theme=theme;
-  const toggle=$('#themeToggle');toggle.setAttribute('aria-pressed',String(theme==='dark'));toggle.setAttribute('aria-label','Dark theme');toggle.title=theme==='dark'?'Dark theme is on':'Dark theme is off';
+  const toggle=$('#themeToggle');toggle.setAttribute('aria-pressed',String(theme==='dark'));toggle.setAttribute('aria-label','Dark theme');
 }
 $('#themeToggle').onclick=()=>{const next=document.documentElement.dataset.theme==='dark'?'light':'dark';applyTheme(next);localStorage.setItem('signaldesk.theme',next);};
 applyTheme(localStorage.getItem('signaldesk.theme')||'light');

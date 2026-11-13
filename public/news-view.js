@@ -1,7 +1,7 @@
 // News page view: IntelMap events and metrics as HTML strings, DOM-free so it can be tested with node --test.
 // Times read as words with the exact time for screen readers; metrics carry a one-line explanation; outside links
 // say they open a new tab.
-import {badge} from './ui.js?v=4';
+import {badge} from './ui.js?v=5';
 
 const plural=(n,word)=>`${n} ${word}${n===1?'':'s'}`;
 

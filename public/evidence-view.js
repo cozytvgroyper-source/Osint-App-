@@ -1,7 +1,7 @@
 // Evidence page view: finding cards, the case summary, empty states and the browser-only notice as HTML strings,
 // DOM-free so it can be tested with node --test. Statuses keep their stored values (unverified, confirmed, ruled out);
 // only their labels are plain words from the glossary.
-import {button,emptyState,escapeHtml,term} from './ui.js?v=4';
+import {button,emptyState,escapeHtml,term} from './ui.js?v=5';
 import {GLOSSARY} from './glossary.js';
 import {shortFingerprint} from './cases-client.js';
 

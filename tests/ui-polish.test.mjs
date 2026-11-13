@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const read=file=>fs.readFileSync(new URL(`../public/${file}`,import.meta.url),'utf8');
-const html=read('index.html'),app=read('app.js'),css=read('styles.css');
+const html=read('index.html'),app=read('app.js'),css=read('ui.css');
 
 // The page header names the page and explains it in one plain line, so a view must not repeat that name as its
 // own heading (one name per page, one h1 per document).

@@ -75,3 +75,8 @@ test('a term can show its explanation visibly',()=>{
   assert.equal(term('pivot',{visible:true}),'<span class="term-explained"><b>Pivot</b>: Search this value next.</span>');
   assert.doesNotMatch(term('pivot',{visible:true}),/visually-hidden/);
 });
+
+// A field error is read through the field's aria-describedby; role="alert" on top of that read it twice.
+test('field errors carry no alert role',()=>{
+  assert.doesNotMatch(field({id:'e',label:'E',error:'Bad',control:{tag:'input',attrs:{}}}),/role="alert"/);
+});

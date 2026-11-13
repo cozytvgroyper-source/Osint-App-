@@ -1,7 +1,7 @@
 // Tool library view: tier filter chips and tool cards as HTML strings, DOM-free so it can be tested with node --test.
 // Chips are toggle buttons that explain each tier; cards say where a tool is used and write out paid or side-effect
 // flags. The tier names (Passive, Light touch, Active, Intrusive) stay as they are.
-import {badge,escapeHtml} from './ui.js?v=4';
+import {badge,escapeHtml} from './ui.js?v=5';
 
 const FLAG_TEXT={credits:'Uses paid AI credits','side-effects':'Has side effects: it may send, store, schedule or change data'};
 const TONE={passive:'safe',light:'warn',active:'warn',intrusive:'danger'};

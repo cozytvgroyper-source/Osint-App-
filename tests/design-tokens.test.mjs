@@ -1,12 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import {rules,rulesAfter} from './helpers/css.mjs';
 
 // Design tokens: WCAG 2.2 AA contrast in both themes, readable text sizes, always-visible focus and short motion that
 // stops for people who ask for less. The values live in ui.css; these tests read them so a later edit cannot slip
 // below the standard unnoticed.
 const read=file=>fs.readFileSync(new URL(`../public/${file}`,import.meta.url),'utf8');
-const STYLESHEETS=['ui.css','styles.css','results.css','theme.css'];
+const STYLESHEETS=['ui.css'];
+// The older page, results and theme rules were merged into ui.css after its own rules; this marks where they start.
+const LEGACY_START='/* ---- page and component styles (was styles.css) ---- */';
 
 function block(css,selector){
   const start=css.indexOf(`${selector}{`);
@@ -60,10 +63,8 @@ test('motion is short and stops for people who ask for less',()=>{
   }
 });
 
-test('ui.css loads before the other stylesheets',()=>{
-  const html=read('index.html');
-  assert.ok(html.includes('/ui.css?v='),'index.html loads ui.css');
-  assert.ok(html.indexOf('/ui.css?v=')<html.indexOf('/styles.css?v='));
+test('index.html loads ui.css',()=>{
+  assert.ok(read('index.html').includes('/ui.css?v='),'index.html loads ui.css');
 });
 
 // Behind the gradient, the page needs a solid color too: tools (and the overscroll area) read it, and an unset one is
@@ -83,7 +84,13 @@ test('focus ring and current-page bar stand out on the navy sidebar',()=>{
   }
 });
 
-// Later stylesheets reset whole borders on selects and textareas to the faint --line color, so the field-border rule
+// In the one stylesheet, a rule after mine wins on equal specificity, a rule before mine only on higher. So "mine
+// holds" means: strictly higher than every later rule, and not lower than every earlier one.
+function holds(own,selector,index,ownIndex){
+  return index>ownIndex?beats(specificity(own),specificity(selector)):!beats(specificity(selector),specificity(own));
+}
+
+// Older rules reset whole borders on selects and textareas to the faint --line color, so the field-border rule
 // must out-rank every one of them.
 function specificity(selector){
   let ids=0,classes=0,types=0;
@@ -95,18 +102,19 @@ function specificity(selector){
 }
 const beats=(a,b)=>a[0]!==b[0]?a[0]>b[0]:a[1]!==b[1]?a[1]>b[1]:a[2]>b[2];
 test('field borders reach every select and textarea',()=>{
-  const rule=[...css.matchAll(/([^{}]+)\{border-color:var\(--field-border\)\}/g)].map(m=>m[1]).join(',');
+  const own=rules(css).filter(r=>r.body==='border-color:var(--field-border)');
   for(const tag of ['select','textarea']){
-    const mine=rule.split(',').map(s=>s.trim()).filter(s=>new RegExp(`^${tag}\\b`).test(s));
+    const mine=own.flatMap(r=>r.selector.split(',').map(s=>s.trim()).filter(s=>new RegExp(`^${tag}\\b`).test(s)).map(s=>[s,r.index]));
     assert.ok(mine.length,`ui.css styles ${tag} borders`);
-    for(const file of ['styles.css','results.css','theme.css'])for(const m of read(file).matchAll(/([^{}@]+)\{([^}]*\bborder(?:-color)?:[^}]*)\}/g))
-      for(const selector of m[1].split(',').map(s=>s.trim()).filter(s=>new RegExp(`\\b${tag}$`).test(s)))
-        assert.ok(mine.some(own=>beats(specificity(own),specificity(selector))),`${file}: "${selector}" overrides the ${tag} field border`);
+    for(const r of rules(css).filter(r=>/\bborder(?:-color)?:/.test(r.body)&&!own.includes(r)))
+      for(const selector of r.selector.split(',').map(s=>s.trim()).filter(s=>new RegExp(`\\b${tag}$`).test(s)))
+        assert.ok(mine.some(([s,i])=>holds(s,selector,r.index,i)),`"${selector}" overrides the ${tag} field border`);
   }
 });
 
-test('older stylesheets never style the building blocks',()=>{
-  for(const file of ['styles.css','results.css','theme.css'])assert.doesNotMatch(read(file),/\.ui-(?:badge|empty)\b/,file);
+test('older rules never style the building blocks',()=>{
+  assert.ok(css.includes(LEGACY_START),'ui.css marks where the older rules start');
+  for(const {selector} of rulesAfter(css,css.indexOf(LEGACY_START)))assert.doesNotMatch(selector,/\.ui-(?:badge|empty)\b/,selector);
   for(const name of ['ui-badge','ui-badge-neutral','ui-badge-safe','ui-badge-warn','ui-badge-danger','ui-empty'])assert.match(css,new RegExp(`\\.${name}\\b`),name);
 });
 
@@ -129,24 +137,26 @@ test('the danger button meets 4.5:1 in both themes',()=>{
   }
 });
 
-// Later stylesheets force white text on .primary in dark mode; the danger button must out-rank that rule, or its dark
+// Older rules force white text on .primary in dark mode; the danger button must out-rank that rule, or its dark
 // text on the light red is replaced by white (about 2.7:1).
 test('the danger button keeps its own text color over later .primary rules',()=>{
-  const own=[...css.matchAll(/([^{}]+)\{background:var\(--danger\);border-color:var\(--danger\);color:var\(--on-danger\)\}/g)].flatMap(m=>m[1].split(',').map(s=>s.trim()));
-  assert.ok(own.length,'ui.css styles the danger button');
-  for(const file of ['styles.css','theme.css'])for(const m of read(file).matchAll(/([^{}@]+)\{([^}]*\bcolor:[^}]*)\}/g))
-    for(const selector of m[1].split(',').map(s=>s.trim()).filter(s=>/\.primary$/.test(s)))
-      assert.ok(own.some(mine=>beats(specificity(mine),specificity(selector))),`${file}: "${selector}" overrides the danger button's text color`);
+  const rule=rules(css).find(r=>r.body==='background:var(--danger);border-color:var(--danger);color:var(--on-danger)');
+  assert.ok(rule,'ui.css styles the danger button');
+  const own=rule.selector.split(',').map(s=>s.trim());
+  for(const r of rules(css).filter(r=>/(?:^|[;{\s])color\s*:/.test(r.body)))
+    for(const selector of r.selector.split(',').map(s=>s.trim()).filter(s=>/\.primary$/.test(s)))
+      assert.ok(own.some(mine=>holds(mine,selector,r.index,rule.index)),`"${selector}" overrides the danger button's text color`);
 });
 
-// Tier chips: the older stylesheet fades every span in a chip (opacity .7), which drops the explanation below 4.5:1,
+// Tier chips: the older rules fade every span in a chip (opacity .7), which drops the explanation below 4.5:1,
 // and the old pressed style keyed on a class the chips no longer use.
 test('tier chip text is fully opaque and the pressed chip has a visible border',()=>{
   assert.match(css,/#tierFilters \.tier-chip span\{opacity:1;margin-left:0\}/);
   assert.match(css,/#tierFilters \.tier-chip\[aria-pressed="true"\]\{[^}]*border-color:var\(--accent-dark\)/);
-  for(const m of read('styles.css').matchAll(/([^{}@]+)\{([^}]*opacity[^}]*)\}/g))
-    for(const selector of m[1].split(',').map(s=>s.trim()).filter(s=>/tier-chip span$/.test(s)))
-      assert.ok(beats(specificity('#tierFilters .tier-chip span'),specificity(selector)),selector);
+  const ownIndex=css.indexOf('#tierFilters .tier-chip span{');
+  for(const r of rules(css).filter(r=>/opacity/.test(r.body)))
+    for(const selector of r.selector.split(',').map(s=>s.trim()).filter(s=>/tier-chip span$/.test(s)&&s!=='#tierFilters .tier-chip span'))
+      assert.ok(holds('#tierFilters .tier-chip span',selector,r.index,ownIndex),selector);
 });
 
 // Tier badges (Passive, Light touch, Active, Unreviewed) used their tier color as small text on a pale tint of the same
@@ -154,7 +164,7 @@ test('tier chip text is fully opaque and the pressed chip has a visible border',
 test('tier badge labels are readable in both themes',()=>{
   assert.match(css,/span\.tier-badge\{color:var\(--ink\)\}/);
   const mix=(hex,alpha,base)=>'#'+[1,3,5].map(i=>Math.round(alpha*parseInt(hex.slice(i,i+2),16)+(1-alpha)*parseInt(base.slice(i,i+2),16)).toString(16).padStart(2,'0')).join('');
-  for(const m of read('styles.css').matchAll(/\.tier-(\w+)\{--tier:(#[0-9a-f]{6})\}/gi))
+  for(const m of css.matchAll(/\.tier-(\w+)\{--tier:(#[0-9a-f]{6})\}/gi))
     for(const theme of ['light','dark']){
       const value=ratio(token(theme,'ink'),mix(m[2],0.14,token(theme,'surface')));
       assert.ok(value>=4.5,`${theme} tier-${m[1]} label is ${value.toFixed(2)}:1`);

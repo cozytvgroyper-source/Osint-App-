@@ -116,3 +116,12 @@ test('no results names the search and points at Search details',()=>{
   assert.match(out,/Nothing found for &#39;&lt;b&gt;Rosneft&lt;\/b&gt;&#39;\. Try a shorter name, or open Search details to see which sources answered\./);
   assert.match(renderRankedReport({...emptyData(),query:''},helpers),/Nothing found\. Try a shorter name, or open Search details to see which sources answered\./);
 });
+
+// Inside the results dialog (h2), "Top results" and each tool's section are h3 headings, so the h4 item titles under
+// them follow in order for screen-reader users moving by heading. They keep the small eyebrow look.
+test('result sections are h3 headings',()=>{
+  const html=renderRankedReport(main(),helpers);
+  assert.match(html,/<div class="category-head"><h3 class="eyebrow">Top results<\/h3><\/div>/);
+  assert.doesNotMatch(html,/<p class="eyebrow">/);
+  assert.ok((html.match(/<h3 class="eyebrow">/g)||[]).length>=2,'every tool section has its heading');
+});
