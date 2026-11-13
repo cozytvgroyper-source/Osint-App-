@@ -67,3 +67,22 @@ test('closing a dialog never steals focus that already moved on',()=>{
   const body=app.match(/function openDialog[\s\S]*?\n\}/)[0];
   assert.match(body,/document\.activeElement===document\.body\|\|dialog\.contains\(document\.activeElement\)/);
 });
+
+// The theme switch shows its name next to the icon (it was icon-only), and the name matches its accessible name.
+test('the theme switch has a visible label',()=>{
+  assert.match(html,/id="themeToggle"[\s\S]{0,200}<span class="theme-label">Dark theme<\/span>/);
+  assert.doesNotMatch(app,/toggle\.title=/,'no changing tooltip; aria-pressed says whether it is on');
+});
+
+// A click on the dialog's own padding hits the <dialog> element too, so only a click outside its box cancels; and a
+// second confirmation while one is open is refused instead of rewiring the open one.
+test('only a click outside the dialog box cancels a confirmation, and a second ask while one is open is refused',()=>{
+  const fn=app.match(/function confirmAction\(\{title,message,confirmLabel\}\)\{[\s\S]*?\n\}/)[0];
+  assert.match(fn,/getBoundingClientRect\(\)/);
+  assert.match(fn,/if\(dialog\.open\)return Promise\.resolve\(false\)/);
+});
+
+// The error is in the field's aria-describedby, so it is read when focus moves to the field; role="alert" read it twice.
+test('field errors are read once, through the field',()=>{
+  assert.doesNotMatch(html,/id="server(?:Name|Endpoint)-error"[^>]*role="alert"/);
+});

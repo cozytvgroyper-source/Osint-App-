@@ -82,10 +82,15 @@ function openDialog(dialog,trigger=document.activeElement){
 // user presses the confirm button; Cancel, Escape and the backdrop all resolve false. Text is set as text, never HTML.
 function confirmAction({title,message,confirmLabel}){
   const dialog=$('#confirmDialog');
+  // One question at a time: a second ask while one is open is answered "no" and leaves the open one as it is.
+  if(dialog.open)return Promise.resolve(false);
   $('#confirmTitle').textContent=title;$('#confirmMessage').textContent=message;dialog.querySelector('[data-confirm="yes"]').textContent=confirmLabel;
   return new Promise(resolve=>{
     let answer=false;
-    const choose=event=>{const button=event.target.closest('[data-confirm]');if(button){answer=button.dataset.confirm==='yes';dialog.close();}else if(event.target===dialog)dialog.close();};
+    // A click on the backdrop and a click on the dialog's own padding both target the <dialog>; only the backdrop,
+    // outside the dialog's box, cancels.
+    const outside=event=>{const box=dialog.getBoundingClientRect();return event.clientX<box.left||event.clientX>box.right||event.clientY<box.top||event.clientY>box.bottom;};
+    const choose=event=>{const button=event.target.closest('[data-confirm]');if(button){answer=button.dataset.confirm==='yes';dialog.close();}else if(event.target===dialog&&outside(event))dialog.close();};
     dialog.addEventListener('click',choose);
     dialog.addEventListener('close',()=>{dialog.removeEventListener('click',choose);resolve(answer);},{once:true});
     openDialog(dialog);
@@ -756,7 +761,7 @@ $('#exportEvidence').onclick=()=>{const c=state.activeCase;if(!c)return;const bl
 // The switch is a toggle for the dark theme: it says which theme is on, so screen readers announce its state.
 function applyTheme(theme){
   document.documentElement.dataset.theme=theme;
-  const toggle=$('#themeToggle');toggle.setAttribute('aria-pressed',String(theme==='dark'));toggle.setAttribute('aria-label','Dark theme');toggle.title=theme==='dark'?'Dark theme is on':'Dark theme is off';
+  const toggle=$('#themeToggle');toggle.setAttribute('aria-pressed',String(theme==='dark'));toggle.setAttribute('aria-label','Dark theme');
 }
 $('#themeToggle').onclick=()=>{const next=document.documentElement.dataset.theme==='dark'?'light':'dark';applyTheme(next);localStorage.setItem('signaldesk.theme',next);};
 applyTheme(localStorage.getItem('signaldesk.theme')||'light');

@@ -19,7 +19,9 @@ test('the add-server fields have visible hints and their own error slots',()=>{
   assert.match(html,/id="serverEndpoint-hint"[^>]*>Must start with https:\/\/</);
   assert.match(html,/id="serverToken"[^>]*aria-describedby="serverToken-hint"/);
   assert.match(html,/id="serverToken-hint"[^>]*>Kept only until you close this tab\.</);
-  assert.match(html,/id="serverEndpoint-error"[^>]*role="alert"/);
+  // The error is read through the field: its text is set before focus moves there (no role="alert", which read it twice).
+  assert.match(html,/<p id="serverEndpoint-error" class="field-error"><\/p>/);
+  assert.match(app,/-error`\)\.textContent=problem\.message;[^;]*;\$\(`#\$\{problem\.field\}`\)\.focus\(\)/);
   assert.match(app,/validateServerForm\(/);
   assert.match(app,/setAttribute\('aria-invalid','true'\)/);
 });
