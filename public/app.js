@@ -6,7 +6,7 @@ import {recordToolHealth,serverConnectionLabel,toolCountLabel} from './tool-heal
 import {activeCaseId,defaultCaseName,newestFirst,shortFingerprint} from './cases-client.js';
 import {selfCheckPlan,summarizeSelfCheck} from './self-check.js';
 import {argsForSearch,extractTarget,searchIntent,searchSubjectFor} from './search-query.js?v=1';
-import {renderRankedReport} from './search-results-view.js?v=2';
+import {renderRankedReport} from './search-results-view.js?v=3';
 import {loadStoredState,mergeStoredServers,persistStoredState} from './browser-storage.js';
 import {TIERS,groupToolsByTier,runRequirements,toolRisk} from './tool-tiers.js?v=1';
 import {resultPivot} from './result-pivots.js?v=1';

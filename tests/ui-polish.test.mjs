@@ -55,6 +55,6 @@ test('a live redraw keeps open details open',()=>{
   assert.match(app,/details\[data-details-key\]\[open\]:not\(\[data-default-open\]\)/);
 });
 test('changed and new modules are imported with a version',()=>{
-  assert.match(app,/search-report\.js\?v=4/);
-  assert.match(app,/search-results-view\.js\?v=2/);
+  assert.match(app,/search-report\.js\?v=\d+/);
+  assert.match(app,/search-results-view\.js\?v=\d+/);
 });

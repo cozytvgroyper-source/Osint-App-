@@ -14,7 +14,7 @@ export function renderRankedReport(data = {}, helpers) {
   const isOpen = (key, byDefault) => byDefault || (openKeys instanceof Set && openKeys.has(key));
   const openAttr = (key, byDefault) => (isOpen(key, byDefault) ? ' open' : '');
   const finished = !report['Still Running'];
-  const label = item => `${esc(item.tool)} · ${esc(item.server)}`;
+  const label = item => `${esc(item.tool)} (via ${esc(item.server)})`;
 
   const parts = [];
 
@@ -44,7 +44,7 @@ export function renderRankedReport(data = {}, helpers) {
       const rest = s.nonMatching || [];
       if (rest.length) {
         const key = `more:${s.toolName}`;
-        body += `<details class="more-results" data-details-key="${esc(key)}"${openAttr(key, false)}><summary>Show ${rest.length} more from ${esc(s.tool)}</summary>${renderArray(rest)}</details>`;
+        body += `<details class="more-results" data-details-key="${esc(key)}"${openAttr(key, false)}><summary>Show ${rest.length} more from ${esc(s.tool)} ${esc("that don't mention your search")}</summary>${renderArray(rest)}</details>`;
       }
     }
     parts.push(`<section class="result-category"><div class="category-head"><p class="eyebrow">${label(s)}</p></div>${body}</section>`);
@@ -55,7 +55,10 @@ export function renderRankedReport(data = {}, helpers) {
 
   // 6. Empty copy precedes details
   const noResults = finished && !sections.length;
-  if (noResults) parts.push('<p class="empty-copy">No results for this search</p>');
+  if (noResults) {
+    const hint = esc("Try a shorter name, or open Search details to see which sources answered.");
+    parts.push(`<p class="empty-copy">${data.query ? `Nothing found for ${esc(`'${data.query}'`)}.` : 'Nothing found.'} ${hint}</p>`);
+  }
 
   // 5. Search details
   const detail = ['<summary>Search details</summary>'];
