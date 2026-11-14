@@ -1,2 +1,2 @@
 {"entities":[{"id":"os-1","name":"Owner Example","schema":"Person","aliases":[],"countries":["xx"],"sanctions":null,"dataset":"example_list","birthDate":"1970","firstSeen":"2020-01-01","lastSeen":"2026-01-01"},
-{"id":"os-2","name":"Unrelated Person","schema":"Person","aliases":[],"countries":[],"dataset":"other_list"}]}
+{"id":"os-2","name":"Unrelated Person","schema":"Person","aliases":[],"countries":[],"dataset":"example_list"}]}

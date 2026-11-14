@@ -1,7 +1,7 @@
 // Ranks and groups the answers of a passive search: who/what it is, news, related data, records.
 // Pure functions only. Each result appears once, and the exact name outranks a mere mention.
 
-const TEXT_FIELDS=['label','name','title','headline','aliases','description','summary','snippet','text','company','dataset','place'];
+const TEXT_FIELDS=['label','name','title','headline','aliases','description','summary','snippet','text','company','place'];
 const TITLE_FIELDS=['title','label','name','place'];
 const DATE_FIELDS=['pubDate','date','seendate','publishedAt','published'];
 const LINK_FIELDS=['wikiUrl','url','link','searchUrl','opencorporates_url'];
@@ -9,19 +9,13 @@ const ARRAY_KEYS=['entities','items','articles','filings','results','data'];
 
 const flat=value=>String(value??'').toLowerCase().replace(/\./g,'').replace(/\s+/g,' ').trim();
 const squash=value=>flat(value).replace(/ /g,'');
-const wordsOf=text=>String(text??'').toLowerCase().match(/[\p{L}\p{N}]+/gu)||[];
 const asList=value=>Array.isArray(value)?value:value==null||value===''?[]:[value];
 const textOf=(item,fields)=>fields.flatMap(field=>asList(item?.[field]).map(v=>typeof v==='object'?'':String(v))).filter(Boolean).join(' ');
 
-// Lower-case words with dots dropped and runs of single letters joined ("J. D." -> "jd"), padded so whole words match.
-function wordForm(text){
-  const out=[];
-  for(const w of wordsOf(String(text??'').toLowerCase().replace(/\./g,''))){
-    if([...w].length===1&&out.length&&out.at(-1).single)out.at(-1).text+=w;
-    else out.push({text:w,single:[...w].length===1});
-  }
-  return ` ${out.map(x=>x.text).join(' ')} `;
-}
+// Lower-case word tokens. Initials written with dots ("J. D.", "J.D.") become one token ("jd"); a lone letter without a dot stays a word.
+const TOKEN=/(?:(?<![\p{L}\p{N}])\p{L}\.\s*)+|[\p{L}\p{N}]+/gu;
+const tokens=text=>(String(text??'').toLowerCase().match(TOKEN)||[]).map(t=>t.replace(/[^\p{L}\p{N}]/gu,''));
+const wordForm=text=>` ${tokens(text).join(' ')} `;
 
 export function passiveTier(item,subject){
   const wanted=flat(subject);
@@ -31,11 +25,10 @@ export function passiveTier(item,subject){
   if(names.some(n=>typeof n==='string'&&squash(n)===exact))return 5;
   const needle=wordForm(subject).trim();
   if(wordForm(textOf(item,TITLE_FIELDS)).includes(` ${needle} `))return 4;
-  const all=flat(textOf(item,TEXT_FIELDS));
   if(wordForm(textOf(item,TEXT_FIELDS)).includes(` ${needle} `))return 3;
-  const subjectWords=wordsOf(flat(subject)).filter(w=>[...w].length>=2);
+  const subjectWords=tokens(subject).filter(w=>[...w].length>=2);
   if(!subjectWords.length)return 3;
-  const present=new Set(wordsOf(all));
+  const present=new Set(tokens(textOf(item,TEXT_FIELDS)));
   const found=subjectWords.filter(w=>present.has(w)).length;
   return found===subjectWords.length?2:found>0?1:0;
 }
@@ -122,13 +115,16 @@ function recordItem(rawItem,tool,index){
   return{key:keyFor('records',tool,index),title,detail,link:firstOf(item,LINK_FIELDS),tier:0,tool:name,item:rawItem};
 }
 
+// One copy per link or title; the copy with the higher tier wins, the first one on a tie.
 const dedupeNews=list=>{
-  const links=new Set(),titles=new Set(),out=[];
+  const byLink=new Map(),byTitle=new Map(),out=[];
   for(const n of list){
     const title=flat(n.title);
-    if((n.link&&links.has(n.link))||titles.has(title))continue;
-    if(n.link)links.add(n.link);
-    titles.add(title);out.push(n);
+    const at=(n.link&&byLink.get(n.link))??byTitle.get(title);
+    if(at!==undefined){if(n.tier>out[at].tier)out[at]=n;continue;}
+    out.push(n);
+    if(n.link)byLink.set(n.link,out.length-1);
+    byTitle.set(title,out.length-1);
   }
   return out;
 };
@@ -169,7 +165,7 @@ export function buildPassiveResults({query,subject,event,sources,outcomes}){
       const ranked=items.map((item,i)=>({key:keyFor('data',tool,i),tier:passiveTier(item,subject),item}));
       const shown=ranked.filter(x=>x.tier>0).sort((a,b)=>b.tier-a.tier);
       const hidden=ranked.filter(x=>x.tier===0);
-      result.data.push({key:keyFor('data',tool,index),tool:tool.name,label:labelFor(tool),items:shown,hidden,hiddenCount:hidden.length});
+      result.data.push({key:`group:${keyFor('data',tool,index)}`,tool:tool.name,label:labelFor(tool),items:shown,hidden,hiddenCount:hidden.length});
     }
   });
   entities.sort((a,b)=>b.tier-a.tier);

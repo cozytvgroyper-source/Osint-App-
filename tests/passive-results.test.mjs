@@ -180,3 +180,37 @@ test('wrapped OpenCorporates results are read',()=>{
   assert.equal(r.records[0].link,'https://oc.example/2');
   assert.equal(r.records[0].tier,5);
 });
+
+test('a dataset name does not make a record match',()=>{
+  const payload={entities:[{id:'x',name:'Unrelated Name',dataset:'example_list'}]};
+  const r=buildPassiveResults({query:'Example',subject:'Example',event:false,sources:[src('get_opensanctions','records')],outcomes:[ok('get_opensanctions',payload)]});
+  assert.equal(passiveTier(payload.entities[0],'Example'),0);
+  assert.equal(r.records.length,0);
+  assert.equal(r.hidden.records.length,1);
+  assert.equal(r.hidden.records[0].detail,'Appears in example_list — check before relying on it');
+});
+
+test('group keys and item keys never overlap',()=>{
+  const sources=[src('get_earthquakes','data')];
+  const r=buildPassiveResults({query:'Example City',subject:'Example City',event:true,sources,outcomes:[ok('get_earthquakes',load('earthquakes'))]});
+  const g=r.data[0];
+  const keys=[g.key,...g.items.map(i=>i.key),...g.hidden.map(i=>i.key)];
+  assert.equal(new Set(keys).size,keys.length);
+  assert.match(g.key,/^group:data:get_earthquakes:0$/);
+});
+
+test('a lone letter does not glue onto initials',()=>{
+  assert.equal(passiveTier({title:'Meet a J. D. Vance supporter'},'JD Vance'),4);
+  assert.equal(passiveTier({title:'x',description:'J. D. Vance'},'JD Vance'),3);
+  assert.equal(passiveTier({title:'Meet a J. D. Vance supporter'},'Vance JD'),2);
+});
+
+test('a duplicate keeps the copy with the higher tier',()=>{
+  const sources=[src('get_news_rss','news'),src('get_gdelt','news')];
+  const rss={items:[{title:'Headline',link:'https://news.example/same',pubDate:'Thu, 13 Nov 2026 10:15:00 GMT'}]};
+  const gd={articles:[{url:'https://news.example/same',title:'Owner Example headline',seendate:'20261113T101500Z'}]};
+  const r=buildPassiveResults({query:'Owner Example',subject:'Owner Example',event:false,sources,outcomes:[ok('get_news_rss',rss),ok('get_gdelt',gd)]});
+  assert.equal(r.news.length,1);
+  assert.equal(r.news[0].tier,4);
+  assert.equal(r.hidden.news.length,0);
+});
