@@ -116,8 +116,10 @@ export async function startBrowser(){
     async close(){
       try{await send('Browser.close');}catch{}
       socket.close();
-      if(chrome.exitCode===null)await Promise.race([new Promise(resolve=>chrome.once('exit',resolve)),wait(3000).then(()=>chrome.kill('SIGKILL'))]);
-      fs.rmSync(profile,{recursive:true,force:true});
+      const exited=()=>chrome.exitCode===null?new Promise(resolve=>chrome.once('exit',resolve)):Promise.resolve();
+      if(chrome.exitCode===null)await Promise.race([exited(),wait(3000)]);
+      if(chrome.exitCode===null){chrome.kill('SIGKILL');await Promise.race([exited(),wait(3000)]);}
+      fs.rmSync(profile,{recursive:true,force:true,maxRetries:5,retryDelay:100});
     }
   };
 }
