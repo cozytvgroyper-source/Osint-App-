@@ -28,7 +28,7 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
       - name: Syntax-check JavaScript
-        run: for file in server.mjs public/*.js scripts/*.mjs; do node --check "$file"; done
+        run: for file in server.mjs public/*.js public/app/*.js scripts/*.mjs; do node --check "$file"; done
       - name: Syntax-check Python
         run: python3 -m py_compile scripts/*.py
       - name: Syntax-check the Mac launchers
@@ -39,4 +39,7 @@ jobs:
           zsh -n scripts/service-ownership.zsh
           zsh -n scripts/setup-local.zsh
       - name: Run tests
+        # The browser tests drive the Google Chrome that GitHub's macOS machines come with; fail if it is missing.
+        env:
+          PUBLIC_DESK_REQUIRE_BROWSER: '1'
         run: npm test
