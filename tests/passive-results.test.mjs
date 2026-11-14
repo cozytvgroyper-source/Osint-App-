@@ -214,3 +214,32 @@ test('a duplicate keeps the copy with the higher tier',()=>{
   assert.equal(r.news[0].tier,4);
   assert.equal(r.hidden.news.length,0);
 });
+
+const newsRun=(items,subject='Owner Example')=>buildPassiveResults({query:subject,subject,event:false,sources:[src('get_news_rss','news')],outcomes:[ok('get_news_rss',{items})]});
+
+test('news without a link is shown, and linkless duplicates collapse',()=>{
+  const one=newsRun([{title:'Owner Example speaks',link:'',pubDate:''}]);
+  assert.equal(one.news.length,1);
+  const two=newsRun([{title:'Owner Example speaks',link:''},{title:'owner  example SPEAKS',link:''}]);
+  assert.equal(two.news.length,1);
+});
+
+test('a replacement copy registers its own link and title',()=>{
+  const r=newsRun([
+    {title:'Headline',link:'https://news.example/one'},
+    {title:'Owner Example headline',link:'https://news.example/one'},
+    {title:'Other words',link:'https://news.example/one'},
+    {title:'Owner Example headline',link:'https://news.example/two'},
+  ]);
+  assert.equal(r.news.length,1);
+  assert.equal(r.news[0].tier,4);
+});
+
+test('a later item sharing only the replacement link is caught',()=>{
+  const r=newsRun([
+    {title:'Headline Owner',link:'https://news.example/one'},
+    {title:'Headline Owner',link:'https://news.example/two',description:'Owner Example'},
+    {title:'Different title entirely',link:'https://news.example/two'},
+  ]);
+  assert.equal(r.news.length+r.hidden.news.length,1);
+});

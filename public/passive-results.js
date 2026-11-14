@@ -120,8 +120,11 @@ const dedupeNews=list=>{
   const byLink=new Map(),byTitle=new Map(),out=[];
   for(const n of list){
     const title=flat(n.title);
-    const at=(n.link&&byLink.get(n.link))??byTitle.get(title);
-    if(at!==undefined){if(n.tier>out[at].tier)out[at]=n;continue;}
+    const at=(n.link?byLink.get(n.link):undefined)??byTitle.get(title);
+    if(at!==undefined){
+      if(n.tier>out[at].tier){out[at]=n;if(n.link)byLink.set(n.link,at);byTitle.set(title,at);}
+      continue;
+    }
     out.push(n);
     if(n.link)byLink.set(n.link,out.length-1);
     byTitle.set(title,out.length-1);
