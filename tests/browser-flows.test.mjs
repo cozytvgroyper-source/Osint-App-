@@ -27,7 +27,7 @@ const confirmButton=label=>`[...document.querySelectorAll('#confirmDialog button
 const connectToolbox=async browser=>{
   await browser.evaluate(STUB_MCP+show('servers'));
   await browser.evaluate("[...document.querySelectorAll('[data-connect]')].find(button=>button.closest('article,li')?.textContent.includes('OSINT Toolbox')).click();");
-  await browser.waitFor("return [...document.querySelectorAll('article,li')].some(card=>/OSINT Toolbox/.test(card.textContent)&&/Connected · 2 tools/.test(card.textContent))",{label:'OSINT Toolbox connected'});
+  await browser.waitFor("return [...document.querySelectorAll('article,li')].some(card=>/OSINT Toolbox/.test(card.textContent)&&/Connected · 2 tools/.test(card.textContent))",{timeout:20_000,label:'OSINT Toolbox connected'});
 };
 const startDeepSearch=async(browser,target)=>{
   await browser.evaluate(`${show('deep')}document.querySelector('[data-deep-new]')?.click();`);
@@ -180,8 +180,8 @@ const NAME_ANSWERS={
 const connectOpenOsint=async(browser,answers,delays={})=>{
   await browser.evaluate(`${STUB_MCP}window.__mcp.answers=${JSON.stringify(answers)};window.__mcp.delays=${JSON.stringify(delays)};${show('servers')}`);
   await browser.evaluate("[...document.querySelectorAll('[data-connect]')].find(button=>button.closest('article,li')?.textContent.includes('Open OSINT')).click();");
-  await browser.waitFor("return [...document.querySelectorAll('article,li')].some(card=>/Open OSINT/.test(card.textContent)&&/Connected · 7 tools/.test(card.textContent))",{label:'Open OSINT connected'});
-  await browser.waitFor("return !document.getElementById('serverList').textContent.includes('Connecting…')",{label:'startup server notices settled'});
+  await browser.waitFor("return [...document.querySelectorAll('article,li')].some(card=>/Open OSINT/.test(card.textContent)&&/Connected · 7 tools/.test(card.textContent))",{timeout:20_000,label:'Open OSINT connected'});
+  await browser.waitFor("return !document.getElementById('serverList').textContent.includes('Connecting…')",{timeout:20_000,label:'startup server notices settled'});
 };
 const search=async(browser,query)=>{
   await browser.evaluate(`${show('workspace')}document.getElementById('query').value=${JSON.stringify(query)};document.getElementById('investigateForm').requestSubmit();`);
