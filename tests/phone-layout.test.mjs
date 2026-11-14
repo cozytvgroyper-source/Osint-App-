@@ -5,12 +5,8 @@ import {readAppSource} from './helpers/app-source.mjs';
 
 const css=fs.readFileSync(new URL('../public/ui.css',import.meta.url),'utf8');
 const app=readAppSource();
-const phoneRules=[...css.matchAll(/@media\(max-width:720px\)\{([\s\S]*?\})\}/g)].map(match=>match[1]).join('');
-
-// The Tool library filter and the News search box are both label.filter; on phones they must stay visible.
-test('the tool filter and the news search stay visible on phones',()=>{
-  assert.doesNotMatch(phoneRules,/(?:^|\})\s*\.filter\{[^}]*display:none/);
-});
+// That the Tool library filter and the News search box stay visible on a phone is measured in a real browser
+// (tests/browser-flows.test.mjs).
 
 // Wide tables (Run history, tool check results) scroll inside their own box on phones instead of being cut off,
 // and that box can be reached and scrolled with the keyboard.
