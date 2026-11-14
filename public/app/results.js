@@ -5,7 +5,7 @@ import { parseToolResult } from '../result-classifier.js';
 import { reportHasFindings } from '../search-report.js?v=4';
 import { renderRankedReport } from '../search-results-view.js?v=4';
 import { resultPivot } from '../result-pivots.js?v=1';
-import { renderPassiveResults, renderPassiveHandOff } from '../passive-results-view.js';
+import { foldUnresolvedWikidataIds, renderPassiveResults, renderPassiveHandOff } from '../passive-results-view.js?v=1';
 import { $, state, openDialog } from './core.js';
 import { tierBadge } from './tools.js';
 
@@ -98,18 +98,21 @@ function renderSources(entry) {
   return `<section class="result-category sources-category"><div class="category-head"><div><p class="eyebrow">${escapeHtml(entry?.eyebrow || 'SEARCH PROVENANCE')}</p><h3>Sources</h3></div>${entry?.description ? `<p>${escapeHtml(entry.description)}</p>` : ''}</div><div class="source-list">${cards}</div></section>`;
 }
 // savedKeys marks the passive results already saved in this search; a saved finding shows none as saved.
-function renderReadableResult(result, openKeys = null, { savedKeys = new Set() } = {}) {
+function renderReadableResult(result, openKeys = null, { savedKeys = new Set(), foldWikidataIds = false } = {}) {
   const parsed = parseToolResult(result);
-  const payload = parsed?.data ?? parsed;
+  const rawPayload = parsed?.data ?? parsed;
+  const payload = foldWikidataIds ? foldUnresolvedWikidataIds(rawPayload) : rawPayload;
   const report = payload?.report;
   if (payload?.passiveHandOff) return renderPassiveHandOff(payload.passiveHandOff);
   if (payload?.passive)
     return renderPassiveResults(payload.passive, {
       sort: state.newsSort,
       savedKeys,
+      openKeys: openKeys||new Set(),
       escapeHtml,
       safeHttpUrl,
-      renderRecord
+      renderRecord,
+      renderBody
     });
   if (payload?.ranking && payload?.report)
     return renderRankedReport(payload, {
@@ -136,17 +139,7 @@ function renderReadableResult(result, openKeys = null, { savedKeys = new Set() }
   if (Array.isArray(payload))
     return `<section class="result-category"><div class="category-head"><div><p class="eyebrow">RESULT</p><h3>Findings</h3></div></div>${renderArray(payload)}</section>`;
   if (payload && typeof payload === 'object')
-    return `<section class="result-category"><div class="category-head"><div><p class="eyebrow">RESULT</p><h3>Findings</h3></div></div>${renderRecord(payload)}${Object.entries(
-      payload
-    )
-      .filter(([, value]) => Array.isArray(value))
-      .map(
-        ([key, items]) =>
-          `<div class="result-subgroup"><h4>${escapeHtml(humanize(key))}</h4>${renderArray(items)}</div>`
-      )
-      .join(
-        ''
-      )}</section><details class="raw-result"><summary>Technical details</summary><pre>${escapeHtml(JSON.stringify(parsed, null, 2))}</pre></details>`;
+    return `<section class="result-category"><div class="category-head"><div><p class="eyebrow">RESULT</p><h3>Findings</h3></div></div>${renderBody(payload)}</section><details class="raw-result"><summary>Technical details</summary><pre>${escapeHtml(JSON.stringify(foldWikidataIds ? foldUnresolvedWikidataIds(parsed) : parsed, null, 2))}</pre></details>`;
   return `<div class="plain-result">${escapeHtml(String(payload ?? 'No result returned.'))}</div>`;
 }
 // The save button says where a finding goes: the open case, or a new one created for it.
@@ -169,7 +162,8 @@ function showResult(title, result, { saved = false } = {}) {
   state.shownResult = { title, result, saved };
   $('#resultTitle').textContent = title;
   $('#resultBody').innerHTML = renderReadableResult(result, openKeys, {
-    savedKeys: saved ? new Set() : state.savedResultKeys
+    savedKeys: saved ? new Set() : state.savedResultKeys,
+    foldWikidataIds: saved
   });
   // Explain Pivot once, above the first result that offers one.
   if ($('#resultBody').querySelector('.pivot-button'))

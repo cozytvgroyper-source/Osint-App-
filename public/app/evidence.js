@@ -90,6 +90,12 @@ function passiveItem(results, key) {
   const label = (results.sources || []).find(source => source.tool === tool)?.label || tool;
   return { ...found, label };
 }
+function passiveSourceItem(item) {
+  if (item?.item !== undefined) return item.item;
+  if (!item || typeof item !== 'object') return item;
+  const { key, tier, ...source } = item;
+  return source;
+}
 // Saves one passive-search result into the open case (or a new one), once: a key already saved, or being saved, does
 // nothing.
 async function saveResultToCase(key) {
@@ -105,7 +111,7 @@ async function saveResultToCase(key) {
     if (!state.activeCase && !(await createCase(defaultCaseName(last.title)))) return;
     await api(`/api/cases/${state.activeCaseId}/evidence`, {
       title: found.title,
-      result: found.item,
+      result: passiveSourceItem(found.item),
       server: found.label,
       time: last.time,
       note: `From Passive search: ${results.query}`

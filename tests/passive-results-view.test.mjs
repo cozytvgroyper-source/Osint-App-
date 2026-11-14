@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {renderPassiveResults,renderPassiveHandOff} from '../public/passive-results-view.js';
+import {foldUnresolvedWikidataIds,renderPassiveResults,renderPassiveHandOff} from '../public/passive-results-view.js';
 import {escapeHtml,safeHttpUrl} from '../public/ui.js';
 
-const helpers={escapeHtml,safeHttpUrl,renderRecord:o=>'<dl>'+escapeHtml(JSON.stringify(o))+'</dl>',renderArray:l=>'<ul>'+escapeHtml(JSON.stringify(l))+'</ul>'};
+const helpers={escapeHtml,safeHttpUrl,renderRecord:o=>'<dl>'+escapeHtml(JSON.stringify(o))+'</dl>',renderBody:o=>'<dl>'+escapeHtml(JSON.stringify(o))+'</dl>',renderArray:l=>'<ul>'+escapeHtml(JSON.stringify(l))+'</ul>'};
 const empty=()=>({query:'Owner Example',subject:'Owner Example',event:false,identity:{best:null,others:[]},news:[],data:[],records:[],hidden:{news:[],records:[]},failed:[],pending:[]});
-const news=(key,title,date,tier=4,extra={})=>({key,title,link:`https://news.example/${key}`,date,source:'news.example',snippet:'',tier,tool:'get_news',item:{},...extra});
+const news=(key,title,date,tier=4,extra={})=>({key,title,link:`https://news.example/${key}`,date,source:'news.example',snippet:'',tier,tool:'get_news',item:{title,link:`https://news.example/${key}`,date,source:'news.example'},...extra});
 const full=()=>({
   ...empty(),
   identity:{best:{id:'Q1',label:'Owner Example',description:'Example person',aliases:[],wikiUrl:'https://wiki.example/Q1',facts:{instanceOf:'human'},key:'identity:get_wikidata:0',tier:5},
@@ -38,7 +38,7 @@ test('the identity card shows the best match and lists others',()=>{
   assert.match(html,/instanceOf/);
 });
 
-test('news shows date, source and a linked title, sorted as asked',()=>{
+test('news shows date and source, with the source link in its expanded record, sorted as asked',()=>{
   const r=full();
   const newest=render(r,{sort:'newest'});
   assert.match(newest,/<select id="newsSort" aria-label="Sort news">/);
@@ -46,11 +46,21 @@ test('news shows date, source and a linked title, sorted as asked',()=>{
   assert.match(newest,/<option value="relevant">Most relevant<\/option>/);
   assert.match(newest,/<time datetime="2026-06-01T00:00:00.000Z">/);
   assert.match(newest,/news\.example/);
-  assert.match(newest,/<a href="https:\/\/news\.example\/news:a:1" target="_blank" rel="noopener noreferrer">New story<\/a>/);
+  assert.match(newest,/<strong>New story<\/strong>/);
+  assert.match(newest,/&quot;link&quot;:&quot;https:\/\/news\.example\/news:a:1&quot;/);
   assert.ok(newest.indexOf('New story')<newest.indexOf('Old story'));
   const relevant=render(r,{sort:'relevant'});
   assert.match(relevant,/<option value="relevant" selected>Most relevant<\/option>/);
   assert.ok(relevant.indexOf('Old story')<relevant.indexOf('New story'));
+});
+
+test('each result expands to the full source record and open rows survive redraws',()=>{
+  const html=render(full(),{openKeys:new Set(['records:get_sec:0'])});
+  const keys=['identity:get_wikidata:0','identity:get_wikidata:1','news:a:0','news:a:1','news:a:2','data:get_x:0','data:get_x:1','records:get_sec:0','records:get_sec:1'];
+  for(const key of keys)assert.match(html,new RegExp(`class="passive-result" data-details-key="${key}"`),key);
+  assert.match(html,/<details class="passive-result" data-details-key="records:get_sec:0" open>/);
+  assert.match(html,/passive-result-expanded/);
+  assert.match(html,/&quot;a&quot;:1/);
 });
 
 test('every result has its own named Save to case button, and saved ones are marked',()=>{
@@ -118,18 +128,20 @@ test('data items get distinct Save names, and an empty body falls back to the ti
   assert.match(html,/aria-label="Save to case: First"/);
   assert.match(html,/aria-label="Save to case: Second"/);
   assert.match(html,/aria-label="Save to case: Group"/);
-  assert.match(html,/<div class="result-main">First<\/div>/);
-  assert.match(html,/<div class="result-main">Item 3<\/div>/);
+  assert.match(html,/<strong>First<\/strong>/);
+  assert.match(html,/<strong>Item 3<\/strong>/);
 });
 
-test('Wikidata ids are dropped from facts, scalar and array',()=>{
+test('unresolved Wikidata ids are folded recursively while readable values remain',()=>{
   const r=empty();
-  r.identity.best={id:'Q1',label:'Owner Example',description:'',aliases:[],wikiUrl:'',key:'k',tier:5,facts:{instanceOf:'wd:Q5',citizen:['wd:Q30','wd:Q31'],occupation:['wd:Q1','Painter'],gone:['wd:Q9'],born:'1970'}};
+  r.identity.best={id:'Q1',label:'Owner Example',description:'',aliases:[],wikiUrl:'',key:'k',tier:5,facts:{instanceOf:'wd:Q5',citizen:['wd:Q30','wd:Q31'],occupation:['wd:Q1','Painter'],nested:{owner:'wd:Q2',country:{id:'wd:Q3'},label:'Readable'},gone:['wd:Q9'],born:'1970'}};
   const html=render(r);
   assert.doesNotMatch(html,/wd:Q/);
   assert.match(html,/Painter/);
+  assert.match(html,/Readable/);
   assert.match(html,/1970/);
   assert.doesNotMatch(html,/instanceOf|citizen|gone/);
+  assert.deepEqual(foldUnresolvedWikidataIds({id:'wd:Q1',items:['wd:Q2','Kept'],nested:{only:'wd:Q3'},url:'https://www.wikidata.org/wiki/Q4'}),{items:['Kept'],url:'https://www.wikidata.org/wiki/Q4'});
 });
 
 test('default sort is relevant, or newest for an event; undated news has no datetime',()=>{
@@ -145,7 +157,7 @@ test('hostile identity, wikiUrl, group label and keys are escaped',()=>{
   r.identity.best={id:'Q1',label:'<u>Bad</u>',description:'<s>d</s>',aliases:[],wikiUrl:'javascript:alert(1)',key:'"><x>',tier:5,facts:{}};
   r.data=[{key:'group:g',tool:'g',label:'<em>G</em>',items:[{key:'"k"<b>',tier:3,item:{a:1}}],hidden:[],hiddenCount:0}];
   const html=render(r);
-  assert.doesNotMatch(html,/<u>|<s>|<em>|<x>|<b>|javascript:/);
+  assert.doesNotMatch(html,/<u>|<s>|<em>|<x>|<b>|href="javascript:/);
   assert.match(html,/&lt;u&gt;Bad/);
   assert.match(html,/data-save-result="&quot;&gt;&lt;x&gt;"/);
   assert.match(html,/data-save-result="&quot;k&quot;&lt;b&gt;"/);

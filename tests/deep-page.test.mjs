@@ -119,7 +119,7 @@ test('person result modules and app use the refined-result versions',()=>{
   assert.match(app,/deep-adapters\.js\?v=2/);
   assert.match(app,/deep-linking\.js\?v=2/);
   assert.match(app,/deep-results-view\.js\?v=2/);
-  assert.match(html,/src="\/app\.js\?v=62"/);
+  assert.match(html,/src="\/app\.js\?v=63"/);
 });
 
 test('result links use the accessible theme color',()=>assert.match(styles,/#deepResults a\{color:var\(--accent-dark\)\}/));
