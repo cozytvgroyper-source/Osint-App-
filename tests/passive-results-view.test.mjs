@@ -14,7 +14,7 @@ const full=()=>({
   data:[{key:'group:data:get_x:2',tool:'get_x',label:'Example data',items:[{key:'data:get_x:0',tier:3,item:{a:1}}],hidden:[{key:'data:get_x:1',tier:0,item:{b:2}}],hiddenCount:1}],
   records:[{key:'records:get_sec:0',title:'Example Corp filing',detail:'10-K · 2026',link:'https://news.example/r',tier:4,tool:'get_sec_filings',item:{}}],
   hidden:{news:[news('news:a:2','Unrelated','2026-02-01T00:00:00.000Z',0)],records:[{key:'records:get_sec:1',title:'Other filing',detail:'',link:'',tier:0,tool:'get_sec_filings',item:{}}]},
-  failed:[{label:'Offshore Leaks',error:'timed out'}],pending:['Court records']
+  sources:[{label:'get_wikidata',tool:'get_wikidata',state:'ok'},{label:'Offshore Leaks',tool:'x',state:'failed',error:'timed out'},{label:'Court records',tool:'y',state:'pending'},{label:'Registry',tool:'z',state:'empty'}],failed:[{label:'Offshore Leaks',error:'timed out'}],pending:['Court records']
 });
 const render=(r,o={})=>renderPassiveResults(r,{sort:'newest',savedKeys:new Set(),...helpers,...o});
 
@@ -90,8 +90,58 @@ test('headings stay in order: h3 inside the dialog',()=>{
 });
 
 test('the hand-off names the kind and offers Deep Search',()=>{
-  const html=renderPassiveHandOff({label:'domain',value:'example.com'},helpers);
-  assert.match(html,/domain/);
+  const html=renderPassiveHandOff({label:'website',value:'example.com'});
+  assert.ok(html.includes('This looks like a website. Passive search covers people, companies and news; websites are checked in Deep Search.'));
   assert.match(html,/<button class="primary" data-open-deep-search="example\.com">Open in Deep Search<\/button>/);
   assert.match(renderPassiveHandOff({label:'x',value:'"><b>'}),/data-open-deep-search="&quot;&gt;&lt;b&gt;"/);
+});
+
+test('Search details lists every source with a plain state, even with no results',()=>{
+  const html=render(full());
+  assert.match(html,/get_wikidata: found results/);
+  assert.match(html,/Offshore Leaks: failed: timed out/);
+  assert.match(html,/Court records: still working/);
+  assert.match(html,/Registry: nothing found/);
+  const none=render({...empty(),sources:[{label:'A',tool:'a',state:'empty'}]});
+  assert.match(none,/<details class="search-details">.*A: nothing found/);
+});
+
+test('data items get distinct Save names, and an empty body falls back to the title',()=>{
+  const r=empty();
+  r.data=[{key:'group:data:g:0',tool:'g',label:'Group',items:[{key:'d:0',tier:3,item:{title:'First'}},{key:'d:1',tier:3,item:{label:'Second'}},{key:'d:2',tier:3,item:{x:1}}],hidden:[],hiddenCount:0}];
+  const html=renderPassiveResults(r,{...helpers,renderRecord:()=>''});
+  assert.match(html,/aria-label="Save to case: First"/);
+  assert.match(html,/aria-label="Save to case: Second"/);
+  assert.match(html,/aria-label="Save to case: Group"/);
+  assert.match(html,/<div class="result-main">First<\/div>/);
+  assert.match(html,/<div class="result-main">Item 3<\/div>/);
+});
+
+test('Wikidata ids are dropped from facts, scalar and array',()=>{
+  const r=empty();
+  r.identity.best={id:'Q1',label:'Owner Example',description:'',aliases:[],wikiUrl:'',key:'k',tier:5,facts:{instanceOf:'wd:Q5',citizen:['wd:Q30','wd:Q31'],occupation:['wd:Q1','Painter'],gone:['wd:Q9'],born:'1970'}};
+  const html=render(r);
+  assert.doesNotMatch(html,/wd:Q/);
+  assert.match(html,/Painter/);
+  assert.match(html,/1970/);
+  assert.doesNotMatch(html,/instanceOf|citizen|gone/);
+});
+
+test('default sort is relevant, or newest for an event; undated news has no datetime',()=>{
+  const r=full();
+  assert.match(render(r,{sort:undefined}),/<option value="relevant" selected>/);
+  assert.match(render({...r,event:true},{sort:undefined}),/<option value="newest" selected>/);
+  const d=empty();d.news=[news('n:0','Odd','not a date')];
+  assert.doesNotMatch(render(d),/datetime=/);
+});
+
+test('hostile identity, wikiUrl, group label and keys are escaped',()=>{
+  const r=empty();
+  r.identity.best={id:'Q1',label:'<u>Bad</u>',description:'<s>d</s>',aliases:[],wikiUrl:'javascript:alert(1)',key:'"><x>',tier:5,facts:{}};
+  r.data=[{key:'group:g',tool:'g',label:'<em>G</em>',items:[{key:'"k"<b>',tier:3,item:{a:1}}],hidden:[],hiddenCount:0}];
+  const html=render(r);
+  assert.doesNotMatch(html,/<u>|<s>|<em>|<x>|<b>|javascript:/);
+  assert.match(html,/&lt;u&gt;Bad/);
+  assert.match(html,/data-save-result="&quot;&gt;&lt;x&gt;"/);
+  assert.match(html,/data-save-result="&quot;k&quot;&lt;b&gt;"/);
 });

@@ -243,3 +243,16 @@ test('a later item sharing only the replacement link is caught',()=>{
   ]);
   assert.equal(r.news.length+r.hidden.news.length,1);
 });
+
+test('sources lists every planned source in order with its state',()=>{
+  const r=run([ok('get_wikidata',load('wikidata')),empty('get_news_rss'),rejected('boom'),ok('get_opensanctions',{entities:[]})]);
+  assert.deepEqual(r.sources.map(s=>[s.tool,s.state]),[['get_wikidata','ok'],['get_news_rss','empty'],['get_gdelt','failed'],['get_opensanctions','empty'],['get_offshore_leaks','pending']]);
+  assert.equal(r.sources[2].error,'boom');
+  assert.deepEqual(r.pending,['get_offshore_leaks']);
+  assert.equal(r.failed.length,2);
+});
+
+test('an empty data answer is listed as empty, not dropped',()=>{
+  const r=buildPassiveResults({query:'x',subject:'Owner Example',event:false,sources:[src('get_country_facts','data'),src('get_geocode','data')],outcomes:[ok('get_country_facts',[]),ok('get_geocode',{items:[{name:'Owner Example'}]})]});
+  assert.deepEqual(r.sources.map(s=>s.state),['empty','ok']);
+});

@@ -137,34 +137,43 @@ function describeFailure(entry){
 }
 
 export function buildPassiveResults({query,subject,event,sources,outcomes}){
-  const result={query,subject,event,identity:{best:null,others:[]},news:[],data:[],records:[],hidden:{news:[],records:[]},failed:[],pending:[]};
+  const result={query,subject,event,identity:{best:null,others:[]},news:[],data:[],records:[],hidden:{news:[],records:[]},sources:[],failed:[],pending:[]};
   const entities=[],news=[],records=[];
   (sources||[]).forEach((source,index)=>{
     const entry=outcomes?.[index];
     const tool=source.tool;
+    const entryOut={label:labelFor(tool),tool:tool.name,state:'pending'};
+    result.sources.push(entryOut);
+    const mark=found=>{entryOut.state=found?'ok':'empty';};
     if(entry===undefined){result.pending.push(labelFor(tool));return;}
-    if(entry.status==='rejected'){result.failed.push({label:labelFor(tool),error:describeFailure(entry)});return;}
+    if(entry.status==='rejected'){entryOut.state='failed';entryOut.error=describeFailure(entry);result.failed.push({label:labelFor(tool),error:entryOut.error});return;}
     const outcome=entry.value?.outcome;
-    if(outcome?.kind==='error'){result.failed.push({label:labelFor(tool),error:describeFailure(entry)});return;}
-    if(outcome?.kind!=='data'){result.failed.push({label:labelFor(tool),error:'Returned nothing.'});return;}
+    if(outcome?.kind==='error'){entryOut.state='failed';entryOut.error=describeFailure(entry);result.failed.push({label:labelFor(tool),error:entryOut.error});return;}
+    if(outcome?.kind!=='data'){entryOut.state=outcome?.kind==='empty'?'empty':'failed';entryOut.error='Returned nothing.';result.failed.push({label:labelFor(tool),error:'Returned nothing.'});return;}
     const payload=payloadOf(outcome);
     if(source.group==='identity'){
-      listFor(payload,'entities').forEach((entity,i)=>entities.push({...entity,key:keyFor('identity',tool,i),tier:passiveTier(entity,subject)}));
+      const list=listFor(payload,'entities');mark(list.length);
+      list.forEach((entity,i)=>entities.push({...entity,key:keyFor('identity',tool,i),tier:passiveTier(entity,subject)}));
     }else if(source.group==='news'){
+      let count=0;
       listFor(payload,'items').forEach((item,i)=>{
         if(item.error&&!firstOf(item,['title','headline','name']))return;
         const n=newsItem(item,tool,i);
-        if(n){n.tier=passiveTier(item,subject);news.push(n);}
+        if(n){n.tier=passiveTier(item,subject);news.push(n);count++;}
       });
+      mark(count);
     }else if(source.group==='records'){
+      let count=0;
       listFor(payload,'entities').forEach((item,i)=>{
         const r=recordItem(item,tool,i);
-        if(r){r.tier=passiveTier(flatRecord(item),subject);records.push(r);}
+        if(r){r.tier=passiveTier(flatRecord(item),subject);records.push(r);count++;}
       });
+      mark(count);
     }else{
       let items=firstItems(payload);
       if(!items.length&&payload&&typeof payload==='object'&&!Array.isArray(payload))items=[payload];
-      if(!items.length)return;
+      if(!items.length){mark(false);return;}
+      mark(true);
       const ranked=items.map((item,i)=>({key:keyFor('data',tool,i),tier:passiveTier(item,subject),item}));
       const shown=ranked.filter(x=>x.tier>0).sort((a,b)=>b.tier-a.tier);
       const hidden=ranked.filter(x=>x.tier===0);
