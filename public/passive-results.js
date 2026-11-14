@@ -149,7 +149,10 @@ export function buildPassiveResults({query,subject,event,sources,outcomes}){
     if(entry.status==='rejected'){entryOut.state='failed';entryOut.error=describeFailure(entry);result.failed.push({label:labelFor(tool),error:entryOut.error});return;}
     const outcome=entry.value?.outcome;
     if(outcome?.kind==='error'){entryOut.state='failed';entryOut.error=describeFailure(entry);result.failed.push({label:labelFor(tool),error:entryOut.error});return;}
-    if(outcome?.kind!=='data'){entryOut.state=outcome?.kind==='empty'?'empty':'failed';entryOut.error='Returned nothing.';result.failed.push({label:labelFor(tool),error:'Returned nothing.'});return;}
+    if(outcome?.kind!=='data'){
+      if(outcome?.kind==='empty'){entryOut.state='empty';return;}
+      entryOut.state='failed';entryOut.error='Returned nothing.';result.failed.push({label:labelFor(tool),error:entryOut.error});return;
+    }
     const payload=payloadOf(outcome);
     if(source.group==='identity'){
       const list=listFor(payload,'entities');mark(list.length);
@@ -171,7 +174,8 @@ export function buildPassiveResults({query,subject,event,sources,outcomes}){
       mark(count);
     }else{
       let items=firstItems(payload);
-      if(!items.length&&payload&&typeof payload==='object'&&!Array.isArray(payload))items=[payload];
+      const hasExplicitEmptyList=payload&&typeof payload==='object'&&!Array.isArray(payload)&&ARRAY_KEYS.some(key=>Array.isArray(payload[key])&&!payload[key].length);
+      if(!items.length&&!hasExplicitEmptyList&&payload&&typeof payload==='object'&&!Array.isArray(payload))items=[payload];
       if(!items.length){mark(false);return;}
       mark(true);
       const ranked=items.map((item,i)=>({key:keyFor('data',tool,i),tier:passiveTier(item,subject),item}));

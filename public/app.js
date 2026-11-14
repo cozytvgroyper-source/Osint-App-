@@ -290,17 +290,6 @@ $('#newInvestigation').onclick = () => {
   switchView('workspace');
   $('#query').focus();
 };
-$('#cmdButton').onclick = () => {
-  switchView('workspace');
-  $('#query').focus();
-};
-document.addEventListener('keydown', event => {
-  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
-    event.preventDefault();
-    switchView('workspace');
-    $('#query').focus();
-  }
-});
 // Add MCP server: a mistake is shown next to its field, the field is marked invalid and focused, and nothing is saved.
 function clearServerFormErrors() {
   for (const id of ['serverName', 'serverEndpoint']) {

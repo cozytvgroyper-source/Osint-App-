@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#07110f" />
   <title>Public Desk — OSINT workspace</title>
-  <link rel="stylesheet" href="/ui.css?v=26" />
+  <link rel="stylesheet" href="/ui.css?v=28" />
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -15,7 +15,7 @@
       <nav aria-label="Primary">
         <div class="nav-group" role="group" aria-labelledby="nav-g-1">
           <p id="nav-g-1" class="nav-group-label visually-hidden">Main</p>
-          <button class="nav active" data-view="workspace" aria-current="page"><span aria-hidden="true">⌕</span>Search</button>
+          <button class="nav active" data-view="workspace" aria-current="page"><span aria-hidden="true">⌕</span>Passive search</button>
           <button class="nav" data-view="evidence"><span aria-hidden="true">◇</span>Evidence</button>
           <button class="nav" data-view="news"><img class="nav-logo" src="/assets/intelmap-logo.svg" alt="" aria-hidden="true" />News</button>
         </div>
@@ -39,22 +39,19 @@
 
     <main id="main" tabindex="-1">
       <header>
-        <div><h1 id="pageTitle">Search</h1><p id="pageIntro" class="page-intro">Look up a person, company, website, IP address, username or event. Public Desk asks connected sources and shows the best matches first.</p></div>
-        <div class="header-actions"><button class="ghost" id="cmdButton"><kbd>⌘</kbd><kbd>K</kbd> Search</button><button class="primary" id="newInvestigation">＋ New investigation</button></div>
+        <div><h1 id="pageTitle">Passive search</h1><p id="pageIntro" class="page-intro">Look up a person, company or news event in public sources. Nothing here contacts anyone.</p></div>
+        <div class="header-actions"><button class="primary" id="newInvestigation">＋ New investigation</button></div>
       </header>
 
       <section id="workspace" class="view active-view">
         <div class="hero-card">
           <form id="investigateForm" class="search-box">
             <label for="query" class="search-label">What do you want to look up?</label>
-            <div class="search-row"><span class="search-icon" aria-hidden="true">⌕</span><input id="query" autocomplete="off" placeholder="e.g. Rosneft, example.com, 8.8.8.8 or @jdoe" /><button type="submit">Search</button></div>
-            <p class="search-hint"><kbd>⌘</kbd><kbd>K</kbd> jumps here from any page.</p>
+            <div class="search-row"><span class="search-icon" aria-hidden="true">⌕</span><input id="query" autocomplete="off" placeholder="e.g. Donald Trump, Rosneft or earthquakes in Chile" /><button type="submit">Search</button></div>
             <div class="file-actions"><label class="upload-button">＋ Add a file (picture, video, PDF, Word, text, CSV or JSON)<input id="fileInput" type="file" accept="image/*,video/*,.pdf,.doc,.docx,.txt,.csv,.json,.rtf" /></label><div id="fileSelection" class="file-selection" hidden><span id="fileIcon">◇</span><div><b id="fileName"></b><small id="fileDetails"></small></div><button type="button" id="removeFile" aria-label="Remove selected file">×</button></div><small class="file-privacy">Analyzed locally · 50 MB maximum</small></div>
             <div class="chips" role="group" aria-label="Example searches">
+              <button type="button" data-prompt="Donald Trump">A person: Donald Trump</button>
               <button type="button" data-prompt="Rosneft">A company: Rosneft</button>
-              <button type="button" data-prompt="example.com">A website: example.com</button>
-              <button type="button" data-prompt="8.8.8.8">An IP address: 8.8.8.8</button>
-              <button type="button" data-prompt="@jdoe">A username: @jdoe</button>
               <button type="button" data-prompt="earthquakes in Chile">An event: earthquakes in Chile</button>
             </div>
           </form>
@@ -170,6 +167,6 @@
   </dialog>
 
   <div id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/app.js?v=61"></script>
+  <script type="module" src="/app.js?v=62"></script>
 </body>
 </html>

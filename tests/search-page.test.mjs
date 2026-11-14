@@ -17,8 +17,15 @@ test('the search box has a visible label and a plain button',()=>{
 
 test('example searches fill the box with a plain value',()=>{
   const chips=[...workspace.matchAll(/data-prompt="([^"]+)">([^<]+)</g)].map(m=>[m[2],m[1]]);
-  assert.deepEqual(chips,[['A company: Rosneft','Rosneft'],['A website: example.com','example.com'],['An IP address: 8.8.8.8','8.8.8.8'],['A username: @jdoe','@jdoe'],['An event: earthquakes in Chile','earthquakes in Chile']]);
+  assert.deepEqual(chips,[['A person: Donald Trump','Donald Trump'],['A company: Rosneft','Rosneft'],['An event: earthquakes in Chile','earthquakes in Chile']]);
   assert.match(workspace,/role="group" aria-label="Example searches"/);
+});
+
+test('the page is called Passive search',()=>{
+  assert.match(html,/data-view="workspace"[^>]*aria-current="page"[^>]*><span[^>]*>⌕<\/span>Passive search<\/button>/);
+  assert.match(html,/<h1 id="pageTitle">Passive search<\/h1>/);
+  assert.match(html,/Look up a person, company or news event in public sources\. Nothing here contacts anyone\./);
+  assert.match(workspace,/placeholder="e\.g\. Donald Trump, Rosneft or earthquakes in Chile"/);
 });
 
 test('technical connection panels left the Search page',()=>{

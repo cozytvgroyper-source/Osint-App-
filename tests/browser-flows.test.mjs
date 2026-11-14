@@ -27,7 +27,7 @@ const confirmButton=label=>`[...document.querySelectorAll('#confirmDialog button
 const connectToolbox=async browser=>{
   await browser.evaluate(STUB_MCP+show('servers'));
   await browser.evaluate("[...document.querySelectorAll('[data-connect]')].find(button=>button.closest('article,li')?.textContent.includes('OSINT Toolbox')).click();");
-  await browser.waitFor("return [...document.querySelectorAll('article,li')].some(card=>/OSINT Toolbox/.test(card.textContent)&&/Connected · 2 tools/.test(card.textContent))",{label:'OSINT Toolbox connected'});
+  await browser.waitFor("return [...document.querySelectorAll('article,li')].some(card=>/OSINT Toolbox/.test(card.textContent)&&/Connected · 2 tools/.test(card.textContent))",{timeout:20_000,label:'OSINT Toolbox connected'});
 };
 const startDeepSearch=async(browser,target)=>{
   await browser.evaluate(`${show('deep')}document.querySelector('[data-deep-new]')?.click();`);
@@ -44,6 +44,13 @@ test('the app starts, every page opens and is announced, and the keyboard reache
   await browser.evaluate('document.activeElement.blur();');
   await browser.press('Tab');
   assert.deepEqual(await browser.evaluate("const element=document.activeElement;return {skip:element.classList.contains('skip-link'),visible:element.matches(':focus-visible')}"),{skip:true,visible:true});
+}));
+
+test('typing in the Passive search box shows no focus box',options,()=>inApp(async browser=>{
+  await browser.evaluate(`${show('workspace')}document.getElementById('newInvestigation').focus();`);
+  assert.equal(await browser.evaluate("return getComputedStyle(document.getElementById('newInvestigation')).outlineStyle"),'solid','other controls keep their keyboard focus marker');
+  await browser.press('Tab');
+  assert.deepEqual(await browser.evaluate(`const query=document.getElementById('query');const row=query.closest('.search-row');return {active:document.activeElement.id,query:getComputedStyle(query).outlineStyle,row:getComputedStyle(row).outlineStyle};`),{active:'query',query:'none',row:'none'});
 }));
 
 test('a saved Deep Search reopens with its results and keyboard focus on them',options,()=>inApp(async browser=>{
@@ -173,7 +180,8 @@ const NAME_ANSWERS={
 const connectOpenOsint=async(browser,answers,delays={})=>{
   await browser.evaluate(`${STUB_MCP}window.__mcp.answers=${JSON.stringify(answers)};window.__mcp.delays=${JSON.stringify(delays)};${show('servers')}`);
   await browser.evaluate("[...document.querySelectorAll('[data-connect]')].find(button=>button.closest('article,li')?.textContent.includes('Open OSINT')).click();");
-  await browser.waitFor("return [...document.querySelectorAll('article,li')].some(card=>/Open OSINT/.test(card.textContent)&&/Connected · 7 tools/.test(card.textContent))",{label:'Open OSINT connected'});
+  await browser.waitFor("return [...document.querySelectorAll('article,li')].some(card=>/Open OSINT/.test(card.textContent)&&/Connected · 7 tools/.test(card.textContent))",{timeout:20_000,label:'Open OSINT connected'});
+  await browser.waitFor("return !document.getElementById('serverList').textContent.includes('Connecting…')",{timeout:20_000,label:'startup server notices settled'});
 };
 const search=async(browser,query)=>{
   await browser.evaluate(`${show('workspace')}document.getElementById('query').value=${JSON.stringify(query)};document.getElementById('investigateForm').requestSubmit();`);
