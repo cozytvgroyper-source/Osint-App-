@@ -18,8 +18,8 @@ export function passiveQuery(query){
   if(target&&TARGET_LABELS[target.type])return{kind:'target',target,label:TARGET_LABELS[target.type]};
   const intentId=searchIntent(text).id;
   let subject=searchSubjectFor(text).trim();
-  // When the subject is only the topic word again ("latest news" -> "news"), nobody is named.
-  if(intentId!=='entity'&&subject&&searchIntent(subject).id===intentId)subject='';
+  // When the subject is only a topic word again ("latest news" -> "news", "company news" -> "news"), nobody is named.
+  if(subject&&!/\s/.test(subject)&&searchIntent(subject).id!=='entity'&&intentId!=='entity')subject='';
   const company=COMPANY_INTENTS.has(intentId)||COMPANY_SUFFIX.test(subject);
   const event=intentId==='news'||(!NOT_EVENT_INTENTS.has(intentId)&&!TARGET_INTENTS.has(intentId));
   // `query` is the full text, which news and data sources are searched with.
