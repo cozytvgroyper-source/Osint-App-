@@ -1,1 +1,1 @@
-{"query":"Example Corp","jurisdiction":"us","results":{},"source":"opencorporates","note":"rate limited"}
+{"query":"Example Corp","jurisdiction":"us","results":{"companies":[{"company":{"name":"Example Corp","jurisdiction_code":"us_xx","current_status":"Active","opencorporates_url":"https://oc.example/1"}}]},"source":"opencorporates","note":"rate limited"}

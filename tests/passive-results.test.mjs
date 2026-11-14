@@ -6,13 +6,13 @@ import {passiveTier,buildPassiveResults,sortNews} from '../public/passive-result
 const load=name=>JSON.parse(readFileSync(new URL(`./fixtures/passive/${name}.json`,import.meta.url),'utf8'));
 const tool=name=>({name,serverName:'Open OSINT',serverId:'osint-local'});
 const src=(name,group)=>({tool:tool(name),group,args:{}});
-const ok=(name,payload,envelope=true)=>({status:'fulfilled',value:{tool:tool(name),outcome:{kind:'data',data:envelope?{data:payload,durationMs:5,cached:false}:payload}}});
+const ok=(name,payload,envelope=false)=>({status:'fulfilled',value:{tool:tool(name),outcome:{kind:'data',data:envelope?{data:payload,durationMs:5,cached:false}:payload}}});
 const empty=name=>({status:'fulfilled',value:{tool:tool(name),outcome:{kind:'empty'}}});
 const rejected=reason=>({status:'rejected',reason:new Error(reason)});
 
 const SOURCES=[src('get_wikidata','identity'),src('get_news_rss','news'),src('get_gdelt','news'),src('get_opensanctions','records'),src('get_offshore_leaks','records')];
 const run=(outcomes,extra={})=>buildPassiveResults({query:'Owner Example',subject:'Owner Example',event:false,sources:SOURCES,outcomes,...extra});
-const FULL=()=>[ok('get_wikidata',load('wikidata')),ok('get_news_rss',load('news-rss')),ok('get_gdelt',load('gdelt')),ok('get_opensanctions',load('opensanctions')),ok('get_offshore_leaks',load('offshore-leaks'),false)];
+const FULL=()=>[ok('get_wikidata',load('wikidata')),ok('get_news_rss',load('news-rss')),ok('get_gdelt',load('gdelt')),ok('get_opensanctions',load('opensanctions')),ok('get_offshore_leaks',load('offshore-leaks'))];
 
 test('tiers run from exact name to nothing',()=>{
   assert.equal(passiveTier({label:'Owner Example'},'owner example'),5);
@@ -128,12 +128,55 @@ test('items that don\'t mention the subject are hidden, not dropped',()=>{
   assert.equal(r.data[0].hidden.length,1);
   assert.equal(r.data[0].hiddenCount,1);
   assert.equal(r.data[0].tool,'get_earthquakes');
-  const withRecords=run(FULL());
-  assert.ok(withRecords.records.some(x=>x.tier===0)||withRecords.records.length>=1);
-  assert.ok(withRecords.news.some(n=>n.tier===0&&n.title==='Weather roundup'));
+  const full=run(FULL());
+  assert.deepEqual(full.hidden.news.map(n=>n.title),['Weather roundup']);
+  assert.deepEqual(full.hidden.records.map(x=>x.title),['Unrelated Person']);
+  assert.ok(full.news.every(n=>n.tier>=1));
+  assert.ok(full.records.every(x=>x.tier>=1));
+  assert.equal(full.records.length,1);
 });
 
 test('a bare payload works as well as an envelope',()=>{
-  const r=run([ok('get_wikidata',load('wikidata'),false),undefined,undefined,undefined,undefined]);
+  const r=run([ok('get_wikidata',load('wikidata'),true),undefined,undefined,undefined,undefined]);
   assert.equal(r.identity.best.label,'Owner Example');
+});
+
+test('a nested data key does not hide the payload\'s own list',()=>{
+  const sources=[src('get_earthquakes','data')];
+  const payload={earthquakes:load('earthquakes').earthquakes,data:{meta:'x'}};
+  const r=buildPassiveResults({query:'Example City',subject:'Example City',event:true,sources,outcomes:[ok('get_earthquakes',payload)]});
+  assert.equal(r.data[0].items.length+r.data[0].hidden.length,2);
+});
+
+test('data items each have a unique, stable key, hidden ones too',()=>{
+  const sources=[src('get_earthquakes','data')];
+  const r=buildPassiveResults({query:'Example City',subject:'Example City',event:true,sources,outcomes:[ok('get_earthquakes',load('earthquakes'))]});
+  const [shown]=r.data[0].items,[hid]=r.data[0].hidden;
+  assert.equal(shown.key,'data:get_earthquakes:0');
+  assert.equal(hid.key,'data:get_earthquakes:1');
+  assert.ok(shown.item.place&&shown.tier>0&&hid.tier===0);
+});
+
+test('a subject matches whole words, not parts of words',()=>{
+  const ents=[{id:'1',label:'Fordham University',description:'university'},{id:'2',label:'Ford Motor Company',description:'carmaker'}];
+  const r=buildPassiveResults({query:'Ford',subject:'Ford',event:false,sources:[src('get_wikidata','identity')],outcomes:[ok('get_wikidata',{entities:ents})]});
+  assert.equal(r.identity.best.label,'Ford Motor Company');
+  assert.ok(!r.identity.others.some(e=>e.label==='Fordham University'&&e.tier>=3));
+  assert.equal(passiveTier({title:'He said so'},'AI'),0);
+  assert.equal(passiveTier({title:'AI rules'},'AI'),4);
+});
+
+test('initials ignore dots and spacing in titles too',()=>{
+  assert.equal(passiveTier({title:'JD Vance speaks'},'J. D. Vance'),4);
+  assert.equal(passiveTier({title:'J. D. Vance speaks'},'JD Vance'),4);
+  assert.equal(passiveTier({description:'says JD Vance'},'J. D. Vance'),3);
+});
+
+test('wrapped OpenCorporates results are read',()=>{
+  const payload={results:{companies:[{company:{name:'Example Corp',jurisdiction_code:'us_xx',current_status:'Active',opencorporates_url:'https://oc.example/2'}}]}};
+  const r=buildPassiveResults({query:'Example Corp',subject:'Example Corp',event:false,sources:[src('get_opencorporates','records')],outcomes:[ok('get_opencorporates',payload)]});
+  assert.equal(r.records[0].title,'Example Corp');
+  assert.equal(r.records[0].detail,'us_xx · Active');
+  assert.equal(r.records[0].link,'https://oc.example/2');
+  assert.equal(r.records[0].tier,5);
 });
