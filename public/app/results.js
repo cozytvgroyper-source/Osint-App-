@@ -1,10 +1,11 @@
 // Result window: turning a tool answer into readable sections.
 // Moved unchanged from app.js; see app.js for the startup and button wiring.
-import { escapeHtml, term } from '../ui.js?v=6';
+import { escapeHtml, safeHttpUrl, term } from '../ui.js?v=6';
 import { parseToolResult } from '../result-classifier.js';
 import { reportHasFindings } from '../search-report.js?v=4';
 import { renderRankedReport } from '../search-results-view.js?v=4';
 import { resultPivot } from '../result-pivots.js?v=1';
+import { renderPassiveResults, renderPassiveHandOff } from '../passive-results-view.js';
 import { $, state, openDialog } from './core.js';
 import { tierBadge } from './tools.js';
 
@@ -96,10 +97,20 @@ function renderSources(entry) {
     .join('');
   return `<section class="result-category sources-category"><div class="category-head"><div><p class="eyebrow">${escapeHtml(entry?.eyebrow || 'SEARCH PROVENANCE')}</p><h3>Sources</h3></div>${entry?.description ? `<p>${escapeHtml(entry.description)}</p>` : ''}</div><div class="source-list">${cards}</div></section>`;
 }
-function renderReadableResult(result, openKeys = null) {
+// savedKeys marks the passive results already saved in this search; a saved finding shows none as saved.
+function renderReadableResult(result, openKeys = null, { savedKeys = new Set() } = {}) {
   const parsed = parseToolResult(result);
   const payload = parsed?.data ?? parsed;
   const report = payload?.report;
+  if (payload?.passiveHandOff) return renderPassiveHandOff(payload.passiveHandOff);
+  if (payload?.passive)
+    return renderPassiveResults(payload.passive, {
+      sort: state.newsSort,
+      savedKeys,
+      escapeHtml,
+      safeHttpUrl,
+      renderRecord
+    });
   if (payload?.ranking && payload?.report)
     return renderRankedReport(payload, {
       escapeHtml,
@@ -154,13 +165,19 @@ function showResult(title, result, { saved = false } = {}) {
         )
       )
     : null;
+  // What the window shows, so a sort change or a Save can redraw it.
+  state.shownResult = { title, result, saved };
   $('#resultTitle').textContent = title;
-  $('#resultBody').innerHTML = renderReadableResult(result, openKeys);
+  $('#resultBody').innerHTML = renderReadableResult(result, openKeys, {
+    savedKeys: saved ? new Set() : state.savedResultKeys
+  });
   // Explain Pivot once, above the first result that offers one.
   if ($('#resultBody').querySelector('.pivot-button'))
     $('#resultBody').insertAdjacentHTML('afterbegin', `<p class="pivot-note">${term('pivot', { visible: true })}</p>`);
   $('#saveEvidence').textContent = saveButtonLabel(state.activeCase);
   $('#saveEvidence').hidden = saved;
+  // A hand-off to Deep Search has nothing to save.
+  if (result?.passiveHandOff) $('#saveEvidence').hidden = true;
   if (refresh) {
     dialog.scrollTop = scroll[0];
     $('#resultBody').scrollTop = scroll[1];

@@ -1,0 +1,4 @@
+{"articles":[
+{"url":"https://news.example/a","title":"Owner Example opens Example City office","seendate":"20261113T101500Z","domain":"news.example","sourcecountry":"US"},
+{"url":"https://other.example/b","title":"Example Corp results","seendate":"20261114T090000Z","domain":"other.example","sourcecountry":"US"},
+{"url":"https://dupe.example/c","title":"Owner  Example opens  example city OFFICE","seendate":"20261113T120000Z","domain":"dupe.example","sourcecountry":"US"}]}

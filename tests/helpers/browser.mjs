@@ -122,18 +122,33 @@ export async function startBrowser(){
   };
 }
 
-// A stand-in MCP server inside the page: answers the app's /api/mcp calls for the OSINT Toolbox endpoint only, so tool
-// lists, tool runs, failures and slow answers can be tested without any real tool server. Every other request passes on.
+// A stand-in MCP server inside the page: answers the app's /api/mcp calls for the OSINT Toolbox endpoint and for a few
+// Open OSINT tools, so tool lists, tool runs, failures and slow answers can be tested without any real tool server.
+// Open OSINT answers come from window.__mcp.answers[tool] (stand-in data set by each test; {items:[]} when unset), after
+// window.__mcp.delays[tool] milliseconds (100 when unset). Every other request passes on.
 export const STUB_MCP=`
   const realFetch=window.fetch;
-  window.__mcp={slowMs:300,fail:'',calls:[]};
+  window.__mcp={slowMs:300,fail:'',calls:[],answers:{},delays:{}};
   const schema=name=>({type:'object',properties:{[name]:{type:'string'}},required:[name]});
   const tools=[{name:'holehe_email_search',description:'Email account check',inputSchema:schema('email')},
     {name:'whois_lookup',description:'Domain registration',inputSchema:schema('query')}];
+  const osint=[['get_wikidata','Wikidata entity lookup'],['get_news_rss','News headlines from RSS feeds'],['get_gdelt','GDELT news articles'],
+    ['get_opensanctions','Sanctions lists'],['get_offshore_leaks','Offshore Leaks records'],['get_opencorporates','Company registers'],
+    ['get_sec_filings','SEC filings']].map(([name,description])=>({name,description,inputSchema:name==='get_news_rss'?{type:'object',properties:{}}:schema('query')}));
   const reply=(status,body)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json'}});
   window.fetch=async(url,options={})=>{
     if(!String(url).endsWith('/api/mcp'))return realFetch(url,options);
     const body=JSON.parse(options.body||'{}');window.__mcp.calls.push(body.method+':'+(body.params?.name||''));
+    if(body.endpoint==='http://127.0.0.1:8892/mcp'){
+      if(body.method==='tools/list')return reply(200,{jsonrpc:'2.0',id:body.id,result:{tools:osint}});
+      if(body.method==='tools/call'){
+        const name=body.params.name;
+        await new Promise(resolve=>setTimeout(resolve,window.__mcp.delays[name]??100));
+        const text=JSON.stringify(window.__mcp.answers[name]??{items:[]});
+        return reply(200,{jsonrpc:'2.0',id:body.id,result:{content:[{type:'text',text}],isError:false}});
+      }
+      return reply(200,{jsonrpc:'2.0',id:body.id,result:{}});
+    }
     if(body.endpoint!=='http://127.0.0.1:8893/mcp')return reply(502,{error:'Not running'});
     if(body.method==='tools/list')return reply(200,{jsonrpc:'2.0',id:body.id,result:{tools}});
     if(body.method==='tools/call'){

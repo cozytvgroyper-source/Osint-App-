@@ -149,3 +149,14 @@ test('deleting a case that is already gone says so',async()=>{
   await store.remove(id);
   await assert.rejects(store.remove(id),{code:'CASE_NOT_FOUND'});
 });
+
+test('a finding can be saved with its note',async()=>{
+  const {store}=tempStore();
+  const {id}=await store.create({name:'Case'});
+  const noted=await store.addEvidence(id,{title:'t',result:1,note:'  From Passive search: Example Corp  '});
+  assert.equal(noted.note,'From Passive search: Example Corp');
+  assert.equal((await store.get(id)).evidence[0].note,'From Passive search: Example Corp');
+  await assert.rejects(store.addEvidence(id,{title:'long',result:1,note:'x'.repeat(4001)}),{code:'CASE_INPUT'});
+  const plain=await store.addEvidence(id,{title:'plain',result:2});
+  assert.equal(plain.note,'');
+});

@@ -1,0 +1,5 @@
+{"items":[
+{"title":"Owner Example opens Example City office","link":"https://news.example/a","pubDate":"Thu, 13 Nov 2026 10:15:00 GMT","source":"Example Times","feed":"world"},
+{"title":"Weather roundup","link":"https://news.example/weather","pubDate":"Wed, 12 Nov 2026 08:00:00 GMT","source":"Example Times","feed":"world"},
+{"title":"Undated note on Owner Example","link":"https://news.example/undated","pubDate":"","source":"Example Times","feed":"world"},
+{"title":"","link":"","pubDate":"","source":"","feed":"broken","error":"timeout"}]}

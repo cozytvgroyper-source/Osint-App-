@@ -16,6 +16,11 @@ export const EVIDENCE_STATUSES=['unverified','confirmed','ruled out'];
 const MAX_NOTE_CHARS=4000;
 
 const fail=(code,message)=>Object.assign(new Error(message),{code});
+function cleanNote(value){
+  const note=String(value??'').trim();
+  if(note.length>MAX_NOTE_CHARS)throw fail('CASE_INPUT',`A note may be at most ${MAX_NOTE_CHARS} characters.`);
+  return note;
+}
 const text=(value,max)=>String(value??'').trim().slice(0,max);
 const bytes=value=>Buffer.byteLength(JSON.stringify(value));
 
@@ -115,7 +120,7 @@ export class CaseStore{
     const item={
       id:randomBytes(6).toString('hex'),title,result:value.result,time:text(value.time,40)||now.toISOString(),
       server:text(value.server,200),savedAt:now.toISOString(),sha256:createHash('sha256').update(JSON.stringify(value.result)).digest('hex'),
-      status:'unverified',note:''
+      status:'unverified',note:cleanNote(value.note)
     };
     if(bytes(item)>MAX_EVIDENCE_BYTES)throw fail('CASE_TOO_LARGE',`One finding may be at most ${MAX_EVIDENCE_BYTES/1_000_000} MB.`);
     return this.change(id,record=>{record.evidence=[...(record.evidence||[]),item];return item;});
@@ -138,9 +143,7 @@ export class CaseStore{
       changes.status=value.status;
     }
     if(value&&'note' in value){
-      const note=String(value.note??'').trim();
-      if(note.length>MAX_NOTE_CHARS)throw fail('CASE_INPUT',`A note may be at most ${MAX_NOTE_CHARS} characters.`);
-      changes.note=note;
+      changes.note=cleanNote(value.note);
     }
     return this.change(id,record=>{
       const item=(record.evidence||[]).find(entry=>entry.id===itemId);

@@ -41,7 +41,14 @@ import {
   requestRunGrant,
   runTool
 } from './app/tools.js';
-import { loadCases, selectCase, createCase, saveLastResultToCase, importBrowserEvidence } from './app/evidence.js';
+import {
+  loadCases,
+  selectCase,
+  createCase,
+  saveLastResultToCase,
+  saveResultToCase,
+  importBrowserEvidence
+} from './app/evidence.js';
 import {
   loadDeepHistory,
   updateDeepSetup,
@@ -49,6 +56,8 @@ import {
   startDeepSearch,
   cancelDeepSearch,
   resetDeepSearch,
+  openInDeepSearch,
+  isDeepSearchTarget,
   deleteDeepRun,
   deleteAllDeepRuns,
   openDeepResults
@@ -85,6 +94,19 @@ document.addEventListener('click', async event => {
     openDeepResults(openDeep.dataset.openDeep).catch(error => toast(`Could not open results: ${error.message}`));
     return;
   }
+  const openDeepSearch = event.target.closest('[data-open-deep-search]');
+  if (openDeepSearch) {
+    openInDeepSearch(openDeepSearch.dataset.openDeepSearch);
+    return;
+  }
+  // Save one passive-search result, only from the live search the window shows (not from a saved finding).
+  const saveResult = event.target.closest('[data-save-result]');
+  if (saveResult) {
+    const shown = state.shownResult;
+    if (shown && !shown.saved && shown.result === state.lastResult?.result)
+      saveResultToCase(saveResult.dataset.saveResult).catch(error => toast(`Could not save: ${error.message}`));
+    return;
+  }
   const deepTarget = event.target.closest('[data-deep-target]');
   if (deepTarget) {
     switchView('deep');
@@ -105,6 +127,10 @@ document.addEventListener('click', async event => {
   if (pivot) {
     event.preventDefault();
     const target = pivot.dataset.pivot;
+    if (isDeepSearchTarget(target)) {
+      openInDeepSearch(target);
+      return;
+    }
     $('#resultDialog').close();
     switchView('workspace');
     $('#query').value = target;
@@ -123,6 +149,10 @@ document.addEventListener('click', async event => {
   const rerun = event.target.closest('[data-rerun]');
   if (rerun) {
     const query = rerun.dataset.rerun;
+    if (isDeepSearchTarget(query)) {
+      openInDeepSearch(query);
+      return;
+    }
     switchView('workspace');
     $('#query').value = query;
     $('#query').focus();
@@ -347,6 +377,14 @@ $$('[data-close-result]').forEach(b => (b.onclick = () => $('#resultDialog').clo
 $$('[data-close-dialog]').forEach(button => (button.onclick = () => button.closest('dialog')?.close()));
 $('#saveEvidence').onclick = () => saveLastResultToCase().catch(error => toast(`Could not save: ${error.message}`));
 $('#caseSelect').onchange = event => selectCase(event.target.value);
+// The news order in a passive search's results: redraw what the window shows.
+$('#resultBody').addEventListener('change', event => {
+  if (event.target.id !== 'newsSort' || !state.shownResult) return;
+  state.newsSort = event.target.value;
+  const { title, result, saved } = state.shownResult;
+  showResult(title, result, { saved });
+  document.getElementById('newsSort')?.focus();
+});
 const updateFinding = (itemId, changes, message) =>
   api(`/api/cases/${state.activeCaseId}/evidence/${itemId}/update`, changes)
     .then(() => {

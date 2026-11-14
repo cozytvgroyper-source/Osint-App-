@@ -4,6 +4,7 @@ import { browserOnlyNotice, caseSummary, evidenceEmpty, findingCard } from '../e
 import { escapeHtml } from '../ui.js?v=6';
 import { activeCaseId, defaultCaseName, newestFirst } from '../cases-client.js';
 import { $, localStore, state, persist, toast, apiGet, api } from './core.js';
+import { updateOpenResult } from './results.js';
 
 function renderEvidence() {
   const options = state.cases
@@ -68,6 +69,57 @@ async function saveLastResultToCase() {
   toast(`Saved to ${state.activeCase?.name || 'the case'}`);
   $('#resultDialog').close();
 }
+// One result of a passive search, found by its key, with where it came from. Keys are "<group>:<tool>:<index>".
+function passiveItem(results, key) {
+  const groups = [
+    ...[results?.identity?.best, ...(results?.identity?.others || [])]
+      .filter(Boolean)
+      .map(e => ({ item: e, title: e.label || e.id })),
+    ...[...(results?.news || []), ...(results?.hidden?.news || [])].map(n => ({ item: n, title: n.title })),
+    ...[...(results?.records || []), ...(results?.hidden?.records || [])].map(r => ({ item: r, title: r.title })),
+    ...(results?.data || []).flatMap(g =>
+      [...g.items, ...(g.hidden || [])].map(x => ({
+        item: x,
+        title: [x.item?.title, x.item?.label, x.item?.name].find(v => typeof v === 'string' && v.trim()) || g.label
+      }))
+    )
+  ];
+  const found = groups.find(entry => entry.item.key === key);
+  if (!found) return null;
+  const tool = key.split(':')[1];
+  const label = (results.sources || []).find(source => source.tool === tool)?.label || tool;
+  return { ...found, label };
+}
+// Saves one passive-search result into the open case (or a new one), once: a key already saved, or being saved, does
+// nothing.
+async function saveResultToCase(key) {
+  const last = state.lastResult;
+  const results = last?.result?.passive;
+  const saved = state.savedResultKeys,
+    saving = state.savingResultKeys;
+  if (!results || saved.has(key) || saving.has(key)) return;
+  const found = passiveItem(results, key);
+  if (!found) return;
+  saving.add(key);
+  try {
+    if (!state.activeCase && !(await createCase(defaultCaseName(last.title)))) return;
+    await api(`/api/cases/${state.activeCaseId}/evidence`, {
+      title: found.title,
+      result: found.item,
+      server: found.label,
+      time: last.time,
+      note: `From Passive search: ${results.query}`
+    });
+    saved.add(key);
+    await loadCases();
+    toast(`Saved to ${state.activeCase?.name || 'the case'}`);
+    // Redraw only while the window still shows this search.
+    if (saved === state.savedResultKeys && state.lastResult)
+      updateOpenResult(state.lastResult.title, state.lastResult.result);
+  } finally {
+    saving.delete(key);
+  }
+}
 async function importBrowserEvidence() {
   const items = [...state.evidence];
   if (!items.length) return;
@@ -86,5 +138,6 @@ export {
   createCase,
   recordHistory,
   saveLastResultToCase,
+  saveResultToCase,
   importBrowserEvidence
 };
