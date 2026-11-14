@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import {readAppSource} from './helpers/app-source.mjs';
 
 // The News page: a labeled search, loading and errors announced in plain words, and focus that follows Load more.
 const read=file=>fs.readFileSync(new URL(`../public/${file}`,import.meta.url),'utf8');
-const html=read('index.html'),app=read('app.js');
+const html=read('index.html'),app=readAppSource();
 const news=html.match(/<section id="news"[\s\S]*?<\/section>/)[0];
 
 test('the news search has a visible label and loading is announced',()=>{
@@ -21,7 +22,7 @@ test('Load more moves focus to the first new card',()=>{
 });
 
 test('news uses the shared view module',()=>{
-  assert.match(app,/from '\.\/news-view\.js\?v=\d+'/);
+  assert.match(app,/from '\.\.?\/news-view\.js\?v=\d+'/);
   assert.doesNotMatch(app,/function relativeTime\(/);
 });
 

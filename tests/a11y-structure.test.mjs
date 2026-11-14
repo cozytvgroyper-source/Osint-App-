@@ -1,11 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import {readAppSource} from './helpers/app-source.mjs';
 
 // Page structure for screen-reader and keyboard users: dialogs announce their title and give focus back, every button
 // and form control has a name, and the theme switch says which theme is on.
 const read=file=>fs.readFileSync(new URL(`../public/${file}`,import.meta.url),'utf8');
-const html=read('index.html'),app=read('app.js');
+const html=read('index.html'),app=readAppSource();
 
 test('every dialog is titled by its heading',()=>{
   const dialogs=[...html.matchAll(/<dialog([^>]*)>([\s\S]*?)<\/dialog>/g)];

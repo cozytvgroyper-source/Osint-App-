@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import {readAppSource} from './helpers/app-source.mjs';
 
 // MCP servers page wiring: cards come from servers-view.js, and focus is never lost when a card changes or goes.
 const read=file=>fs.readFileSync(new URL(`../public/${file}`,import.meta.url),'utf8');
-const html=read('index.html'),app=read('app.js');
+const html=read('index.html'),app=readAppSource();
 
 test('server cards come from the view module, and focus follows card changes',()=>{
   assert.match(app,/from '\.\/servers-view\.js\?v=\d+'/);

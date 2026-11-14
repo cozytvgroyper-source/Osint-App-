@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {safeHttpUrl} from '../public/ui.js';
 import {renderPersonResults} from '../public/deep-results-view.js';
+import {readAppSource} from './helpers/app-source.mjs';
 
 // Tool answers are untrusted: a link they contain may only ever become a web (http/https) address.
 const DANGEROUS=['javascript:alert(1)','JavaScript:alert(1)',' javascript:alert(1)','\tjava\nscript:alert(1)','data:text/html,<script>alert(1)</script>',
@@ -26,7 +27,7 @@ test('a dangerous link in a Deep Search result is shown as text, never as a link
 });
 
 test('the app links news sources only through the shared link check',()=>{
-  const app=fs.readFileSync(new URL('../public/app.js',import.meta.url),'utf8');
+  const app=readAppSource();
   assert.match(app,/const safeExternalUrl=value=>safeHttpUrl\(value\)\|\|'#';/);
   assert.doesNotMatch(app,/function safeExternalUrl/);
 });

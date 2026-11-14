@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import {readAppSource} from './helpers/app-source.mjs';
 
-const source=fs.readFileSync(new URL('../public/app.js',import.meta.url),'utf8');
+const source=readAppSource();
 const handler=source.slice(source.indexOf("$('#executeTool').addEventListener"),source.indexOf('\n',source.indexOf("$('#executeTool').addEventListener")));
 
 // The run window closes before the tool runs, so an error after that must be shown outside it.

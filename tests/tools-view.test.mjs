@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {tierChips,toolCard} from '../public/tools-view.js';
+import {readAppSource} from './helpers/app-source.mjs';
 
 // Tool library: tier filters are toggles that explain each tier; tool cards say where a tool is used and spell out
 // paid or side-effect flags. Tier names (Passive, Light touch, Active, Intrusive) stay.
@@ -35,6 +36,6 @@ test('the run dialog labels its settings box and explains the default',()=>{
 });
 
 test('tier groups have a heading between the page title and the tool cards',()=>{
-  const app=fs.readFileSync(new URL('../public/app.js',import.meta.url),'utf8');
+  const app=readAppSource();
   assert.match(app,/<h2 class="tier-group-title">\$\{escapeHtml\(group\.tier\.label\)\}<\/h2>/);
 });

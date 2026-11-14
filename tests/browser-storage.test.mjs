@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { loadStoredState, limitEvidence, mergeStoredServers, persistStoredState, safeStorage, STORAGE_KEYS } from '../public/browser-storage.js';
 import fs from 'node:fs';
+import {readAppSource} from './helpers/app-source.mjs';
 
 class MemoryStorage {
   constructor(entries = {}) { this.values = new Map(Object.entries(entries)); this.failKey = null; }
@@ -113,7 +114,7 @@ test('safeStorage uses real storage when it works and still reports a full store
 });
 
 test('the app reaches browser storage only through safeStorage', () => {
-  const source = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  const source = readAppSource();
   const bare = source.replace(/safeStorage\(\(\)=>(?:local|session)Storage\)/g, '').match(/\b(?:local|session)Storage\b/g) || [];
   assert.deepEqual(bare, []);
 });
