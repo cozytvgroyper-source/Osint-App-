@@ -54,8 +54,8 @@ export function passiveSources(info,tools){
   }
   const intent=searchIntent(info.query||info.subject);
   for(const name of intent.tools){
-    // The fallback entity intent lists Hacker News; a name search never runs it.
-    if(intent.id==='entity'&&name==='get_hn_search')continue;
+    // Passive search never uses Hacker News, and with no subject there is nobody to look up.
+    if(name==='get_hn_search'||(name==='get_wikidata'&&!hasSubject))continue;
     const group=groupFor(name);
     if((group==='records')&&!hasSubject)continue;
     plan.push([group,name]);

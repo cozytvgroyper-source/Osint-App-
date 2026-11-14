@@ -82,3 +82,18 @@ test('a Wikidata organisation adds the company sources once',()=>{
   assert.deepEqual(addCompanySources(passiveQuery('Example Corp'),tools,org),[]);
   for(const id of ['wd:Q43229','wd:Q783794','wd:Q6881511'])assert.equal(addCompanySources(info,tools,{facts:{instanceOf:[id]}}).length,2);
 });
+
+test('Hacker News is never used, whatever the intent',()=>{
+  for(const query of ['Owner Example','github repository Example Corp','github']){
+    const names=passiveSources(passiveQuery(query),toolsNamed(ALL)).map(s=>s.tool.name);
+    assert.ok(!names.includes('get_hn_search'),query);
+  }
+});
+
+test('an empty subject leaves out Wikidata wherever it would land',()=>{
+  const info=passiveQuery('company news');
+  assert.equal(info.subject,'');
+  const sources=passiveSources(info,toolsNamed(ALL));
+  assert.ok(!sources.some(s=>s.tool.name==='get_wikidata'));
+  assert.ok(!sources.some(s=>s.group==='records'||s.group==='identity'));
+});
