@@ -73,7 +73,7 @@ test('hostile titles are escaped and unsafe links are not links',()=>{
   r.news=[news('news:a:0','<img src=x onerror=alert(1)>','2026-01-01T00:00:00.000Z',4,{link:'javascript:alert(1)',source:'<b>s</b>'})];
   r.records=[{key:'records:t:0',title:'"><script>x</script>',detail:'<i>d</i>',link:'data:text/html,hi',tier:3,tool:'t',item:{}}];
   const html=render(r);
-  assert.doesNotMatch(html,/<img|<script|<b>|<i>|javascript:|data:text/);
+  assert.doesNotMatch(html,/<img|<script|<b>|<i>|javascript:|data:text/i);
   assert.match(html,/&lt;img src=x onerror=alert\(1\)&gt;/);
   assert.doesNotMatch(html,/<a [^>]*>&lt;img/);
   assert.match(html,/aria-label="Save to case: &lt;img/);

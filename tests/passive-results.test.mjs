@@ -41,7 +41,7 @@ test('every result appears once',()=>{
   assert.equal(new Set(links).size,links.length);
   assert.equal(links.filter(l=>l==='https://news.example/a').length,1);
   // GDELT's re-worded copy of the same headline is dropped by title.
-  assert.ok(!links.includes('https://dupe.example/c'));
+  assert.equal(links.filter(l=>l==='https://dupe.example/c').length,0);
   // The failed feed (error, empty title) is skipped.
   assert.ok(r.news.every(n=>n.title));
 });
