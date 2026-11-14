@@ -158,3 +158,123 @@ test('on a phone, both search boxes show and the history table scrolls inside it
     return {scrolls:box.scrollWidth>box.clientWidth,openReachable:open.right<=innerWidth&&open.left>=0,pageFits:document.documentElement.scrollWidth<=innerWidth};`),
     {scrolls:true,openReachable:true,pageFits:true});
 }));
+
+// Passive search on the Search page. Open OSINT is stood in for (see STUB_MCP); every name in it is a stand-in.
+const STORY={title:'Owner Example opens a new office',link:'https://news.example/owner-example-office'};
+const NAME_ANSWERS={
+  get_wikidata:{entities:[
+    {id:'wd:Q2',label:'Owner Example Jr.',description:'Stand-in relative',wikiUrl:'https://www.wikidata.org/wiki/Q2'},
+    {id:'wd:Q1',label:'Owner Example',description:'Stand-in person',wikiUrl:'https://www.wikidata.org/wiki/Q1',facts:{website:'owner-site.example'}}]},
+  get_news_rss:{items:[{...STORY,pubDate:'2026-11-10T09:00:00Z',source:'Stand-in Wire'},{title:'Unrelated weather story',link:'https://news.example/weather'}]},
+  get_gdelt:{articles:[{title:STORY.title,url:STORY.link,seendate:'20261110T090000Z',domain:'news.example'}]},
+  get_opensanctions:{entities:[{name:'Owner Example',dataset:'Stand-in list'}]},
+  get_offshore_leaks:{entities:[]}
+};
+const connectOpenOsint=async(browser,answers,delays={})=>{
+  await browser.evaluate(`${STUB_MCP}window.__mcp.answers=${JSON.stringify(answers)};window.__mcp.delays=${JSON.stringify(delays)};${show('servers')}`);
+  await browser.evaluate("[...document.querySelectorAll('[data-connect]')].find(button=>button.closest('article,li')?.textContent.includes('Open OSINT')).click();");
+  await browser.waitFor("return [...document.querySelectorAll('article,li')].some(card=>/Open OSINT/.test(card.textContent)&&/Connected · 7 tools/.test(card.textContent))",{label:'Open OSINT connected'});
+};
+const search=async(browser,query)=>{
+  await browser.evaluate(`${show('workspace')}document.getElementById('query').value=${JSON.stringify(query)};document.getElementById('investigateForm').requestSubmit();`);
+};
+const groupText=title=>`return [...document.querySelectorAll('#resultBody .passive-group')].find(group=>group.querySelector('h3')?.textContent===${JSON.stringify(title)})?.textContent||''`;
+const searchDone="return /Search details/.test(document.getElementById('resultBody').textContent)&&!/still working/.test(document.querySelector('#resultBody .search-details')?.textContent||'still working')";
+const caseFindings=`const id=document.getElementById('caseSelect').value;
+  const response=await fetch('/api/cases/'+id,{headers:{'x-public-desk-token':sessionStorage.getItem('publicDesk.access')}});
+  return (await response.json()).evidence.map(item=>({title:item.title,note:item.note}));`;
+
+test('a name search groups results, ranks the exact name first, and shows each result once',options,()=>inApp(async browser=>{
+  await connectOpenOsint(browser,NAME_ANSWERS);
+  await search(browser,'Owner Example');
+  await browser.waitFor(searchDone,{label:'every source answered'});
+  const identity=await browser.evaluate("return document.querySelector('#resultBody .passive-group .passive-card strong')?.textContent");
+  assert.equal(identity,'Owner Example','the exact name is the identity card');
+  assert.match(await browser.evaluate(groupText('Who or what this is')),/Other people or things with this name[\s\S]*Owner Example Jr\./);
+  const news=await browser.evaluate(groupText('News'));
+  assert.equal(news.split(STORY.title).length-1,1,'the same story from two sources is shown once');
+  assert.match(await browser.evaluate(groupText('Records')),/Owner Example[\s\S]*Stand-in list/);
+  const calls=await browser.evaluate('return window.__mcp.calls');
+  for(const name of ['get_wikidata','get_news_rss','get_gdelt','get_opensanctions','get_offshore_leaks'])assert.ok(calls.includes(`tools/call:${name}`),name);
+  assert.ok(!calls.includes('tools/call:get_opencorporates'),'a person is not looked up in company registers');
+}));
+
+test('a subject Wikidata calls an organisation is also looked up in company registers',options,()=>inApp(async browser=>{
+  await connectOpenOsint(browser,{...NAME_ANSWERS,get_wikidata:{entities:[{id:'wd:Q3',label:'Owner Example',description:'Stand-in business',facts:{instanceOf:['wd:Q4830453']}}]},
+    get_opencorporates:{results:{companies:[{company:{name:'Owner Example',jurisdiction_code:'xx',current_status:'Active'}}]}}});
+  await search(browser,'Owner Example');
+  await browser.waitFor("return (window.__mcp.calls||[]).includes('tools/call:get_opencorporates')",{label:'company registers asked'});
+  await browser.waitFor(searchDone,{label:'every source answered'});
+  assert.match(await browser.evaluate(groupText('Records')),/xx · Active/);
+}));
+
+test('a website, IP or username opens Deep Search instead',options,()=>inApp(async browser=>{
+  await connectOpenOsint(browser,NAME_ANSWERS);
+  for(const [query,kind] of [['192.0.2.4','IP address'],['@ownername','username']]){
+    await search(browser,query);
+    await browser.waitFor(`return document.getElementById('resultTitle').textContent===${JSON.stringify(query)}&&/This looks like an? ${kind}\\./.test(document.getElementById('resultBody').textContent)`,{label:`${query} handed off`});
+  }
+  await search(browser,'owner-site.example');
+  await browser.waitFor("return !!document.querySelector('#resultBody [data-open-deep-search]')",{label:'hand-off shown'});
+  assert.match(await browser.evaluate("return document.getElementById('resultBody').textContent"),/This looks like a website\./);
+  assert.equal(await browser.evaluate("return document.getElementById('saveEvidence').hidden"),true,'nothing to save');
+  await browser.evaluate("document.querySelector('[data-open-deep-search]').click();");
+  await browser.waitFor("return !document.getElementById('deep').hidden&&document.querySelector('[data-view=\"deep\"]').getAttribute('aria-current')==='page'",{label:'Deep Search shown'});
+  assert.deepEqual(await browser.evaluate("return {value:document.getElementById('deepTarget').value,setup:!document.getElementById('deepSetup').hidden,running:!document.getElementById('deepProgress').hidden,dialog:document.getElementById('resultDialog').open}"),
+    {value:'owner-site.example',setup:true,running:false,dialog:false});
+  assert.ok(!(await browser.evaluate('return window.__mcp.calls')).some(call=>call.startsWith('tools/call')),'no tool was called');
+}));
+
+test('an event search lists news newest first, and the sort can change',options,()=>inApp(async browser=>{
+  await connectOpenOsint(browser,{get_gdelt:{articles:[
+    {title:'Earthquake shakes Example City',url:'https://news.example/quake',seendate:'20261101T080000Z',domain:'news.example'},
+    {title:'Aftershock reported',url:'https://news.example/aftershock',seendate:'20261112T080000Z',domain:'news.example',snippet:'Residents of Example City felt an aftershock.'}]}});
+  await search(browser,'earthquakes in Example City');
+  await browser.waitFor(searchDone,{label:'every source answered'});
+  const order="return [...document.querySelectorAll('#resultBody .news-row a')].map(link=>link.textContent)";
+  assert.equal(await browser.evaluate("return document.getElementById('newsSort').value"),'newest');
+  assert.deepEqual(await browser.evaluate(order),['Aftershock reported','Earthquake shakes Example City']);
+  await browser.evaluate("const select=document.getElementById('newsSort');select.value='relevant';select.dispatchEvent(new Event('change',{bubbles:true}));");
+  await browser.waitFor("return document.querySelector('#resultBody .news-row a')?.textContent==='Earthquake shakes Example City'",{label:'most relevant first'});
+  assert.equal(await browser.evaluate("return document.getElementById('newsSort').value"),'relevant');
+  assert.equal(await browser.evaluate("return document.querySelectorAll('#newsSort').length"),1);
+}));
+
+test('Save to case saves that one result with its note',options,()=>inApp(async browser=>{
+  await browser.evaluate("window.prompt=()=> 'Stand-in case';");
+  await connectOpenOsint(browser,NAME_ANSWERS);
+  await search(browser,'Owner Example');
+  await browser.waitFor(searchDone,{label:'every source answered'});
+  await browser.evaluate("document.querySelector('#resultBody .record-row [data-save-result]').click();");
+  await browser.waitFor("return document.querySelector('#resultBody .record-row [data-save-result]')?.textContent==='Saved'",{label:'button says Saved'});
+  assert.equal(await browser.evaluate("return document.getElementById('toast').textContent"),'Saved to Stand-in case');
+  assert.equal(await browser.evaluate("return document.getElementById('resultDialog').open"),true,'the results stay open');
+  assert.deepEqual(await browser.evaluate(caseFindings),[{title:'Owner Example',note:'From Passive search: Owner Example'}]);
+}));
+
+test('a saved result stays saved through live updates',options,()=>inApp(async browser=>{
+  await browser.evaluate("window.prompt=()=> 'Stand-in case';");
+  await connectOpenOsint(browser,NAME_ANSWERS,{get_offshore_leaks:3000});
+  await browser.evaluate("const before=window.fetch;window.__evidencePosts=0;window.fetch=(url,options)=>{if(/\\/evidence$/.test(String(url)))window.__evidencePosts++;return before(url,options);};");
+  await search(browser,'Owner Example');
+  await browser.waitFor("return !!document.querySelector('#resultBody .news-row [data-save-result]')&&/still working/.test(document.querySelector('#resultBody .search-details').textContent)",{label:'news shown while a source is pending'});
+  await browser.evaluate("document.querySelector('#resultBody .news-row [data-save-result]').click();");
+  await browser.waitFor("return document.querySelector('#resultBody .news-row [data-save-result]')?.textContent==='Saved'",{label:'saved'});
+  await browser.waitFor(searchDone,{label:'the slow source answered',timeout:10000});
+  assert.equal(await browser.evaluate("return document.querySelector('#resultBody .news-row [data-save-result]').textContent"),'Saved');
+  await browser.evaluate("const button=document.querySelector('#resultBody .news-row [data-save-result]');button.disabled=false;button.click();");
+  await new Promise(resolve=>setTimeout(resolve,500));
+  assert.equal(await browser.evaluate('return window.__evidencePosts'),1,'a second press sends nothing');
+  assert.equal((await browser.evaluate(caseFindings)).length,1);
+}));
+
+test('a pivot on a website goes to Deep Search',options,()=>inApp(async browser=>{
+  await connectOpenOsint(browser,NAME_ANSWERS);
+  await search(browser,'Owner Example');
+  await browser.waitFor(searchDone,{label:'every source answered'});
+  const before=(await browser.evaluate('return window.__mcp.calls')).length;
+  await browser.evaluate("document.querySelector('#resultBody [data-pivot=\"owner-site.example\"]').click();");
+  await browser.waitFor("return !document.getElementById('deep').hidden&&document.getElementById('deepTarget').value==='owner-site.example'",{label:'Deep Search filled in'});
+  assert.equal(await browser.evaluate("return document.getElementById('resultDialog').open||!document.getElementById('deepProgress').hidden"),false);
+  assert.equal((await browser.evaluate('return window.__mcp.calls')).length,before,'nothing was searched');
+}));

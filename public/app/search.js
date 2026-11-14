@@ -1,15 +1,14 @@
 // Search page: planning and running a search, and uploaded files.
 // Moved unchanged from app.js; see app.js for the startup and button wiring.
-import { explainSearchPlan, summarizePlanDiagnostics } from '../search-planner.js?v=1';
 import { emptyState, escapeHtml } from '../ui.js?v=6';
 import { classifyToolResult, hasUsefulData, parseToolResult } from '../result-classifier.js';
-import { buildSearchReport } from '../search-report.js?v=4';
-import { argsForSearch, extractTarget, searchIntent, searchSubjectFor } from '../search-query.js?v=1';
-import { $, state, diagnosticsEnabled, toast, iconFor, api, renderAll } from './core.js';
-import { connect, noteToolHealth } from './servers.js';
+import { passiveQuery, passiveSources, addCompanySources } from '../passive-search.js';
+import { buildPassiveResults } from '../passive-results.js';
+import { $, state, toast, iconFor, api, renderAll } from './core.js';
+import { noteToolHealth } from './servers.js';
 import { allTools, callTool } from './tools.js';
 import { recordHistory } from './evidence.js';
-import { sourceLabel, showResult, updateOpenResult, categoryForTool } from './results.js';
+import { showResult, updateOpenResult } from './results.js';
 
 let latestSearchId = 0;
 // Recent searches: a main search (it has a source log) can be run again; file analyses and single tool runs cannot,
@@ -25,86 +24,6 @@ function renderRecentSearches() {
     ? items.join('')
     : emptyState({ title: 'No searches yet', text: 'Your searches will appear here so you can run them again.' });
 }
-function relatedLinks(intentInfo, query) {
-  let clean = query
-    .replace(/^(?:https?:\/\/)/i, '')
-    .replace(/\/$/, '')
-    .trim();
-  clean = clean
-    .replace(
-      /^(?:location|city|country|organization|company|business|domain|website|news|current events?|academic|research)\s*(?::|-)?\s+/i,
-      ''
-    )
-    .replace(/^(?:recent|latest|current|today'?s?)\s+/i, '')
-    .replace(/\s+(?:news|developments|updates)$/i, '')
-    .trim();
-  const encoded = encodeURIComponent(clean);
-  const links = [];
-  if (intentInfo.id === 'cve') {
-    const cve = (clean.match(/CVE-\d{4}-\d+/i) || [])[0];
-    if (cve)
-      links.push({
-        title: 'NIST NVD record',
-        url: `https://nvd.nist.gov/vuln/detail/${cve.toUpperCase()}`,
-        description: 'Official vulnerability record and references.'
-      });
-  }
-  if (intentInfo.id === 'domain') {
-    const target = extractTarget(query);
-    const domain = target?.type === 'domain' ? target.value : clean.split('/')[0];
-    links.push(
-      {
-        title: 'Certificate Transparency',
-        url: `https://crt.sh/?q=${encodeURIComponent('%.'.concat(domain))}`,
-        description: 'Certificates issued for this domain and its subdomains.'
-      },
-      {
-        title: 'ICANN lookup',
-        url: `https://lookup.icann.org/en/lookup?name=${encodeURIComponent(domain)}`,
-        description: 'Domain registration lookup.'
-      }
-    );
-  }
-  if (intentInfo.id === 'research')
-    links.push(
-      {
-        title: 'Google Scholar',
-        url: `https://scholar.google.com/scholar?q=${encoded}`,
-        description: 'Broader scholarly literature search.'
-      },
-      {
-        title: 'arXiv search',
-        url: `https://arxiv.org/search/?query=${encoded}&searchtype=all`,
-        description: 'Preprints related to this topic.'
-      }
-    );
-  if (intentInfo.id === 'organization' || intentInfo.id === 'offshore')
-    links.push({
-      title: 'OpenCorporates search',
-      url: `https://opencorporates.com/companies?q=${encoded}`,
-      description: 'Company registrations across jurisdictions.'
-    });
-  if (intentInfo.id === 'location')
-    links.push({
-      title: 'OpenStreetMap',
-      url: `https://www.openstreetmap.org/search?query=${encoded}`,
-      description: 'Map and geographic context.'
-    });
-  if (intentInfo.id === 'news')
-    links.push({
-      title: 'Google News',
-      url: `https://news.google.com/search?q=${encoded}`,
-      description: 'Additional current coverage.'
-    });
-  if (!['email', 'phone', 'username'].includes(intentInfo.id))
-    links.push({
-      title: 'Wikipedia search',
-      url: `https://en.wikipedia.org/w/index.php?search=${encoded}`,
-      description: 'Background and linked references.'
-    });
-  return links;
-}
-
 function formatBytes(bytes) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -190,9 +109,22 @@ async function analyzeSelectedFile(file, note = '') {
   }
 }
 
+// Passive search: a website, IP address, username and the like is handed to Deep Search and nothing runs; a name,
+// company or event asks the passive sources and shows their answers grouped, redrawn as each one answers. A newer
+// search makes this one's late answers stale.
 async function smartInvestigate(query) {
+  const searchId = ++latestSearchId;
+  state.savedResultKeys = new Set();
+  state.savingResultKeys = new Set();
+  const info = passiveQuery(query);
+  if (info.kind === 'target') {
+    showResult(query, { passiveHandOff: { label: info.label, value: info.target.value } });
+    return;
+  }
+  state.newsSort = info.event ? 'newest' : 'relevant';
   const tools = allTools();
-  if (!tools.length) {
+  const sources = passiveSources(info, tools);
+  if (!sources.length) {
     recordHistory({ title: query, time: new Date().toISOString(), server: 'Demo workspace' });
     renderAll();
     showResult(query, {
@@ -201,80 +133,60 @@ async function smartInvestigate(query) {
     });
     return;
   }
-  const intent = searchIntent(query);
-  const explained = explainSearchPlan({ query, intentId: intent.id, preferredNames: intent.tools, tools, maxTools: 6 });
-  const plan = explained.selected.map(({ tool, score, reason }) => ({ tool, score, reason }));
-  if (!plan.length && intent.id === 'entity') {
-    const fallback =
-      tools.find(tool => tool.name === 'get_wikidata') || tools.find(tool => tool.name === 'get_hn_search');
-    if (fallback) plan.push({ tool: fallback, score: 1, reason: 'General entity fallback' });
-  }
-  const runStartedAt = new Date().toISOString();
-  plan.forEach(item => {
-    item.args = argsForSearch(item.tool, query);
-    item.startedAt = runStartedAt;
+  const outcomes = [];
+  const servers = () => [...new Set(sources.map(source => source.tool.serverName))].join(', ');
+  const build = () => buildPassiveResults({ query, subject: info.subject, event: info.event, sources, outcomes });
+  const record = results => ({
+    title: query,
+    result: { passive: results },
+    time: new Date().toISOString(),
+    server: servers()
   });
-  const selected = plan.map(item => item.tool);
-  const plannedServers = new Set(selected.map(tool => tool.serverName));
-  toast(
-    selected.length
-      ? `Searching ${selected.length} relevant tools across ${plannedServers.size} server${plannedServers.size === 1 ? '' : 's'}…`
-      : 'Relevant server is not connected'
-  );
-  // Each source's results are shown as soon as it answers; a newer search makes this one's late answers stale.
-  const searchId = ++latestSearchId;
-  const startedAt = performance.now();
-  const outcomes = new Array(selected.length);
-  const reportOptions = {
-    query,
-    intent,
-    plan,
-    outcomes,
-    diagnostics: diagnosticsEnabled ? summarizePlanDiagnostics(explained) : null,
-    links: relatedLinks(intent, query),
-    categoryForTool,
-    sourceLabel,
-    subject: searchSubjectFor(query),
-    preferredNames: intent.tools,
-    target: !!extractTarget(query)
-  };
-  const show = () => {
+  // The last redraw opens the results again if they were closed meanwhile; live redraws only refresh an open window.
+  const show = (finished = false) => {
     if (searchId !== latestSearchId) return null;
-    const built = buildSearchReport({ ...reportOptions, elapsedMs: Math.round(performance.now() - startedAt) });
-    state.lastResult = {
-      title: query,
-      result: built.result,
-      time: new Date().toISOString(),
-      server: [...built.servers].join(', ') || 'Connected MCP'
-    };
-    if (built.finished) showResult(query, built.result);
-    else updateOpenResult(query, built.result);
-    return built;
+    const results = build();
+    state.lastResult = record(results);
+    if (finished) showResult(query, state.lastResult.result);
+    else updateOpenResult(query, state.lastResult.result);
+    return results;
   };
-  if (selected.length) showResult(query, buildSearchReport(reportOptions).result);
-  await Promise.allSettled(
-    plan.map(async (item, index) => {
-      const tool = item.tool;
-      try {
-        const response = await callTool(tool, tool.serverId, item.args);
-        if (response.error) throw new Error(response.error.message || 'Tool call failed');
-        const outcome = classifyToolResult(response.result);
-        outcomes[index] = { status: 'fulfilled', value: { tool, outcome }, finishedAt: new Date().toISOString() };
-        noteToolHealth(tool.serverId, tool.name, outcome.kind);
-      } catch (error) {
-        outcomes[index] = { status: 'rejected', reason: error, finishedAt: new Date().toISOString() };
-        noteToolHealth(tool.serverId, tool.name, 'error');
+  let companyChecked = false;
+  const run = async (source, index) => {
+    const tool = source.tool;
+    try {
+      const response = await callTool(tool, tool.serverId, source.args);
+      if (response.error) throw new Error(response.error.message || 'Tool call failed');
+      const outcome = classifyToolResult(response.result);
+      outcomes[index] = { status: 'fulfilled', value: { tool, outcome } };
+      noteToolHealth(tool.serverId, tool.name, outcome.kind);
+    } catch (error) {
+      outcomes[index] = { status: 'rejected', reason: error };
+      noteToolHealth(tool.serverId, tool.name, 'error');
+    }
+    const results = show();
+    // Once Wikidata says the subject is an organisation, company registers and filings are asked too.
+    if (results && source.group === 'identity' && !companyChecked) {
+      companyChecked = true;
+      const extra = addCompanySources(info, tools, results.identity.best);
+      if (extra.length) {
+        const start = sources.length;
+        sources.push(...extra);
+        show();
+        await Promise.allSettled(extra.map((added, n) => run(added, start + n)));
       }
-      show();
-    })
-  );
-  const final = show();
+    }
+  };
+  state.lastResult = record(build());
+  showResult(query, state.lastResult.result);
+  await Promise.allSettled(sources.map(run));
+  const final = show(true);
   if (!final) return;
   recordHistory({
     title: query,
     time: state.lastResult.time,
     server: state.lastResult.server,
-    sourceLog: final.sourceLog
+    sourceLog: final.sources
   });
   renderAll();
 }
@@ -282,7 +194,6 @@ async function smartInvestigate(query) {
 export {
   latestSearchId,
   renderRecentSearches,
-  relatedLinks,
   formatBytes,
   fileAsDataUrl,
   clearSelectedFile,

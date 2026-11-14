@@ -60,6 +60,12 @@ const state = {
   disabledBundledEndpoints: removedBundledEndpoints,
   activeTool: null,
   lastResult: null,
+  // The result window's current content, and for a passive search: its news order and which results were saved (or are
+  // being saved). A new search starts these afresh; live redraws of the same search keep them.
+  shownResult: null,
+  newsSort: null,
+  savedResultKeys: new Set(),
+  savingResultKeys: new Set(),
   pendingFile: null,
   tierFilter: 'all',
   deepRun: null,

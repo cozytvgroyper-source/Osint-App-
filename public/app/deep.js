@@ -11,6 +11,7 @@ import { linkFindings } from '../deep-linking.js?v=2';
 import { $, $$, state, confirmAction, toast, switchView, apiGet, api } from './core.js';
 import { allTools, callTool } from './tools.js';
 import { humanize } from './results.js';
+import { passiveQuery } from '../passive-search.js';
 
 async function loadDeepHistory() {
   const box = $('#deepHistory');
@@ -318,6 +319,17 @@ function resetDeepSearch(value = '') {
   $('#deepTarget').focus();
 }
 
+// A website, IP address, username and the like is checked in Deep Search, not the passive search: open it there,
+// filled in and not started.
+function isDeepSearchTarget(value) {
+  return passiveQuery(value).kind === 'target';
+}
+function openInDeepSearch(value) {
+  $('#resultDialog').close();
+  switchView('deep');
+  resetDeepSearch(value);
+}
+
 function rebuildDeepFindings(run) {
   const adapted = [];
   for (const call of run.calls || []) {
@@ -429,6 +441,8 @@ export {
   cancelDeepSearch,
   showLiveDeepSearch,
   resetDeepSearch,
+  isDeepSearchTarget,
+  openInDeepSearch,
   rebuildDeepFindings,
   setDeepHistoryStatus,
   afterDeepDelete,
