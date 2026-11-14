@@ -75,5 +75,6 @@ export function renderPassiveResults(results,{sort,savedKeys=new Set(),escapeHtm
 
 export function renderPassiveHandOff({label,value}){
   const kind=defaultEscape(label);
-  return `<div class="passive-handoff"><p>This looks like a ${kind}. Passive search covers people, companies and news; ${kind}s are checked in Deep Search.</p><p><strong>${defaultEscape(value)}</strong></p><button class="primary" data-open-deep-search="${defaultEscape(value)}">Open in Deep Search</button></div>`;
+  const plural=label.endsWith('s')?`${kind}es`:`${kind}s`;
+  return `<div class="passive-handoff"><p>This looks like a ${kind}. Passive search covers people, companies and news; ${plural} are checked in Deep Search.</p><p><strong>${defaultEscape(value)}</strong></p><button class="primary" data-open-deep-search="${defaultEscape(value)}">Open in Deep Search</button></div>`;
 }

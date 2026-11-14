@@ -87,9 +87,9 @@ test('a failed source leaves the other groups intact',()=>{
   outcomes[2]=rejected('gdelt down');
   outcomes[3]=empty('get_opensanctions');
   const r=run(outcomes);
-  assert.equal(r.failed.length,2);
+  assert.equal(r.failed.length,1);
   assert.ok(r.failed.some(f=>f.label.includes('get_gdelt')&&/gdelt down/.test(f.error)));
-  assert.ok(r.failed.some(f=>f.label.includes('get_opensanctions')));
+  assert.equal(r.sources.find(source=>source.tool==='get_opensanctions').state,'empty');
   assert.ok(r.news.length>=2);
   assert.ok(r.identity.best);
 });
@@ -249,10 +249,23 @@ test('sources lists every planned source in order with its state',()=>{
   assert.deepEqual(r.sources.map(s=>[s.tool,s.state]),[['get_wikidata','ok'],['get_news_rss','empty'],['get_gdelt','failed'],['get_opensanctions','empty'],['get_offshore_leaks','pending']]);
   assert.equal(r.sources[2].error,'boom');
   assert.deepEqual(r.pending,['get_offshore_leaks']);
-  assert.equal(r.failed.length,2);
+  assert.equal(r.failed.length,1);
 });
 
 test('an empty data answer is listed as empty, not dropped',()=>{
   const r=buildPassiveResults({query:'x',subject:'Owner Example',event:false,sources:[src('get_country_facts','data'),src('get_geocode','data')],outcomes:[ok('get_country_facts',[]),ok('get_geocode',{items:[{name:'Owner Example'}]})]});
   assert.deepEqual(r.sources.map(s=>s.state),['empty','ok']);
+});
+
+test('an explicit empty items list is empty and not a visible data row',()=>{
+  const r=buildPassiveResults({query:'earthquakes',subject:'',event:true,sources:[src('get_earthquakes','data')],outcomes:[ok('get_earthquakes',{items:[]})]});
+  assert.equal(r.sources[0].state,'empty');
+  assert.deepEqual(r.data,[]);
+  assert.deepEqual(r.failed,[]);
+});
+
+test('an empty classified answer is empty and not failed',()=>{
+  const r=buildPassiveResults({query:'news',subject:'',event:true,sources:[src('get_gdelt','news')],outcomes:[empty('get_gdelt')]});
+  assert.equal(r.sources[0].state,'empty');
+  assert.deepEqual(r.failed,[]);
 });

@@ -11,7 +11,8 @@ const html=read('index.html'),app=readAppSource(),css=read('ui.css');
 test('the page header names the page and explains it; no view repeats the name',()=>{
   const pages=Object.fromEntries([...app.match(/const PAGES=\{([\s\S]*?)\n\};/)[1].matchAll(/(\w+):\{title:'([^']*)',intro:'([^']*)'\}/g)].map(m=>[m[1],{title:m[2],intro:m[3]}]));
   assert.deepEqual(Object.keys(pages).sort(),['deep','evidence','library','news','servers','workspace']);
-  assert.equal(pages.workspace.title,'Search');
+  assert.equal(pages.workspace.title,'Passive search');
+  assert.equal(pages.workspace.intro,'Look up a person, company or news event in public sources. Nothing here contacts anyone.');
   for(const [view,{title,intro}] of Object.entries(pages)){
     assert.ok(intro.length>20,view);
     const section=html.match(new RegExp(`<section[^>]*id="${view}"[\\s\\S]*?</section>`))[0];
@@ -35,8 +36,20 @@ test('the main search box has a visible label',()=>{
   assert.match(html,/<label for="query"[^>]*>[^<]{10,}<\/label>/);
 });
 
-test('the ⌘K button is named for what it does: it focuses the search box',()=>{
-  assert.match(html,/<button class="ghost" id="cmdButton"><kbd>⌘<\/kbd><kbd>K<\/kbd> Search<\/button>/);
+test('there is no ⌘K shortcut or header Search button',()=>{
+  assert.doesNotMatch(html,/id="cmdButton"|jumps here/);
+  assert.doesNotMatch(app,/metaKey|ctrlKey/);
+});
+
+test('the Passive search field has no focus box, while other controls keep theirs',()=>{
+  assert.match(css,/\.search-row:focus-within\{border-color:var\(--accent-dark\)\}/);
+  assert.doesNotMatch(css,/\.search-row:focus-within\{[^}]*outline/);
+  assert.match(css,/#query:focus-visible\{outline:none\}/);
+  assert.match(css,/:focus-visible\{[^}]*outline:/);
+});
+
+test('Passive search result links use the accessible theme color',()=>{
+  assert.match(css,/\.passive-group a\{color:var\(--accent-dark\)\}/);
 });
 
 test('ranked reports use the results-only view; older saved reports keep the old layout',()=>{

@@ -226,9 +226,8 @@ function iconFor(name = '') {
 // Each view's name and one plain line on what it is for, shown in the page header and the browser tab.
 const PAGES = {
   workspace: {
-    title: 'Search',
-    intro:
-      'Look up a person, company, website, IP address, username or event. Public Desk asks connected sources and shows the best matches first.'
+    title: 'Passive search',
+    intro: 'Look up a person, company or news event in public sources. Nothing here contacts anyone.'
   },
   evidence: {
     title: 'Evidence',

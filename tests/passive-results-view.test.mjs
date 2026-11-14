@@ -96,6 +96,11 @@ test('the hand-off names the kind and offers Deep Search',()=>{
   assert.match(renderPassiveHandOff({label:'x',value:'"><b>'}),/data-open-deep-search="&quot;&gt;&lt;b&gt;"/);
 });
 
+test('the hand-off pluralises address kinds correctly',()=>{
+  assert.match(renderPassiveHandOff({label:'IP address',value:'192.0.2.1'}),/IP addresses are checked in Deep Search/);
+  assert.match(renderPassiveHandOff({label:'email address',value:'owner@example.com'}),/email addresses are checked in Deep Search/);
+});
+
 test('Search details lists every source with a plain state, even with no results',()=>{
   const html=render(full());
   assert.match(html,/get_wikidata: found results/);
