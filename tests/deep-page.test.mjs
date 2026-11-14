@@ -46,7 +46,7 @@ test('audit starts before the engine and completed runs are always stored',()=>{
 test('history offers stored results',()=>{
   assert.match(app,/entry\.runId[\s\S]{0,180}Open results/);
   assert.match(app,/data-open-deep/);
-  assert.match(app,/Results weren\\'t kept for this run/);
+  assert.match(app,/Results weren(?:\\'|')t kept for this run/);
 });
 
 test('opening stored results re-adapts raw answers and links them again',()=>{
@@ -100,11 +100,12 @@ test('deleting is blocked while a search runs',()=>{
   assert.match(app,/const busy=Boolean\(state\.deepRun\)/);
   assert.match(app,/\$\{busy\?' disabled':''\}/);
   assert.match(app,/\$\('#deepHistoryBusy'\)\.hidden=!busy/);
-  assert.match(app,/state\.deepRun=\{id,target,level\};[^\n]*\n[^\n]*\n[^\n]*loadDeepHistory\(\)/);
+  // Once a search is marked as running, the history is redrawn straight away, so its Delete buttons turn off.
+  assert.match(app,/state\.deepRun=\{id,target,level\};(?:(?!state\.deepRun=)[\s\S]){0,400}?window\.addEventListener\('beforeunload',warnDeepUnload\);loadDeepHistory\(\)/);
 });
 
 test('after a delete, focus and status move sensibly',()=>{
-  assert.match(app,/function setDeepHistoryStatus\(text\)\{const box=\$\('#deepHistoryStatus'\);if\(box\.textContent!==text\)box\.textContent=text;\}/);
+  assert.match(app,/function setDeepHistoryStatus\(text\)\{const box=\$\('#deepHistoryStatus'\);if\(box\.textContent!==text\)box\.textContent=text;\n?\}/);
   assert.match(app,/afterDeepDelete\(\{runId:runId\|\|null\},'Search deleted\.'\)/);
   assert.match(app,/afterDeepDelete\(\{all:true\},'All searches deleted\.'\)/);
   assert.match(app,/await loadDeepHistory\(\);setDeepHistoryStatus\(message\);/);
