@@ -65,7 +65,7 @@ test('refuses to reuse a listening process with the wrong identity', async () =>
   }
 });
 
-// Runs the real Stop script on a throwaway copy of the app folder: a process that belongs to that folder is stopped,
+// Runs the real Stop script and shared controller on a throwaway copy of the app folder: an owned process is stopped,
 // while an unrelated process whose number sits in a pid file is left running.
 test('stop launcher stops its own process and leaves an unrelated one running', { skip: !spawnSync('/bin/zsh', ['-c', 'command -v lsof']).stdout?.toString().trim() }, async () => {
   const fs = await import('node:fs/promises');
@@ -79,14 +79,16 @@ test('stop launcher stops its own process and leaves an unrelated one running', 
     await fs.mkdir(join(app, 'scripts'), { recursive: true });
     await fs.mkdir(join(app, 'work', 'runtime'), { recursive: true });
     await fs.copyFile(fileURLToPath(new URL('../Stop Public Desk.command', import.meta.url)), join(app, 'Stop Public Desk.command'));
+    await fs.copyFile(fileURLToPath(new URL('../scripts/public-desk-control.zsh', import.meta.url)), join(app, 'scripts', 'public-desk-control.zsh'));
     await fs.copyFile(script, join(app, 'scripts', 'service-ownership.zsh'));
     await writeFile(join(app, 'work', 'runtime', 'signaldesk.pid'), String(owned.pid));
     await writeFile(join(app, 'work', 'runtime', 'omega.pid'), String(foreign.pid));
     await new Promise(resolve => setTimeout(resolve, 300));
     const result = spawnSync('/bin/zsh', [join(app, 'Stop Public Desk.command')], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
-    assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stdout, /Stopped signaldesk\./);
-    assert.match(result.stdout, new RegExp(`Did not stop PID ${foreign.pid} for omega`));
+    assert.equal(result.status, 1, 'a foreign PID record is reported as needing attention');
+    const output = result.stdout + result.stderr;
+    assert.match(output, /Stopped signaldesk\./);
+    assert.match(output, new RegExp(`Did not stop PID ${foreign.pid} for omega`));
     await new Promise(resolve => setTimeout(resolve, 300));
     assert.equal(alive(owned.pid), false, 'its own process was stopped');
     assert.equal(alive(foreign.pid), true, 'the unrelated process is still running');

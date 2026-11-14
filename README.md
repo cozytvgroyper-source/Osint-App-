@@ -12,8 +12,10 @@ npm run setup
 
 The setup script checks out the exact Open OSINT revision named in `config/open-osint.env`, installs its locked Node and Python dependencies under `work/dependencies/`, and applies Public Desk's reviewed patches. It requires Node 22 or newer, Git, npm, and `uv`.
 
-Then double-click **Start Public Desk.command**. When finished, double-click
-**Stop Public Desk.command**. The launcher starts five services, all bound to `127.0.0.1` so they are
+Then double-click **Public Desk.command**. It starts any missing services, waits until all five are ready, opens Public
+Desk, and does not need its Terminal window to remain open; opening it again reuses the running services. When finished, double-click
+**Stop Public Desk.command**. The older **Start Public Desk.command** remains as a compatible shortcut. Every service is
+bound to `127.0.0.1`, so it is
 available only on this computer:
 
 | Service | Address |
@@ -25,6 +27,17 @@ available only on this computer:
 | Public Desk (the app) | `http://127.0.0.1:4173` |
 
 If one MCP bridge restarts on its own, Public Desk opens a new session with it automatically.
+
+For status, restart, or diagnostics from Terminal, use the shared controller:
+
+```bash
+zsh scripts/public-desk-control.zsh status
+zsh scripts/public-desk-control.zsh restart --open
+zsh scripts/public-desk-control.zsh diagnostics --open
+```
+
+Stopping waits for each verified Public Desk process to exit. If one ignores a normal stop request, the controller
+force-stops only that verified process; it never stops an unrelated process using the same port.
 
 For a terminal launch of the interface only:
 
