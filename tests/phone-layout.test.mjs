@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import {readAppSource} from './helpers/app-source.mjs';
 
 const css=fs.readFileSync(new URL('../public/ui.css',import.meta.url),'utf8');
-const app=fs.readFileSync(new URL('../public/app.js',import.meta.url),'utf8');
+const app=readAppSource();
 const phoneRules=[...css.matchAll(/@media\(max-width:720px\)\{([\s\S]*?\})\}/g)].map(match=>match[1]).join('');
 
 // The Tool library filter and the News search box are both label.filter; on phones they must stay visible.

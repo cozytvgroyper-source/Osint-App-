@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import {readAppSource} from './helpers/app-source.mjs';
 
 const read=file=>fs.readFileSync(new URL(`../public/${file}`,import.meta.url),'utf8');
-const html=read('index.html'),app=read('app.js'),progress=read('deep-progress.js'),styles=read('ui.css');
+const html=read('index.html'),app=readAppSource(),progress=read('deep-progress.js'),styles=read('ui.css');
 const deep=html.match(/<section id="deep"[\s\S]*?<section id="news"/)[0];
 // One named function's source, so a check can't be satisfied by unrelated code elsewhere in app.js.
 const fn=name=>{const start=app.indexOf(`async function ${name}(`);assert.ok(start>=0,name);const end=app.indexOf('\nasync function ',start+1);return app.slice(start,end<0?undefined:end);};

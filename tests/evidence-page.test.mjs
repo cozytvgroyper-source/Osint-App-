@@ -1,11 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import {readAppSource} from './helpers/app-source.mjs';
 
 // The Evidence page: deletions ask in a real dialog that starts on Cancel, the case picker is named by its visible
 // label, findings open in the results panel, and statuses are set with labeled buttons.
 const read=file=>fs.readFileSync(new URL(`../public/${file}`,import.meta.url),'utf8');
-const html=read('index.html'),app=read('app.js');
+const html=read('index.html'),app=readAppSource();
 
 test('destructive actions ask in a real dialog, starting on Cancel',()=>{
   assert.match(html,/<dialog id="confirmDialog" aria-labelledby="confirmTitle" aria-describedby="confirmMessage">/);

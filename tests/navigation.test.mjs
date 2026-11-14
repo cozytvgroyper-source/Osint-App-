@@ -1,11 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import {readAppSource} from './helpers/app-source.mjs';
 
 // The sidebar lists the app's own sections in task order, then tools and services, then outside sites. Icons are
 // decoration, so screen readers hear only the labels; the current page is announced.
 const read=file=>fs.readFileSync(new URL(`../public/${file}`,import.meta.url),'utf8');
-const html=read('index.html'),app=read('app.js');
+const html=read('index.html'),app=readAppSource();
 const nav=html.match(/<nav[\s\S]*?<\/nav>/)[0];
 
 test('navigation lists the app sections in task order, then tools, then outside sites',()=>{

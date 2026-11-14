@@ -1,11 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import {readAppSource} from './helpers/app-source.mjs';
 
 // The Search page for non-technical people: a labeled box, example searches that fill it, recent searches that can be
 // run again, and one plain line about connected sources instead of technical connection panels.
 const read=file=>fs.readFileSync(new URL(`../public/${file}`,import.meta.url),'utf8');
-const html=read('index.html'),app=read('app.js');
+const html=read('index.html'),app=readAppSource();
 const workspace=html.match(/<section id="workspace"[\s\S]*?<\/section>\s*<section/)[0];
 
 test('the search box has a visible label and a plain button',()=>{
