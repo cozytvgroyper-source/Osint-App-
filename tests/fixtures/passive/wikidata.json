@@ -1,0 +1,4 @@
+{"query":"Owner Example","entities":[
+{"id":"Q1001","label":"Owner Example Jr.","description":"son of Owner Example","aliases":[],"wikiUrl":"https://wiki.example/Q1001","facts":{"instanceOf":"human","country":"Example City"}},
+{"id":"Q1000","label":"Owner Example","description":"founder of Example Corp","aliases":["O. E. Example"],"wikiUrl":"https://wiki.example/Q1000","facts":{"instanceOf":"human","website":["https://owner-site.example"],"birthDate":"1970-01-01"}},
+{"id":"Q1002","label":"Example Corp","description":"company run by Owner Example","aliases":[],"wikiUrl":"https://wiki.example/Q1002","facts":{"instanceOf":"business"}}]}
