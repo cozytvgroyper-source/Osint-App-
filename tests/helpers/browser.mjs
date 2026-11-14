@@ -31,6 +31,18 @@ async function freePort(){
 }
 
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+// Chrome can briefly recreate profile files after its main process exits, especially on Node 22 macOS runners. Retry
+// that expected race; if Chrome outlasts the retries, leave the throwaway folder for macOS instead of stranding the
+// test server and hanging the entire suite.
+const removeTemporaryTree=async root=>{
+  for(let attempt=0;attempt<30;attempt++){
+    try{fs.rmSync(root,{recursive:true,force:true});return;}
+    catch(error){
+      if(!['EBUSY','ENOTEMPTY','EPERM'].includes(error?.code))throw error;
+      await wait(100);
+    }
+  }
+};
 
 // A Public Desk server on a free port, with its own temporary work folder holding two stand-in Deep Search runs.
 export async function startServer(){
@@ -116,8 +128,10 @@ export async function startBrowser(){
     async close(){
       try{await send('Browser.close');}catch{}
       socket.close();
-      if(chrome.exitCode===null)await Promise.race([new Promise(resolve=>chrome.once('exit',resolve)),wait(3000).then(()=>chrome.kill('SIGKILL'))]);
-      fs.rmSync(profile,{recursive:true,force:true});
+      const exited=()=>chrome.exitCode===null?new Promise(resolve=>chrome.once('exit',resolve)):Promise.resolve();
+      if(chrome.exitCode===null)await Promise.race([exited(),wait(3000)]);
+      if(chrome.exitCode===null){chrome.kill('SIGKILL');await Promise.race([exited(),wait(3000)]);}
+      await removeTemporaryTree(profile);
     }
   };
 }

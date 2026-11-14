@@ -8,42 +8,52 @@ const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov',
 const readable=iso=>{const d=new Date(iso);return Number.isNaN(d.getTime())?String(iso):`${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;};
 
 const WD_ID=/^wd:Q\d+$/;
-// Wikidata ids ("wd:Q42") mean nothing to a reader: drop them from facts, and drop a fact left with no value.
-function readableFacts(facts){
-  const out={};
-  for(const [key,value] of Object.entries(facts||{})){
-    if(Array.isArray(value)){const kept=value.filter(v=>!(typeof v==='string'&&WD_ID.test(v)));if(kept.length)out[key]=kept;}
-    else if(!(typeof value==='string'&&WD_ID.test(value)))out[key]=value;
+// Unresolved Wikidata ids ("wd:Q42") mean nothing to a reader. Fold them recursively in displayed records while
+// leaving the source answer untouched for evidence storage and fingerprints.
+export function foldUnresolvedWikidataIds(value){
+  if(typeof value==='string'&&WD_ID.test(value))return undefined;
+  if(Array.isArray(value))return value.map(foldUnresolvedWikidataIds).filter(item=>item!==undefined);
+  if(value&&typeof value==='object'){
+    const out={};
+    for(const [key,item] of Object.entries(value)){
+      const folded=foldUnresolvedWikidataIds(item);
+      if(folded===undefined||Array.isArray(folded)&&!folded.length)continue;
+      if(folded&&typeof folded==='object'&&!Array.isArray(folded)&&!Object.keys(folded).length)continue;
+      out[key]=folded;
+    }
+    return out;
   }
-  return out;
+  return value;
 }
 const nameOf=item=>[item?.title,item?.label,item?.name].find(v=>typeof v==='string'&&v.trim())||'';
+const sourceItem=item=>item?.item!==undefined?item.item:(()=>{const {key,tier,...source}=item||{};return source;})();
 
-export function renderPassiveResults(results,{sort,savedKeys=new Set(),escapeHtml=defaultEscape,safeHttpUrl=defaultSafeUrl,renderRecord}={}){
+export function renderPassiveResults(results,{sort,savedKeys=new Set(),openKeys=new Set(),escapeHtml=defaultEscape,renderRecord,renderBody}={}){
   const esc=escapeHtml;
   const r=results||{};
   sort=sort||(r.event?'newest':'relevant');
   const save=(key,title)=>savedKeys.has(key)
     ?`<button class="save-result" data-save-result="${esc(key)}" aria-label="Save to case: ${esc(title)}" disabled>Saved</button>`
     :`<button class="save-result" data-save-result="${esc(key)}" aria-label="Save to case: ${esc(title)}">Save to case</button>`;
-  const linked=(title,link)=>{
-    const href=link?safeHttpUrl(link):'';
-    return href?`<a href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(title)}</a>`:esc(title);
-  };
   const more=(count,body)=>count?`<details class="more-results"><summary>Show ${count} more that don't mention your search</summary>${body}</details>`:'';
   const group=(title,body)=>`<section class="passive-group"><h3>${esc(title)}</h3>${body}</section>`;
+  const expanded=(key,summary,item)=>{
+    const folded=foldUnresolvedWikidataIds(sourceItem(item));
+    const renderer=renderBody||renderRecord||((value)=>esc(JSON.stringify(value)));
+    const body=renderer(folded)||'<p class="empty-copy">No additional information reported.</p>';
+    return `<details class="passive-result" data-details-key="${esc(key)}"${openKeys.has(key)?' open':''}><summary>${summary}<span class="expand-label">Details</span></summary><div class="passive-result-expanded">${body}</div></details>`;
+  };
 
-  const newsRow=n=>`<li class="news-row"><div class="result-main">${linked(n.title,n.link)}<span class="result-meta">${n.date?`${Number.isNaN(Date.parse(n.date))?esc(n.date):`<time datetime="${esc(n.date)}">${esc(readable(n.date))}</time>`}`:''}${n.source?`<span>${esc(n.source)}</span>`:''}</span>${n.snippet?`<p>${esc(n.snippet)}</p>`:''}</div>${save(n.key,n.title)}</li>`;
-  const recordRow=x=>`<li class="record-row"><div class="result-main">${linked(x.title,x.link)}${x.detail?`<p>${esc(x.detail)}</p>`:''}</div>${save(x.key,x.title)}</li>`;
+  const newsRow=n=>`<li class="news-row">${expanded(n.key,`<span class="result-main"><strong>${esc(n.title)}</strong><span class="result-meta">${n.date?`${Number.isNaN(Date.parse(n.date))?esc(n.date):`<time datetime="${esc(n.date)}">${esc(readable(n.date))}</time>`}`:''}${n.source?`<span>${esc(n.source)}</span>`:''}</span>${n.snippet?`<span class="result-snippet">${esc(n.snippet)}</span>`:''}</span>`,n)}${save(n.key,n.title)}</li>`;
+  const recordRow=x=>`<li class="record-row">${expanded(x.key,`<span class="result-main"><strong>${esc(x.title)}</strong>${x.detail?`<span class="result-snippet">${esc(x.detail)}</span>`:''}</span>`,x)}${save(x.key,x.title)}</li>`;
   const dataRow=(x,label,n)=>{
     const name=nameOf(x.item);
-    const body=renderRecord(x.item)||esc(name||`Item ${n+1}`);
-    return `<li class="data-row"><div class="result-main">${body}</div>${save(x.key,name||label)}</li>`;
+    const title=name||`Item ${n+1}`;
+    return `<li class="data-row">${expanded(x.key,`<span class="result-main"><strong>${esc(title)}</strong></span>`,x)}${save(x.key,name||label)}</li>`;
   };
   const entityBody=e=>{
-    const kept=e.facts&&typeof e.facts==='object'?readableFacts(e.facts):{};
-    const facts=Object.keys(kept).length?renderRecord(kept):'';
-    return `<div class="result-main"><strong>${linked(e.label||e.id||'Unnamed',e.wikiUrl)}</strong>${e.description?`<p>${esc(e.description)}</p>`:''}${facts}</div>${save(e.key,e.label||e.id||'Unnamed')}`;
+    const title=e.label||e.id||'Unnamed';
+    return `${expanded(e.key,`<span class="result-main"><strong>${esc(title)}</strong>${e.description?`<span class="result-snippet">${esc(e.description)}</span>`:''}</span>`,e)}${save(e.key,title)}`;
   };
 
   const parts=[];

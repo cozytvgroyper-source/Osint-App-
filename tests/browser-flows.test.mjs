@@ -174,7 +174,7 @@ const NAME_ANSWERS={
     {id:'wd:Q1',label:'Owner Example',description:'Stand-in person',wikiUrl:'https://www.wikidata.org/wiki/Q1',facts:{website:'owner-site.example'}}]},
   get_news_rss:{items:[{...STORY,pubDate:'2026-11-10T09:00:00Z',source:'Stand-in Wire'},{title:'Unrelated weather story',link:'https://news.example/weather'}]},
   get_gdelt:{articles:[{title:STORY.title,url:STORY.link,seendate:'20261110T090000Z',domain:'news.example'}]},
-  get_opensanctions:{entities:[{name:'Owner Example',dataset:'Stand-in list'}]},
+  get_opensanctions:{entities:[{name:'Owner Example',dataset:'Stand-in list',owner:'Readable owner',related:'wd:Q999',details:{country:'Exampleland',unresolved:'wd:Q998'}}]},
   get_offshore_leaks:{entities:[]}
 };
 const connectOpenOsint=async(browser,answers,delays={})=>{
@@ -199,12 +199,22 @@ test('a name search groups results, ranks the exact name first, and shows each r
   const identity=await browser.evaluate("return document.querySelector('#resultBody .passive-group .passive-card strong')?.textContent");
   assert.equal(identity,'Owner Example','the exact name is the identity card');
   assert.match(await browser.evaluate(groupText('Who or what this is')),/Other people or things with this name[\s\S]*Owner Example Jr\./);
-  const news=await browser.evaluate(groupText('News'));
-  assert.equal(news.split(STORY.title).length-1,1,'the same story from two sources is shown once');
+  const newsTitles=await browser.evaluate("return [...document.querySelectorAll('#resultBody .news-row summary strong')].map(title=>title.textContent)");
+  assert.equal(newsTitles.filter(title=>title===STORY.title).length,1,'the same story from two sources is shown once');
   assert.match(await browser.evaluate(groupText('Records')),/Owner Example[\s\S]*Stand-in list/);
   const calls=await browser.evaluate('return window.__mcp.calls');
   for(const name of ['get_wikidata','get_news_rss','get_gdelt','get_opensanctions','get_offshore_leaks'])assert.ok(calls.includes(`tools/call:${name}`),name);
   assert.ok(!calls.includes('tools/call:get_opencorporates'),'a person is not looked up in company registers');
+}));
+
+test('a search result opens to show its complete source record',options,()=>inApp(async browser=>{
+  await connectOpenOsint(browser,NAME_ANSWERS);
+  await search(browser,'Owner Example');
+  await browser.waitFor(searchDone,{label:'every source answered'});
+  assert.equal(await browser.evaluate("return document.querySelector('#resultBody .record-row .passive-result').open"),false);
+  await browser.evaluate("document.querySelector('#resultBody .record-row .passive-result summary').click();");
+  assert.deepEqual(await browser.evaluate("const row=document.querySelector('#resultBody .record-row .passive-result');return {open:row.open,text:row.querySelector('.passive-result-expanded').textContent};"),
+    {open:true,text:'NameOwner ExampleDatasetStand-in listOwnerReadable ownerDetailsCountryExampleland'});
 }));
 
 test('a subject Wikidata calls an organisation is also looked up in company registers',options,()=>inApp(async browser=>{
@@ -239,11 +249,11 @@ test('an event search lists news newest first, and the sort can change',options,
     {title:'Aftershock reported',url:'https://news.example/aftershock',seendate:'20261112T080000Z',domain:'news.example',snippet:'Residents of Example City felt an aftershock.'}]}});
   await search(browser,'earthquakes in Example City');
   await browser.waitFor(searchDone,{label:'every source answered'});
-  const order="return [...document.querySelectorAll('#resultBody .news-row a')].map(link=>link.textContent)";
+  const order="return [...document.querySelectorAll('#resultBody .news-row summary strong')].map(title=>title.textContent)";
   assert.equal(await browser.evaluate("return document.getElementById('newsSort').value"),'newest');
   assert.deepEqual(await browser.evaluate(order),['Aftershock reported','Earthquake shakes Example City']);
   await browser.evaluate("const select=document.getElementById('newsSort');select.value='relevant';select.dispatchEvent(new Event('change',{bubbles:true}));");
-  await browser.waitFor("return document.querySelector('#resultBody .news-row a')?.textContent==='Earthquake shakes Example City'",{label:'most relevant first'});
+  await browser.waitFor("return document.querySelector('#resultBody .news-row summary strong')?.textContent==='Earthquake shakes Example City'",{label:'most relevant first'});
   assert.equal(await browser.evaluate("return document.getElementById('newsSort').value"),'relevant');
   assert.equal(await browser.evaluate("return document.querySelectorAll('#newsSort').length"),1);
 }));
@@ -258,6 +268,17 @@ test('Save to case saves that one result with its note',options,()=>inApp(async 
   assert.equal(await browser.evaluate("return document.getElementById('toast').textContent"),'Saved to Stand-in case');
   assert.equal(await browser.evaluate("return document.getElementById('resultDialog').open"),true,'the results stay open');
   assert.deepEqual(await browser.evaluate(caseFindings),[{title:'Owner Example',note:'From Passive search: Owner Example'}]);
+  const stored=await browser.evaluate(`const id=document.getElementById('caseSelect').value;
+    const response=await fetch('/api/cases/'+id,{headers:{'x-public-desk-token':sessionStorage.getItem('publicDesk.access')}});
+    return (await response.json()).evidence[0].result;`);
+  assert.equal(stored.related,'wd:Q999','the original evidence remains intact');
+  await browser.evaluate("document.getElementById('resultDialog').close();document.querySelector('[data-view=\"evidence\"]').click();");
+  await browser.waitFor("return !!document.querySelector('[data-open-finding]')",{label:'saved finding shown'});
+  await browser.evaluate("document.querySelector('[data-open-finding]').click();");
+  await browser.waitFor("return document.getElementById('resultDialog').open",{label:'saved finding opened'});
+  const opened=await browser.evaluate("return document.getElementById('resultBody').textContent");
+  assert.match(opened,/Readable owner|Exampleland/);
+  assert.doesNotMatch(opened,/wd:Q/);
 }));
 
 test('a saved result stays saved through live updates',options,()=>inApp(async browser=>{
