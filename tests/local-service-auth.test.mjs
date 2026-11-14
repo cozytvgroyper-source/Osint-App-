@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { spawn } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 test('the Open OSINT data-service preload requires the exact launch bearer token',async()=>{
   const token='test-local-service-token-that-is-long-enough';
@@ -53,4 +57,54 @@ test('an existing authorization header is kept',async()=>{
   const out=addSelfToken('http://127.0.0.1:8080/',init,{port:8080,token:T});
   assert.equal(out,init);
   assert.equal(authOf(out),'Bearer other');
+});
+
+test('with the preload loaded, the service can call itself and nothing else gets the token',async()=>{
+  const dir=await mkdtemp(join(tmpdir(),'preload-e2e-'));
+  const script=join(dir,'service.mjs');
+  // The other-port server is a raw net server: an http.Server would be locked by the preload before a handler could see headers.
+  await writeFile(script,`
+import http from 'node:http';
+import net from 'node:net';
+let otherAuth = null;
+const other = net.createServer((socket) => {
+  socket.on('data', (chunk) => {
+    const m = /^authorization:\\s*(.*)$/im.exec(chunk.toString());
+    otherAuth = m ? m[1].trim() : '';
+    socket.end('HTTP/1.1 200 OK\\r\\nContent-Length: 2\\r\\nConnection: close\\r\\n\\r\\nok');
+  });
+});
+const service = http.createServer(async (req, res) => {
+  if (req.url === '/target') { res.end('ok'); return; }
+  if (req.url === '/self') {
+    const inner = await fetch('http://127.0.0.1:' + service.address().port + '/target');
+    const o = await fetch('http://127.0.0.1:' + other.address().port + '/x');
+    await o.text();
+    res.end(JSON.stringify({ inner: inner.status, other: o.status, otherAuth }));
+    return;
+  }
+  res.statusCode = 404; res.end();
+});
+// The service listens first: the preload records the first listening http.Server as the service's own port.
+service.listen(0, '127.0.0.1', () => other.listen(0, '127.0.0.1', () => console.log('READY ' + service.address().port)));
+`);
+  const child=spawn(process.execPath,['--import',fileURLToPath(new URL('../scripts/require-loopback-token.mjs',import.meta.url)),script],{env:{...process.env,PUBLIC_DESK_TOKEN:T},stdio:['ignore','pipe','inherit']});
+  try{
+    const port=await new Promise((resolve,reject)=>{
+      let out='';
+      child.stdout.on('data',d=>{out+=d;const m=/READY (\d+)/.exec(out);if(m)resolve(Number(m[1]));});
+      child.on('exit',c=>reject(new Error(`child exited early (${c})`)));
+    });
+    const base=`http://127.0.0.1:${port}`;
+    assert.equal((await fetch(`${base}/target`)).status,401,'the lock still applies to outside callers');
+    const res=await fetch(`${base}/self`,{headers:{authorization:`Bearer ${T}`}});
+    assert.equal(res.status,200);
+    const body=await res.json();
+    assert.equal(body.inner,200,'the service reached its own route with the token');
+    assert.equal(body.other,200);
+    assert.equal(body.otherAuth,'','the other-port server saw no Authorization header');
+  }finally{
+    child.kill();
+    await rm(dir,{recursive:true,force:true});
+  }
 });
