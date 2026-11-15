@@ -1,4 +1,5 @@
-// Data sources whose API keys Public Desk passes to the Open OSINT data service, and the work/api-keys.env format.
+// Data sources whose API keys Public Desk passes to the Open OSINT data service (and, for Have I Been Pwned and Shodan,
+// to Omega through scripts/run-omega-mcp-captured.py), and the work/api-keys.env format.
 // Used by server.mjs (the Data sources panel) and by live-api-keys.mjs (the data service preload).
 //
 // The file holds KEY=value lines plus PUBLIC_DESK_DISABLED=<source ids> for sources the user disconnected. It is
@@ -48,6 +49,12 @@ export const DATA_SOURCES = Object.freeze([
   { id: 'firms', name: 'NASA FIRMS', fields: [field('NASA_FIRMS_API_KEY', 'Map key')], feeds: [],
     signup: 'https://firms.modaps.eosdis.nasa.gov/api/', note: 'Fire detections. Open OSINT does not offer its wildfire tool yet.',
     improves: 'Nothing yet: Open OSINT does not offer its wildfire tool.', example: '', recommended: false },
+  { id: 'hibp', name: 'Have I Been Pwned', fields: [field('HIBP_API_KEY')], feeds: ['omega_breach', 'omega_leaked'],
+    signup: 'https://haveibeenpwned.com/API/Key', note: 'Paid: the API needs a subscription. Without a key, Omega\'s breach checks say "Not checked" instead of "no breaches".',
+    improves: 'Email breach checks in Deep Search and Tool Library (omega_breach, omega_leaked).', example: '', recommended: false },
+  { id: 'shodan', name: 'Shodan', fields: [field('SHODAN_API_KEY')], feeds: ['omega_shodan'],
+    signup: 'https://account.shodan.io', note: 'Your Shodan plan decides how many lookups the key allows. Without a key, omega_shodan says "Not checked".',
+    improves: 'IP lookups from Tool Library (omega_shodan): open ports, services and banners Shodan has recorded.', example: '', recommended: false },
   { id: 'opencorporates', name: 'OpenCorporates', fields: [field('OPENCORPORATES_API_KEY')], feeds: ['get_opencorporates'],
     signup: 'https://opencorporates.com', note: 'Company registers. Generally paid.',
     improves: 'Company and filing searches: official company register records.', example: 'Acme Corp company filing', recommended: false },
