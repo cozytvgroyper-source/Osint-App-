@@ -54,30 +54,75 @@ prepare_folders() {
   chmod 700 "$APP_DIR/work" "$RUNTIME_DIR" "$LOG_DIR"
 }
 
-release_lock() {
-  [[ -d "$LOCK_DIR" ]] || return 0
-  local owner=""
+# The control lock makes start, stop and restart run one at a time, whichever launcher asked. It is a folder holding
+# the owner's PID, that process's start time and what it is doing. A lock is live only while that exact process runs:
+# the start time stops a PID that macOS reused after a crash from keeping an abandoned lock alive.
+process_started_at() {
+  local started
+  started="$(/bin/ps -o lstart= -p "$1" 2>/dev/null)" || { REPLY=""; return 1; }
+  REPLY="${(j: :)${=started}}"
+  [[ -n "$REPLY" ]]
+}
+
+lock_is_live() {
+  [[ -d "$LOCK_DIR" ]] || return 1
+  local owner="" started=""
   [[ -f "$LOCK_DIR/pid" ]] && owner="$(<"$LOCK_DIR/pid")"
-  [[ -n "$owner" && "$owner" != "$$" ]] && return 0
-  rm -f "$LOCK_DIR/pid"
+  if [[ "$owner" != <-> ]]; then
+    # The owner is written a moment after the folder is made; only a folder left ownerless for seconds is stale.
+    zmodload -F zsh/stat b:zstat; zmodload zsh/datetime
+    local -a modified
+    zstat -A modified +mtime "$LOCK_DIR" 2>/dev/null || return 1
+    (( EPOCHSECONDS - modified[1] < 5 ))
+    return
+  fi
+  kill -0 "$owner" 2>/dev/null || return 1
+  [[ -f "$LOCK_DIR/started" ]] && started="$(<"$LOCK_DIR/started")"
+  [[ -z "$started" ]] && return 0
+  process_started_at "$owner" && [[ "$REPLY" == "$started" ]]
+}
+
+lock_action() {
+  REPLY=""
+  [[ -f "$LOCK_DIR/action" ]] && REPLY="$(<"$LOCK_DIR/action")"
+  [[ "$REPLY" == (start|stop|restart) ]] || REPLY=""
+}
+
+remove_lock_folder() {
+  rm -f "$LOCK_DIR/pid" "$LOCK_DIR/started" "$LOCK_DIR/action"
   rmdir "$LOCK_DIR" 2>/dev/null || true
 }
 
+# Only the process that took the lock releases it; every run calls this on exit, including status checks.
+release_lock() {
+  (( ${LOCK_HELD:-0} )) || return 0
+  LOCK_HELD=0
+  local owner=""
+  [[ -f "$LOCK_DIR/pid" ]] && owner="$(<"$LOCK_DIR/pid")"
+  [[ "$owner" == "$$" ]] && remove_lock_folder
+  return 0
+}
+
+# Waits for another start or stop to finish (a cold start can take minutes) rather than running a second one beside it.
 acquire_lock() {
   prepare_folders
-  local attempt owner
-  for attempt in {1..120}; do
+  local action="${LOCK_ACTION:-start}" attempt waiting=0 attempts=$(( (START_TIMEOUT + 60) * 2 ))
+  for ((attempt=1; attempt<=attempts; attempt++)); do
     if mkdir "$LOCK_DIR" 2>/dev/null; then
       print -r -- "$$" > "$LOCK_DIR/pid"
-      trap release_lock EXIT INT TERM
+      process_started_at "$$" && print -r -- "$REPLY" > "$LOCK_DIR/started"
+      print -r -- "$action" > "$LOCK_DIR/action"
+      LOCK_HELD=1
       return 0
     fi
-    owner=""
-    [[ -f "$LOCK_DIR/pid" ]] && owner="$(<"$LOCK_DIR/pid")"
-    if [[ "$owner" != <-> ]] || ! kill -0 "$owner" 2>/dev/null; then
-      rm -f "$LOCK_DIR/pid"
-      rmdir "$LOCK_DIR" 2>/dev/null || true
+    if ! lock_is_live; then
+      print -r -- "Cleared a lock left by an earlier start or stop that did not finish."
+      remove_lock_folder
       continue
+    fi
+    if (( ! waiting )); then
+      print -r -- "Public Desk is already being started or stopped; waiting for that to finish…"
+      waiting=1
     fi
     sleep 0.5
   done
@@ -291,10 +336,73 @@ check_dependencies() {
   find_uv
 }
 
+# Opening Public Desk again brings its existing tab forward instead of adding another. Safari and Chromium-based
+# browsers that are already running are asked through AppleScript (macOS asks once for permission; if it is refused,
+# a new tab opens as before). BROWSER_MARK_FILE holds a fingerprint of the token the open tab was given, so a tab
+# from before a restart is reloaded with the new token rather than left signed out.
+BROWSER_MARK_FILE="$RUNTIME_DIR/browser-tab"
+PUBLIC_DESK_ORIGIN="http://127.0.0.1:4173"
+
+token_fingerprint() {
+  REPLY="$(print -rn -- "$PUBLIC_DESK_TOKEN" | /usr/bin/shasum -a 256)"
+  REPLY="${REPLY%% *}"
+}
+
+browser_tab_script() {
+  local app="$1" kind="$2" url="$3" navigate="" select
+  [[ -n "$url" ]] && navigate="set URL of t to \"$url\""
+  if [[ "$kind" == safari ]]; then select='set current tab of w to t'
+  else select='set active tab index of w to i'
+  fi
+  REPLY="with timeout of 10 seconds
+tell application \"$app\"
+  repeat with w in windows
+    set i to 0
+    try
+      repeat with t in tabs of w
+        set i to i + 1
+        if (URL of t as text) starts with \"$PUBLIC_DESK_ORIGIN\" then
+          $navigate
+          $select
+          set index of w to 1
+          activate
+          return \"found\"
+        end if
+      end repeat
+    end try
+  end repeat
+end tell
+end timeout
+return \"none\""
+}
+
+# The script goes to osascript on standard input, so the token never appears on a command line.
+focus_existing_tab() {
+  local url="$1" entry app kind
+  local osascript="${PUBLIC_DESK_OSASCRIPT:-/usr/bin/osascript}" pgrep="${PUBLIC_DESK_PGREP:-/usr/bin/pgrep}"
+  for entry in "Safari:safari" "Google Chrome:chromium" "Brave Browser:chromium" "Microsoft Edge:chromium" "Chromium:chromium"; do
+    app="${entry%%:*}"; kind="${entry##*:}"
+    "$pgrep" -xq "$app" 2>/dev/null || continue
+    browser_tab_script "$app" "$kind" "$url"
+    [[ "$(print -r -- "$REPLY" | "$osascript" - 2>/dev/null)" == found ]] && return 0
+  done
+  return 1
+}
+
 open_public_desk() {
   [[ -n "${PUBLIC_DESK_TOKEN:-}" ]] || load_token
   [[ -n "${PUBLIC_DESK_TOKEN:-}" ]] || { print -u2 -- "Public Desk does not have an access token. Restart it."; return 1; }
-  /usr/bin/open "http://127.0.0.1:4173/#access=$PUBLIC_DESK_TOKEN"
+  local url="$PUBLIC_DESK_ORIGIN/#access=$PUBLIC_DESK_TOKEN" mark=""
+  local reload_url="$url"
+  token_fingerprint; local fingerprint="$REPLY"
+  [[ -f "$BROWSER_MARK_FILE" ]] && mark="$(<"$BROWSER_MARK_FILE")"
+  [[ "$mark" == "$fingerprint" ]] && reload_url=""
+  if [[ "${PUBLIC_DESK_REUSE_TAB:-1}" == 1 ]] && focus_existing_tab "$reload_url"; then
+    print -r -- "Brought the open Public Desk tab to the front."
+  else
+    "${PUBLIC_DESK_OPEN:-/usr/bin/open}" "$url" || return 1
+  fi
+  (umask 077; print -rn -- "$fingerprint" > "$BROWSER_MARK_FILE")
 }
 
 start_all() {
@@ -384,7 +492,7 @@ stop_all_unlocked() {
     print -u2 -- "Some Public Desk services are still running. The access token was kept."
     return 1
   fi
-  rm -f "$TOKEN_FILE"
+  rm -f "$TOKEN_FILE" "$BROWSER_MARK_FILE"
   print -r -- "Public Desk services are stopped."
   return $failed
 }
@@ -395,24 +503,60 @@ stop_all() {
   stop_all_unlocked
 }
 
-show_status() {
+# Status only reads: it never takes the control lock, starts or stops anything, so it is safe to poll.
+collect_status() {
   prepare_folders
   load_token
-  local ready=0 running=0 service state
+  typeset -gA STATUS_STATE=()
+  STATUS_READY=0 STATUS_RUNNING=0
+  local service
+  for service in $SERVICES; do
+    if owned_pid "$service"; then
+      if service_is_ready "$service"; then STATUS_STATE[$service]=ready; ((STATUS_READY++))
+      else STATUS_STATE[$service]=starting; ((STATUS_RUNNING++))
+      fi
+    else STATUS_STATE[$service]=stopped
+    fi
+  done
+  if (( STATUS_READY == 5 )); then STATUS_OVERALL=ready
+  elif (( STATUS_READY + STATUS_RUNNING == 0 )); then STATUS_OVERALL=stopped
+  else STATUS_OVERALL=partial
+  fi
+  STATUS_ACTION=""
+  if lock_is_live; then lock_action; STATUS_ACTION="${REPLY:-busy}"; fi
+}
+
+show_status() {
+  [[ "${1:-}" == "--json" ]] && { show_status_json; return; }
+  collect_status
+  local service label
   for service in $SERVICES; do
     service_name "$service"; local name="$REPLY"
-    if owned_pid "$service"; then
-      if service_is_ready "$service"; then state="Ready"; ((ready++))
-      else state="Starting or unavailable"; ((running++))
-      fi
-    else state="Stopped"
-    fi
-    print -r -- "$name: $state"
+    case "$STATUS_STATE[$service]" in
+      ready) label="Ready" ;;
+      starting) label="Starting or unavailable" ;;
+      *) label="Stopped" ;;
+    esac
+    print -r -- "$name: $label"
   done
-  if (( ready == 5 )); then print -r -- "Overall: Ready"
-  elif (( ready + running == 0 )); then print -r -- "Overall: Stopped"
-  else print -r -- "Overall: Needs attention ($ready of 5 ready)"
-  fi
+  case "$STATUS_OVERALL" in
+    ready) print -r -- "Overall: Ready" ;;
+    stopped) print -r -- "Overall: Stopped" ;;
+    *) print -r -- "Overall: Needs attention ($STATUS_READY of 5 ready)" ;;
+  esac
+  [[ -n "$STATUS_ACTION" ]] && print -r -- "In progress: $STATUS_ACTION"
+  return 0
+}
+
+# One line of JSON for the menu-bar controller. Every value is a fixed word or count, so no escaping is needed.
+show_status_json() {
+  collect_status
+  local service entries=()
+  for service in $SERVICES; do
+    service_name "$service"
+    entries+=("{\"id\":\"$service\",\"name\":\"$REPLY\",\"state\":\"$STATUS_STATE[$service]\"}")
+  done
+  print -r -- "{\"overall\":\"$STATUS_OVERALL\",\"ready\":$STATUS_READY,\"action\":\"$STATUS_ACTION\",\"services\":[${(j:,:)entries}]}"
 }
 
 show_diagnostics() {
@@ -423,7 +567,7 @@ show_diagnostics() {
 }
 
 usage() {
-  print -r -- "Usage: ${0:t} start [--open] | open | stop | restart [--open] | status | diagnostics [--open]"
+  print -r -- "Usage: ${0:t} start [--open] | open | stop | restart [--open] | status [--json] | diagnostics [--open]"
 }
 
 main() {
@@ -432,17 +576,25 @@ main() {
   case "$action" in
     start) start_all "${1:-}" ;;
     open) prepare_folders; load_token; all_services_ready || { print -u2 -- "Public Desk is not ready."; return 1; }; open_public_desk ;;
-    stop) stop_all ;;
+    stop) LOCK_ACTION=stop stop_all ;;
     restart)
+      LOCK_ACTION=restart
       stop_all || return 1
       release_lock
-      trap - EXIT INT TERM
       start_all "${1:-}"
       ;;
-    status) show_status ;;
+    status) show_status "${1:-}" ;;
     diagnostics) show_diagnostics "${1:-}" ;;
     *) usage; return 2 ;;
   esac
 }
 
-main "$@"
+# Tests source this file to call single functions; only a direct run performs an action.
+# The traps are set here, outside any function: zsh runs an EXIT trap set inside a function as soon as that function
+# returns, which would drop the lock the moment it was taken. Interrupting a start or stop releases the lock and exits.
+if [[ "$ZSH_EVAL_CONTEXT" == toplevel ]]; then
+  trap release_lock EXIT
+  trap 'release_lock; exit 130' INT
+  trap 'release_lock; exit 143' TERM
+  main "$@"
+fi

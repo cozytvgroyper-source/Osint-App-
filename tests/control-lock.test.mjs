@@ -1,0 +1,219 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { spawn, spawnSync } from 'node:child_process';
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+// The shared controller's single-instance rules, run against a copy of the scripts in a temporary folder so the
+// real Public Desk services are never touched: a copy owns no running service, so it sees all five as stopped.
+const root = fileURLToPath(new URL('..', import.meta.url));
+const skip = !existsSync('/bin/zsh');
+
+function copy() {
+  const dir = mkdtempSync(join(tmpdir(), 'pd-control-'));
+  mkdirSync(join(dir, 'scripts'));
+  for (const file of ['public-desk-control.zsh', 'service-ownership.zsh']) cpSync(join(root, 'scripts', file), join(dir, 'scripts', file));
+  mkdirSync(join(dir, 'work', 'runtime'), { recursive: true });
+  return { dir, script: join(dir, 'scripts', 'public-desk-control.zsh'), runtime: join(dir, 'work', 'runtime'), lock: join(dir, 'work', 'runtime', 'control.lock') };
+}
+
+const control = (app, args, env = {}) => spawnSync('/bin/zsh', [app.script, ...args], { encoding: 'utf8', env: { ...process.env, PUBLIC_DESK_STOP_TIMEOUT: '1', ...env }, timeout: 60_000 });
+const status = app => JSON.parse(control(app, ['status', '--json']).stdout.trim().split('\n').at(-1));
+const startedAt = pid => spawnSync('/bin/ps', ['-o', 'lstart=', '-p', String(pid)], { encoding: 'utf8' }).stdout.trim().split(/\s+/).join(' ');
+
+function writeLock(app, { pid, started, action = 'start' }) {
+  mkdirSync(app.lock);
+  if (pid !== undefined) writeFileSync(join(app.lock, 'pid'), `${pid}\n`);
+  if (started !== undefined) writeFileSync(join(app.lock, 'started'), `${started}\n`);
+  writeFileSync(join(app.lock, 'action'), `${action}\n`);
+}
+
+const holder = () => spawn('/bin/sleep', ['60'], { stdio: 'ignore' });
+
+test('status --json reports every service and the overall state without taking the lock', { skip }, () => {
+  const app = copy();
+  try {
+    const result = status(app);
+    assert.equal(result.overall, 'stopped');
+    assert.equal(result.ready, 0);
+    assert.equal(result.action, '');
+    assert.deepEqual(result.services.map(service => service.id), ['headless', 'mcp', 'osint-toolbox', 'omega', 'signaldesk']);
+    assert.ok(result.services.every(service => service.state === 'stopped' && service.name));
+    assert.equal(existsSync(app.lock), false, 'status never creates the control lock');
+    assert.match(control(app, ['status']).stdout, /Overall: Stopped/);
+  } finally { rmSync(app.dir, { recursive: true, force: true }); }
+});
+
+test('status shows a start or stop that another launcher is running', { skip }, () => {
+  const app = copy();
+  const child = holder();
+  try {
+    writeLock(app, { pid: child.pid, started: startedAt(child.pid), action: 'stop' });
+    assert.equal(status(app).action, 'stop');
+    assert.match(control(app, ['status']).stdout, /In progress: stop/);
+  } finally { child.kill('SIGKILL'); rmSync(app.dir, { recursive: true, force: true }); }
+});
+
+test('a lock left by a crashed start is recovered', { skip }, () => {
+  const app = copy();
+  try {
+    const dead = spawnSync('/bin/sh', ['-c', 'echo $$']).stdout.toString().trim();
+    writeLock(app, { pid: dead, started: 'Thu Jan 1 00:00:00 1970' });
+    assert.equal(status(app).action, '', 'a dead owner is not shown as busy');
+    const stop = control(app, ['stop']);
+    assert.match(stop.stdout, /Cleared a lock left by an earlier start or stop/);
+    assert.match(stop.stdout, /Public Desk services are stopped/);
+    assert.equal(existsSync(app.lock), false, 'the lock is released afterwards');
+  } finally { rmSync(app.dir, { recursive: true, force: true }); }
+});
+
+test('a lock whose PID was reused by an unrelated process is recovered', { skip }, () => {
+  const app = copy();
+  const child = holder();
+  try {
+    writeLock(app, { pid: child.pid, started: 'Thu Jan 1 00:00:00 1970' });
+    assert.equal(status(app).action, '');
+    assert.match(control(app, ['stop']).stdout, /Cleared a lock/);
+    assert.equal(child.exitCode, null, 'the unrelated process was not touched');
+  } finally { child.kill('SIGKILL'); rmSync(app.dir, { recursive: true, force: true }); }
+});
+
+test('a lock still being written is respected, but one abandoned before its owner was written is recovered', { skip }, () => {
+  const app = copy();
+  try {
+    mkdirSync(app.lock);
+    assert.equal(status(app).action, 'busy', 'a brand-new lock folder belongs to a launcher that is starting');
+    const past = new Date(Date.now() - 60_000);
+    utimesSync(app.lock, past, past);
+    assert.equal(status(app).action, '');
+  } finally { rmSync(app.dir, { recursive: true, force: true }); }
+});
+
+test('a second stop waits for the running one instead of running beside it', { skip, timeout: 60_000 }, async () => {
+  const app = copy();
+  const child = holder();
+  try {
+    writeLock(app, { pid: child.pid, started: startedAt(child.pid), action: 'start' });
+    const second = spawn('/bin/zsh', [app.script, 'stop'], { env: { ...process.env, PUBLIC_DESK_STOP_TIMEOUT: '1' } });
+    let output = '';
+    second.stdout.on('data', chunk => { output += chunk; });
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    assert.match(output, /already being started or stopped; waiting/);
+    assert.doesNotMatch(output, /services are stopped/, 'it has not run yet');
+    child.kill('SIGKILL'); // the first launcher finishes (or crashes); the waiting one then proceeds
+    await new Promise(resolve => second.on('exit', resolve));
+    assert.match(output, /Public Desk services are stopped/);
+  } finally { child.kill('SIGKILL'); rmSync(app.dir, { recursive: true, force: true }); }
+});
+
+// zsh runs an EXIT trap set inside a function when that function returns; the lock must outlive acquire_lock.
+test('the lock stays held after it is taken and records its owner, start time and action', { skip }, () => {
+  const app = copy();
+  try {
+    const run = spawnSync('/bin/zsh', ['-c', `source ${JSON.stringify(app.script)}; LOCK_ACTION=restart acquire_lock; print -r -- "$(<$LOCK_DIR/pid)|$(<$LOCK_DIR/action)|$(<$LOCK_DIR/started)|$$"; process_started_at $$; print -r -- "$REPLY"`], { encoding: 'utf8' });
+    const [line, expectedStart] = run.stdout.trim().split('\n');
+    const [pid, action, started, shell] = line.split('|');
+    assert.equal(pid, shell);
+    assert.equal(action, 'restart');
+    assert.equal(started, expectedStart);
+  } finally { rmSync(app.dir, { recursive: true, force: true }); }
+});
+
+test('a running command holds the lock until it ends, and an interrupted one releases it', { skip, timeout: 60_000 }, async () => {
+  const app = copy();
+  try {
+    // A fake lsof that is slow makes stop take a few seconds, long enough to look at the lock while it runs.
+    const bin = join(app.dir, 'bin');
+    mkdirSync(bin);
+    writeFileSync(join(bin, 'lsof'), '#!/bin/zsh\nsleep 1\n');
+    chmodSync(join(bin, 'lsof'), 0o755);
+    const env = { ...process.env, PUBLIC_DESK_LSOF: join(bin, 'lsof'), PUBLIC_DESK_STOP_TIMEOUT: '1' };
+    const first = spawn('/bin/zsh', [app.script, 'stop'], { env });
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    assert.equal(existsSync(join(app.lock, 'pid')), true, 'held while stopping');
+    assert.equal(readFileSync(join(app.lock, 'action'), 'utf8').trim(), 'stop');
+    assert.equal(status(app).action, 'stop');
+    first.kill('SIGTERM');
+    const code = await new Promise(resolve => first.on('exit', (exitCode, signal) => resolve(exitCode ?? signal)));
+    assert.equal(code, 143, 'an interrupted stop exits instead of carrying on');
+    assert.equal(existsSync(app.lock), false, 'and releases the lock');
+  } finally { rmSync(app.dir, { recursive: true, force: true }); }
+});
+
+test('stopping forgets which browser tab had the old token', { skip }, () => {
+  const app = copy();
+  try {
+    writeFileSync(join(app.runtime, 'public-desk-token'), 'old-token');
+    writeFileSync(join(app.runtime, 'browser-tab'), 'fingerprint');
+    control(app, ['stop']);
+    assert.equal(existsSync(join(app.runtime, 'public-desk-token')), false);
+    assert.equal(existsSync(join(app.runtime, 'browser-tab')), false);
+  } finally { rmSync(app.dir, { recursive: true, force: true }); }
+});
+
+// Opening again reuses the browser tab. Fake pgrep, osascript and open record what would have happened.
+function fakeBrowser(app, { running = ['Safari'], answer = 'found' } = {}) {
+  const bin = join(app.dir, 'bin');
+  mkdirSync(bin);
+  const log = join(app.dir, 'calls.log');
+  const write = (name, body) => { writeFileSync(join(bin, name), `#!/bin/zsh\n${body}\n`); chmodSync(join(bin, name), 0o755); };
+  write('pgrep', `[[ " ${running.join(' ')} " == *" $2 "* ]]`);
+  write('osascript', `print -r -- "osascript args: $*" >> ${JSON.stringify(log)}; cat >> ${JSON.stringify(log)}; print -r -- ${answer}`);
+  write('open', `print -r -- "open $*" >> ${JSON.stringify(log)}`);
+  return { log, env: { PUBLIC_DESK_PGREP: join(bin, 'pgrep'), PUBLIC_DESK_OSASCRIPT: join(bin, 'osascript'), PUBLIC_DESK_OPEN: join(bin, 'open') } };
+}
+
+const openDesk = (app, env, token) => spawnSync('/bin/zsh', ['-c', `source ${JSON.stringify(app.script)}; PUBLIC_DESK_TOKEN=${token}; open_public_desk`], { encoding: 'utf8', env: { ...process.env, ...env } });
+const calls = log => (existsSync(log) ? readFileSync(log, 'utf8') : '');
+
+test('opening Public Desk again brings its existing tab forward instead of opening another', { skip }, () => {
+  const app = copy();
+  try {
+    const browser = fakeBrowser(app, { running: ['Safari'] });
+    assert.equal(openDesk(app, browser.env, 'token-one').status, 0);
+    const first = calls(browser.log);
+    assert.match(first, /tell application "Safari"/);
+    assert.match(first, /set URL of t to "http:\/\/127\.0\.0\.1:4173\/#access=token-one"/, 'an unknown tab is given the current token');
+    assert.doesNotMatch(first, /^open /m, 'no new tab');
+    assert.match(first, /osascript args: -$/m, 'the token goes to osascript on standard input, never its arguments');
+
+    writeFileSync(browser.log, '');
+    assert.match(openDesk(app, browser.env, 'token-one').stdout, /Brought the open Public Desk tab to the front/);
+    const again = calls(browser.log);
+    assert.doesNotMatch(again, /set URL/, 'a tab that already has this token is only brought forward, keeping its page');
+    assert.match(again, /set current tab of w to t/);
+
+    writeFileSync(browser.log, '');
+    openDesk(app, browser.env, 'token-two');
+    assert.match(calls(browser.log), /set URL of t to "http:\/\/127\.0\.0\.1:4173\/#access=token-two"/, 'after a restart the tab reloads with the new token');
+  } finally { rmSync(app.dir, { recursive: true, force: true }); }
+});
+
+test('Chromium browsers are asked too, and a new tab opens only when no tab is found', { skip }, () => {
+  const app = copy();
+  try {
+    const browser = fakeBrowser(app, { running: ['Google Chrome'], answer: 'none' });
+    assert.equal(openDesk(app, browser.env, 'token-one').status, 0);
+    const log = calls(browser.log);
+    assert.doesNotMatch(log, /"Safari"/, 'browsers that are not running are never launched');
+    assert.match(log, /tell application "Google Chrome"[\s\S]*set active tab index of w to i/);
+    assert.match(log, /^open http:\/\/127\.0\.0\.1:4173\/#access=token-one$/m);
+  } finally { rmSync(app.dir, { recursive: true, force: true }); }
+});
+
+test('with no browser running, Public Desk opens in the default browser', { skip }, () => {
+  const app = copy();
+  try {
+    const browser = fakeBrowser(app, { running: [] });
+    openDesk(app, browser.env, 'token-one');
+    assert.equal(calls(browser.log).trim(), 'open http://127.0.0.1:4173/#access=token-one');
+    assert.equal(readFileSync(join(app.runtime, 'browser-tab'), 'utf8').length, 64, 'the token fingerprint is remembered, not the token');
+  } finally { rmSync(app.dir, { recursive: true, force: true }); }
+});
+
+test('the page reloads with a new token handed to an already-open tab', () => {
+  const core = readFileSync(join(root, 'public/app/core.js'), 'utf8');
+  assert.match(core, /addEventListener\('hashchange'[\s\S]*?get\('access'\)[\s\S]*?setItem\('publicDesk\.access', access\)[\s\S]*?location\.reload\(\)/);
+});

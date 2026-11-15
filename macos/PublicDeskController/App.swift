@@ -1,0 +1,272 @@
+// The Public Desk menu-bar controller: a status icon and menu over scripts/public-desk-control.zsh.
+// The logic lives in Core.swift; this file only draws the menu, schedules status checks and shows notices.
+
+import AppKit
+import ServiceManagement
+import UserNotifications
+
+let showMenuNotification = Notification.Name("local.public-desk.controller.show-menu")
+
+@main
+enum PublicDeskControllerMain {
+    static func main() {
+        // One controller per user. A second launch asks the first to open its menu, then exits.
+        let lockPath = ProcessInfo.processInfo.environment["PUBLIC_DESK_CONTROLLER_LOCK"]
+            ?? (NSHomeDirectory() as NSString).appendingPathComponent("Library/Application Support/Public Desk/menu-bar.lock")
+        let lock = InstanceLock(path: lockPath)
+        guard lock.acquire() else {
+            DistributedNotificationCenter.default().postNotificationName(showMenuNotification, object: nil,
+                                                                         userInfo: nil, deliverImmediately: true)
+            print("Public Desk's menu-bar controller is already running; showing its menu.")
+            exit(0)
+        }
+        let app = NSApplication.shared
+        let delegate = AppDelegate(lock: lock)
+        app.delegate = delegate
+        app.setActivationPolicy(.accessory)
+        app.run()
+    }
+}
+
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUserNotificationCenterDelegate {
+    private let lock: InstanceLock
+    private var controller: Controller?
+    private var setupProblem: String?
+    private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+    private let menu = NSMenu()
+    private var timer: Timer?
+    private var lastRefresh = Date.distantPast
+
+    init(lock: InstanceLock) {
+        self.lock = lock
+        super.init()
+    }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        menu.delegate = self
+        menu.autoenablesItems = false
+        statusItem.menu = menu
+
+        if let runner = makeRunner() {
+            let controller = Controller(runner: runner, scheduler: DispatchScheduling())
+            controller.onChange = { [weak self] in self?.render() }
+            controller.onNotice = { [weak self] notice in self?.post(notice) }
+            controller.onText = { [weak self] title, text in self?.showText(title, text) }
+            self.controller = controller
+            controller.refresh()
+        }
+        render()
+
+        let center = UNUserNotificationCenter.current()
+        center.delegate = self
+        center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
+
+        DistributedNotificationCenter.default().addObserver(self, selector: #selector(showMenu),
+                                                            name: showMenuNotification, object: nil,
+                                                            suspensionBehavior: .deliverImmediately)
+        // Checks every 10 seconds, or every 2 while something is starting or stopping. Checks only read status.
+        timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in self?.tick() }
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        showMenu()
+        return false
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        lock.release() // Quitting the controller leaves every Public Desk service running.
+    }
+
+    // MARK: Setup
+
+    private func makeRunner() -> ScriptRunner? {
+        let environment = ProcessInfo.processInfo.environment
+        let info = Bundle.main.infoDictionary ?? [:]
+        guard let root = environment["PUBLIC_DESK_ROOT"] ?? info["PublicDeskRoot"] as? String else {
+            setupProblem = "Public Desk folder not set. Rebuild with npm run menu-bar."
+            return nil
+        }
+        let script = URL(fileURLWithPath: root).appendingPathComponent("scripts/public-desk-control.zsh")
+        guard FileManager.default.fileExists(atPath: script.path) else {
+            setupProblem = "Public Desk folder not found. Rebuild with npm run menu-bar."
+            return nil
+        }
+        // Apps opened from Finder get a minimal PATH; node and uv usually live elsewhere.
+        let home = NSHomeDirectory()
+        let built = info["PublicDeskPath"] as? String ?? ""
+        let searchPath = [built, "\(home)/.local/bin", "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin",
+                          "/usr/sbin", "/sbin"].filter { !$0.isEmpty }.joined(separator: ":")
+        let log = URL(fileURLWithPath: root).appendingPathComponent("work/logs/menu-bar.log")
+        return ScriptRunner(script: script, searchPath: searchPath, logFile: log)
+    }
+
+    private func tick() {
+        guard let controller else { return }
+        let interval: TimeInterval = controller.state.isBusy ? 2 : 10
+        guard Date().timeIntervalSince(lastRefresh) >= interval else { return }
+        lastRefresh = Date()
+        controller.refresh()
+    }
+
+    // MARK: Menu
+
+    @objc private func showMenu() {
+        statusItem.button?.performClick(nil)
+    }
+
+    func menuWillOpen(_ menu: NSMenu) {
+        lastRefresh = Date()
+        controller?.refresh()
+    }
+
+    private func render() {
+        let health: Health
+        let headline: String
+        if let controller {
+            health = controller.state.health
+            headline = controller.state.headline
+        } else {
+            health = .red
+            headline = setupProblem ?? "Not set up"
+        }
+        drawIcon(health, headline)
+        buildMenu(headline: headline)
+        recordState("\(health.rawValue) \(headline)")
+    }
+
+    /// Writes what the icon shows to work/runtime/menu-bar-state when it changes, for diagnostics and checks.
+    private var recordedState = ""
+    private func recordState(_ line: String) {
+        guard line != recordedState, controller != nil, let file = stateFile else { return }
+        recordedState = line
+        try? (line + "\n").write(to: file, atomically: true, encoding: .utf8)
+    }
+
+    private lazy var stateFile: URL? = {
+        let info = Bundle.main.infoDictionary ?? [:]
+        guard let root = ProcessInfo.processInfo.environment["PUBLIC_DESK_ROOT"] ?? info["PublicDeskRoot"] as? String
+        else { return nil }
+        return URL(fileURLWithPath: root).appendingPathComponent("work/runtime/menu-bar-state")
+    }()
+
+    private func drawIcon(_ health: Health, _ headline: String) {
+        let color: NSColor
+        switch health {
+        case .green: color = .systemGreen
+        case .yellow: color = .systemYellow
+        case .red: color = .systemRed
+        }
+        let configuration = NSImage.SymbolConfiguration(pointSize: 15, weight: .regular)
+            .applying(NSImage.SymbolConfiguration(paletteColors: [.white, color]))
+        let image = NSImage(systemSymbolName: "magnifyingglass.circle.fill", accessibilityDescription: "Public Desk")?
+            .withSymbolConfiguration(configuration)
+        image?.isTemplate = false
+        statusItem.button?.image = image
+        statusItem.button?.toolTip = "Public Desk: \(headline)"
+        statusItem.button?.setAccessibilityLabel("Public Desk: \(headline)")
+    }
+
+    private func buildMenu(headline: String) {
+        menu.removeAllItems()
+        let title = NSMenuItem(title: "Public Desk: \(headline)", action: nil, keyEquivalent: "")
+        title.isEnabled = false
+        menu.addItem(title)
+        menu.addItem(.separator())
+
+        guard let controller else {
+            menu.addItem(item("Quit Controller", #selector(quit), key: "q"))
+            return
+        }
+        let state = controller.state
+        func add(_ command: MenuCommand, key: String = "") {
+            let entry = item(command.rawValue, #selector(choose(_:)), key: key)
+            entry.representedObject = command.rawValue
+            entry.isEnabled = state.isEnabled(command)
+            menu.addItem(entry)
+        }
+        add(.open, key: "o")
+        menu.addItem(.separator())
+        add(.start)
+        add(.stop)
+        add(.restart)
+        menu.addItem(.separator())
+
+        let status = NSMenuItem(title: MenuCommand.status.rawValue, action: nil, keyEquivalent: "")
+        let services = NSMenu()
+        for line in state.serviceLines() {
+            let entry = NSMenuItem(title: line, action: nil, keyEquivalent: "")
+            entry.isEnabled = false
+            services.addItem(entry)
+        }
+        services.addItem(.separator())
+        let details = item("Show Full Status…", #selector(choose(_:)), key: "")
+        details.representedObject = MenuCommand.status.rawValue
+        services.addItem(details)
+        status.submenu = services
+        menu.addItem(status)
+        add(.diagnostics)
+        menu.addItem(.separator())
+
+        let login = item("Start at Login", #selector(toggleLogin), key: "")
+        login.state = SMAppService.mainApp.status == .enabled ? .on : .off
+        menu.addItem(login)
+        menu.addItem(.separator())
+        menu.addItem(item(MenuCommand.quit.rawValue, #selector(quit), key: "q"))
+    }
+
+    private func item(_ title: String, _ action: Selector, key: String) -> NSMenuItem {
+        let entry = NSMenuItem(title: title, action: action, keyEquivalent: key)
+        entry.target = self
+        return entry
+    }
+
+    @objc private func choose(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String, let command = MenuCommand(rawValue: raw) else { return }
+        controller?.choose(command)
+    }
+
+    @objc private func quit() {
+        NSApp.terminate(nil)
+    }
+
+    // MARK: Start at Login
+
+    /// Uses macOS's own login-item registration, which needs no Apple developer account.
+    @objc private func toggleLogin() {
+        let service = SMAppService.mainApp
+        do {
+            if service.status == .enabled { try service.unregister() } else { try service.register() }
+        } catch {
+            showText("Start at Login", "macOS did not accept the change: \(error.localizedDescription)\n\n" +
+                     "You can add Public Desk in System Settings → General → Login Items.")
+        }
+        if service.status == .requiresApproval { SMAppService.openSystemSettingsLoginItems() }
+        render()
+    }
+
+    // MARK: Notices
+
+    private func post(_ notice: Notice) {
+        let content = UNMutableNotificationContent()
+        content.title = notice.title
+        content.body = notice.body
+        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error { NSLog("Public Desk notification not shown: %@", error.localizedDescription) }
+        }
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
+                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .list])
+    }
+
+    private func showText(_ title: String, _ text: String) {
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = text.isEmpty ? "No output." : text
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+    }
+}

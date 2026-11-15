@@ -40,6 +40,7 @@ jobs:
           zsh -n scripts/apply-open-osint-patches.zsh
           zsh -n scripts/service-ownership.zsh
           zsh -n scripts/setup-local.zsh
+          zsh -n scripts/build-menu-bar-app.zsh
       - name: Run tests
         # The browser tests drive the Google Chrome that GitHub's macOS machines come with; fail if it is missing.
         env:

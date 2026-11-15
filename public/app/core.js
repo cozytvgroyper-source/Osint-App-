@@ -20,6 +20,16 @@ if (fragmentAccess) {
   history.replaceState({}, '', `${location.pathname}${location.search}`);
 }
 const publicDeskAccess = sessionStore.getItem('publicDesk.access') || '';
+// Opening Public Desk again after a restart brings this tab forward with the new access token in its address.
+// Only the fragment changes, so the page would not reload on its own; store the token and reload once to use it.
+window.addEventListener('hashchange', () => {
+  const access = new URLSearchParams(location.hash.slice(1)).get('access');
+  if (!access) return;
+  history.replaceState({}, '', `${location.pathname}${location.search}`);
+  if (access === publicDeskAccess) return;
+  sessionStore.setItem('publicDesk.access', access);
+  location.reload();
+});
 const accessHeaders = () => (publicDeskAccess ? { 'x-public-desk-token': publicDeskAccess } : {});
 const bundledServers = [
   { id: 'osint-local', name: 'Open OSINT', endpoint: 'http://127.0.0.1:8892/mcp', status: 'offline', tools: [] },
