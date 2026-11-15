@@ -104,6 +104,7 @@ rm -rf "$DEST/$NAME.app"
 /usr/bin/ditto --noextattr --noqtn "$BUNDLE" "$DEST/$NAME.app"
 print -r -- "Installed $DEST/$NAME.app"
 if (( LAUNCH )); then
-  /usr/bin/open "$DEST/$NAME.app"
-  print -r -- "Public Desk is in the menu bar. Choose Open Public Desk to start it."
+  # Opened quietly: installing should not also start Public Desk and open a browser tab.
+  /usr/bin/open "$DEST/$NAME.app" --args --background
+  print -r -- "Public Desk is in the menu bar. Open the Public Desk app, or choose Open Public Desk from its menu."
 fi

@@ -5,19 +5,23 @@ import AppKit
 import ServiceManagement
 import UserNotifications
 
-let showMenuNotification = Notification.Name("local.public-desk.controller.show-menu")
+// Sent by a second copy of the app to the running one: open Public Desk, as clicking the app's icon should.
+let openPublicDeskNotification = Notification.Name("local.public-desk.controller.open-public-desk")
 
 @main
 enum PublicDeskControllerMain {
     static func main() {
-        // One controller per user. A second launch asks the first to open its menu, then exits.
+        // One controller per user. A second launch asks the first to open Public Desk, then exits; a quiet second
+        // launch (an update or install reopening the app) just exits.
         let lockPath = ProcessInfo.processInfo.environment["PUBLIC_DESK_CONTROLLER_LOCK"]
             ?? (NSHomeDirectory() as NSString).appendingPathComponent("Library/Application Support/Public Desk/menu-bar.lock")
         let lock = InstanceLock(path: lockPath)
         guard lock.acquire() else {
-            DistributedNotificationCenter.default().postNotificationName(showMenuNotification, object: nil,
-                                                                         userInfo: nil, deliverImmediately: true)
-            print("Public Desk's menu-bar controller is already running; showing its menu.")
+            if !CommandLine.arguments.contains(LaunchIntent.quietFlag) {
+                DistributedNotificationCenter.default().postNotificationName(openPublicDeskNotification, object: nil,
+                                                                             userInfo: nil, deliverImmediately: true)
+                print("Public Desk's menu-bar controller is already running; opening Public Desk.")
+            }
             exit(0)
         }
         let app = NSApplication.shared
@@ -44,6 +48,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         super.init()
     }
 
+    /// Read while macOS is still delivering the launch: it says whether the app was opened as a login item.
+    private var launchedAsLoginItem = false
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        let event = NSAppleEventManager.shared().currentAppleEvent
+        launchedAsLoginItem = event?.eventID == kAEOpenApplication
+            && event?.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue == keyAELaunchedAsLogInItem
+    }
+
+    /// Seconds since this user logged in: logging in hands the console device to the user, which stamps its
+    /// change time. A backup for login items that macOS does not mark as such.
+    private func secondsSinceLogin() -> TimeInterval? {
+        var info = stat()
+        guard stat("/dev/console", &info) == 0, info.st_uid == getuid() else { return nil }
+        let changed = TimeInterval(info.st_ctimespec.tv_sec) + TimeInterval(info.st_ctimespec.tv_nsec) / 1e9
+        return Date().timeIntervalSince1970 - changed
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         menu.delegate = self
         menu.autoenablesItems = false
@@ -56,6 +77,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
             controller.onText = { [weak self] title, text in self?.showText(title, text) }
             self.controller = controller
             controller.refresh()
+            // Opening the app opens Public Desk; this comes before the update check so an update waits for it.
+            if LaunchIntent.opensPublicDesk(arguments: CommandLine.arguments, launchedAsLoginItem: launchedAsLoginItem,
+                                            secondsSinceLogin: secondsSinceLogin()) {
+                controller.requestOpen()
+            }
             updater = makeUpdater(controller: controller, controlRunner: runner)
             updater?.check()
             lastUpdateCheck = Date()
@@ -66,16 +92,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         center.delegate = self
         center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
 
-        DistributedNotificationCenter.default().addObserver(self, selector: #selector(showMenu),
-                                                            name: showMenuNotification, object: nil,
+        DistributedNotificationCenter.default().addObserver(self, selector: #selector(openPublicDesk),
+                                                            name: openPublicDeskNotification, object: nil,
                                                             suspensionBehavior: .deliverImmediately)
         // Checks every 10 seconds, or every 2 while something is starting or stopping. Checks only read status.
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in self?.tick() }
     }
 
+    /// Opening the app again while it runs (Finder, Spotlight, the Dock) opens Public Desk.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        showMenu()
+        openPublicDesk()
         return false
+    }
+
+    /// Without a working setup there is nothing to open, so the menu explains what is wrong instead.
+    @objc private func openPublicDesk() {
+        if let controller { controller.requestOpen() } else { showMenu() }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -270,7 +302,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         lock.release()
         let open = Process()
         open.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-        open.arguments = ["-n", Bundle.main.bundleURL.path]
+        open.arguments = ["-n", Bundle.main.bundleURL.path, "--args", LaunchIntent.quietFlag]
         do { try open.run() } catch { _ = lock.acquire(); return false }
         open.waitUntilExit()
         guard open.terminationStatus == 0 else { _ = lock.acquire(); return false }

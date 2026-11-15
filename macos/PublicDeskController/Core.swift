@@ -295,6 +295,7 @@ final class Controller {
 
     private(set) var state = ControllerState()
     private var refreshing = false
+    private var openWhenIdle = false
     private let runner: CommandRunning
     private let scheduler: Scheduling
     var onChange: () -> Void = {}
@@ -317,8 +318,23 @@ final class Controller {
                 let notices = self.state.apply(status: result)
                 notices.forEach(self.onNotice)
                 self.onChange()
+                self.openIfRequested()
             }
         }
+    }
+
+    /// Opening the app's icon opens Public Desk, like Open Public Desk in the menu: it starts anything missing, then
+    /// opens or brings forward the browser tab. If a start or stop is running (from here or a Finder launcher), it
+    /// opens once that finishes, so the click is never lost and never runs beside it. Repeated requests open once.
+    func requestOpen() {
+        openWhenIdle = true
+        openIfRequested()
+    }
+
+    private func openIfRequested() {
+        guard openWhenIdle, !state.isBusy else { return }
+        openWhenIdle = false
+        perform(.open)
     }
 
     @discardableResult
@@ -357,6 +373,23 @@ final class Controller {
             self.scheduler.main { self.onText(title, result.output.trimmingCharacters(in: .whitespacesAndNewlines)) }
         }
         refresh()
+    }
+}
+
+// MARK: - Launch
+
+/// Whether opening the app should open Public Desk. Opening it from Finder, Spotlight or the Dock should. Starting at
+/// login should not (a browser tab at every login), nor should the controller reopening itself after an update or
+/// install, which passes `quietFlag`.
+enum LaunchIntent {
+    static let quietFlag = "--background"
+    /// How soon after logging in a launch still counts as Start at Login, when macOS does not say so itself.
+    static let loginWindow: TimeInterval = 90
+
+    static func opensPublicDesk(arguments: [String], launchedAsLoginItem: Bool, secondsSinceLogin: TimeInterval?) -> Bool {
+        if arguments.contains(quietFlag) || launchedAsLoginItem { return false }
+        if let secondsSinceLogin, secondsSinceLogin >= 0, secondsSinceLogin < loginWindow { return false }
+        return true
     }
 }
 

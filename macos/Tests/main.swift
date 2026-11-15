@@ -578,5 +578,68 @@ test("status checks and fingerprint checks are kept out of the log") {
     expect(((try? String(contentsOf: log, encoding: .utf8)) ?? "").contains("/Applications → exit 0"), "builds are logged")
 }
 
+// MARK: Opening the app
+
+test("opening the app starts anything missing and opens Public Desk") {
+    let runner = FakeRunner()
+    let (controller, _) = makeController(runner)
+    controller.refresh()
+    controller.requestOpen()
+    expectEqual(runner.actionCalls, [["start", "--open"]])
+}
+
+test("opening the app when everything is ready only brings Public Desk forward") {
+    let runner = FakeRunner()
+    runner.status = allReady
+    let (controller, _) = makeController(runner)
+    controller.refresh()
+    controller.requestOpen()
+    expectEqual(runner.actionCalls, [["open"]])
+}
+
+test("opening the app during a start opens Public Desk once the start finishes") {
+    let runner = FakeRunner()
+    let scheduler = DeferredScheduling()
+    let (controller, _) = makeController(runner, scheduler: scheduler)
+    expect(controller.perform(.start))
+    controller.requestOpen()
+    controller.requestOpen()
+    expectEqual(scheduler.pending.count, 1, "nothing runs beside the start")
+    runner.status = allReady
+    scheduler.drain()
+    expectEqual(runner.actionCalls, [["start"], ["open"]], "opened once, after the start")
+}
+
+test("opening the app while a Finder launcher is starting Public Desk waits for it") {
+    let runner = FakeRunner()
+    runner.status = statusJSON(["ready", "starting", "stopped", "stopped", "stopped"], action: "start")
+    let (controller, _) = makeController(runner)
+    controller.refresh()
+    controller.requestOpen()
+    expectEqual(runner.actionCalls, [], "waits while the other launcher works")
+    runner.status = allReady
+    controller.refresh()
+    expectEqual(runner.actionCalls, [["open"]])
+    controller.refresh()
+    expectEqual(runner.actionCalls, [["open"]], "and only once")
+}
+
+test("a launch opens Public Desk except at login or when reopened quietly") {
+    expect(LaunchIntent.opensPublicDesk(arguments: ["/Applications/Public Desk.app/Contents/MacOS/Public Desk"],
+                                        launchedAsLoginItem: false, secondsSinceLogin: 3600), "opened from Finder")
+    expect(LaunchIntent.opensPublicDesk(arguments: ["app"], launchedAsLoginItem: false, secondsSinceLogin: nil),
+           "login time unknown")
+    expect(!LaunchIntent.opensPublicDesk(arguments: ["app"], launchedAsLoginItem: true, secondsSinceLogin: 3600),
+           "macOS says it is a login item")
+    expect(!LaunchIntent.opensPublicDesk(arguments: ["app"], launchedAsLoginItem: false, secondsSinceLogin: 20),
+           "opened just after logging in")
+    expect(LaunchIntent.opensPublicDesk(arguments: ["app"], launchedAsLoginItem: false, secondsSinceLogin: 120),
+           "opened by hand two minutes after logging in")
+    expect(!LaunchIntent.opensPublicDesk(arguments: ["app", "--background"], launchedAsLoginItem: false,
+                                         secondsSinceLogin: 3600), "reopened after an update or install")
+    expect(LaunchIntent.opensPublicDesk(arguments: ["app"], launchedAsLoginItem: false, secondsSinceLogin: -5),
+           "a clock change never hides a click")
+}
+
 print(failures == 0 ? "ok - \(checks) checks passed" : "\(failures) of \(checks) checks failed")
 exit(failures == 0 ? 0 : 1)
