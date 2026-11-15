@@ -233,6 +233,14 @@ rotate_log() {
   return 0
 }
 
+# The data-source key file that Public Desk's server reads and writes (server.mjs puts it in PUBLIC_DESK_WORK_DIR when
+# that is set, resolved from this folder like the server does), so Open OSINT always reads the same file.
+api_keys_file() {
+  local work="${PUBLIC_DESK_WORK_DIR:-$APP_DIR/work}"
+  [[ "$work" == /* ]] || work="$APP_DIR/$work"
+  REPLY="${work:a}/api-keys.env"
+}
+
 start_headless() {
   check_port headless || return 1
   service_is_ready headless && return 0
@@ -244,7 +252,8 @@ start_headless() {
   if [[ -z "$(listener_pid 8080)" ]]; then
     source "$APP_DIR/scripts/apply-open-osint-patches.zsh"
     apply_open_osint_patches "$OSINT_ROOT" "$APP_DIR/patches"
-    local keys="$APP_DIR/work/api-keys.env"
+    api_keys_file; local keys="$REPLY"
+    (umask 077; mkdir -p "${keys:h}")
     if [[ ! -e "$keys" ]]; then
       (umask 077; cp "$APP_DIR/config/api-keys.env.example" "$keys")
     fi
@@ -547,7 +556,11 @@ stop_service() {
     service_port "$service"; pid="$(listener_pid "$REPLY")"
     if [[ -n "$pid" ]]; then
       expected_identity "$service"
-      process_belongs_to_service "$pid" "$REPLY[1]" "$REPLY[2]" || return 1
+      if ! process_belongs_to_service "$pid" "$REPLY[1]" "$REPLY[2]"; then
+        service_port "$service"
+        print -u2 -- "Left port $REPLY running: it belongs to another program (PID $pid), not this Public Desk folder."
+        return 1
+      fi
     fi
   fi
   [[ -n "$pid" ]] || return 0
@@ -582,7 +595,11 @@ stop_all_unlocked() {
     return 1
   fi
   rm -f "$TOKEN_FILE" "$BROWSER_MARK_FILE"
-  print -r -- "Public Desk services are stopped."
+  if (( failed )); then
+    print -u2 -- "This Public Desk's services are stopped, but something above was left running."
+  else
+    print -r -- "Public Desk services are stopped."
+  fi
   return $failed
 }
 
