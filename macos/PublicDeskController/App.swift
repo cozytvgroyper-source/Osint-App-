@@ -46,6 +46,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     /// False when macOS has notifications for Public Desk turned off; the menu then offers to open their settings.
     private var notificationsAllowed = true
     private var lastUpdateCheck = Date.distantPast
+    private var lastBackupCheck = Date.distantPast
 
     init(lock: InstanceLock) {
         self.lock = lock
@@ -89,6 +90,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
             }
             publicDeskWindow = window
             controller.autoRestart = UserDefaults.standard.object(forKey: autoRestartKey) as? Bool ?? true
+            controller.backup(onlyIfDue: true)
+            lastBackupCheck = Date()
             NSApp.mainMenu = makeMainMenu()
             self.controller = controller
             controller.refresh()
@@ -179,6 +182,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     }
 
     private func tick() {
+        // A backup at most once a day: checked at launch and every 6 hours.
+        if let controller, Date().timeIntervalSince(lastBackupCheck) >= 6 * 3600 {
+            lastBackupCheck = Date()
+            controller.backup(onlyIfDue: true)
+        }
         // A restart writes the new token before the services are back; reloading earlier would fail and leave the
         // old page (with the old token) in the window, so wait until everything is ready again.
         if let state = controller?.state, state.snapshot?.overall == "ready", !state.isBusy {
@@ -331,6 +339,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
                 + "stopped services are not announced."
             menu.addItem(notifications)
         }
+        menu.addItem(item("Back Up Now", #selector(backUpNow), key: ""))
+        menu.addItem(item("Show Backups", #selector(showBackups), key: ""))
+        menu.addItem(.separator())
         let restart = item("Restart Stopped Services Automatically", #selector(toggleAutoRestart), key: "")
         restart.state = controller.autoRestart ? .on : .off
         restart.toolTip = "If a running service stops on its own, start it again (at most 3 times in 10 minutes)."
@@ -431,6 +442,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     @objc private func goHome() { publicDeskWindow?.goHome() }
 
     private let autoRestartKey = "autoRestartServices"
+
+    @objc private func backUpNow() { controller?.backup(onlyIfDue: false) }
+
+    /// Opens the backups folder in Finder (the latest backup selected), or says there are none yet.
+    @objc private func showBackups() {
+        guard let root = ProcessInfo.processInfo.environment["PUBLIC_DESK_ROOT"]
+                ?? Bundle.main.infoDictionary?["PublicDeskRoot"] as? String else { return }
+        let folder = URL(fileURLWithPath: root).appendingPathComponent("work/backups")
+        let backups = ((try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? [])
+            .filter { $0.lastPathComponent.hasPrefix("public-desk-backup-") && $0.pathExtension == "gz" }
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+        if let latest = backups.last {
+            NSWorkspace.shared.activateFileViewerSelecting([latest])
+        } else {
+            showText("No backups yet", "Choose Back Up Now to make the first one. Backups are also made once a day.")
+        }
+    }
 
     @objc private func toggleAutoRestart() {
         guard let controller else { return }

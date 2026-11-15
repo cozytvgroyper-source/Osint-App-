@@ -42,6 +42,23 @@ Automatically** in its menu, on by default). A service that keeps stopping is re
 then left stopped and reported. Each service keeps its previous run's log as `work/logs/<service>.log.1`, and the
 controller's own log rolls over at 1 MB.
 
+### Backups
+
+Your cases, saved Deep Searches, the search history log and your data-source API keys are backed up once a day to
+`work/backups/` (checked when the controller opens and every 6 hours), and whenever you choose **Back Up Now** in the
+menu-bar menu. **Show Backups** opens the folder. Each backup is one owner-only `.tar.gz`; the newest 14 are kept. The
+Consensus sign-in is not included: sign in again instead. From Terminal: `zsh scripts/public-desk-control.zsh backup`.
+
+Backups protect against deleting or damaging a file, not losing the disk: they are on the same disk as Public Desk,
+so keep Time Machine (or another backup of `~/Public Desk`) as well.
+
+To restore one: stop Public Desk, move the current `work/cases`, `work/deep-search-runs`, `work/deep-search-audit.jsonl`
+and `work/api-keys.env` aside, then unpack the backup into `work/`:
+
+```bash
+tar -xzf work/backups/public-desk-backup-YYYY-MM-DD-HHMMSS.tar.gz -C work
+```
+
 Opening the **Public Desk** app (from Finder, Spotlight or the Dock) opens Public Desk, starting anything that is
 not running, just like **Open Public Desk** in its menu; when it starts at login it only appears in the menu bar.
 
