@@ -64,11 +64,14 @@ final class ScriptRunner: CommandRunning {
     let script: URL
     let searchPath: String
     let logFile: URL?
+    /// Frequent read-only commands that are not written to the log.
+    let quietCommands: Set<String>
 
-    init(script: URL, searchPath: String, logFile: URL?) {
+    init(script: URL, searchPath: String, logFile: URL?, quietCommands: Set<String> = ["status"]) {
         self.script = script
         self.searchPath = searchPath
         self.logFile = logFile
+        self.quietCommands = quietCommands
     }
 
     func run(_ arguments: [String], timeout: TimeInterval) -> CommandResult {
@@ -107,7 +110,7 @@ final class ScriptRunner: CommandRunning {
         var text = (try? String(contentsOf: outputURL, encoding: .utf8)) ?? ""
         if timedOut { text += "\nThe control script did not finish within \(Int(timeout)) seconds." }
         let code: Int32 = timedOut ? 124 : process.terminationStatus
-        if arguments.first != "status" { appendToLog(arguments: arguments, code: code, text: text) }
+        if !quietCommands.contains(arguments.first ?? "") { appendToLog(arguments: arguments, code: code, text: text) }
         return CommandResult(exitCode: code, output: text)
     }
 
@@ -354,6 +357,104 @@ final class Controller {
             self.scheduler.main { self.onText(title, result.output.trimmingCharacters(in: .whitespacesAndNewlines)) }
         }
         refresh()
+    }
+}
+
+// MARK: - Self-update
+
+enum UpdateStatus: Equatable {
+    case upToDate
+    case updating
+    case failed(String)
+}
+
+/// Keeps the installed app in step with this checkout. The build script prints a fingerprint of the app's source;
+/// when it differs from the one this copy was built from, the controller rebuilds and reinstalls itself, then opens
+/// the new copy and quits. The build never stops this copy itself: macOS would end the build with it. Services are
+/// never touched. A failed build is not retried until
+/// the source changes again (or the user asks), so a half-edited file never causes a rebuild loop.
+final class SelfUpdater {
+    static let hashTimeout: TimeInterval = 30
+    static let buildTimeout: TimeInterval = 600
+
+    private(set) var status = UpdateStatus.upToDate
+    private var checking = false
+    private var failedHash: String?
+    private let runner: CommandRunning
+    private let scheduler: Scheduling
+    private let installedHash: String
+    private let destination: String
+    private let isBusy: () -> Bool
+    var onChange: () -> Void = {}
+    var onNotice: (Notice) -> Void = { _ in }
+    /// Called once the new copy is installed; the app then opens it and quits. Returns false if that failed.
+    var onInstalled: () -> Bool = { false }
+
+    /// `runner` runs scripts/build-menu-bar-app.zsh; `destination` is the folder this app is installed in.
+    init(runner: CommandRunning, scheduler: Scheduling, installedHash: String, destination: String,
+         isBusy: @escaping () -> Bool) {
+        self.runner = runner
+        self.scheduler = scheduler
+        self.installedHash = installedHash
+        self.destination = destination
+        self.isBusy = isBusy
+    }
+
+    static func isFingerprint(_ text: String) -> Bool {
+        text.count == 64 && text.allSatisfy { $0.isHexDigit && !$0.isUppercase }
+    }
+
+    /// Never runs while Public Desk is starting or stopping; the next check picks the update up.
+    func check(force: Bool = false) {
+        guard !checking, status != .updating, !isBusy() else { return }
+        checking = true
+        scheduler.background { [runner] in
+            let result = runner.run(["--source-hash"], timeout: SelfUpdater.hashTimeout)
+            self.scheduler.main { self.decide(result, force: force) }
+        }
+    }
+
+    private func decide(_ result: CommandResult, force: Bool) {
+        let current = result.lastLine
+        guard result.succeeded, SelfUpdater.isFingerprint(current) else {
+            checking = false
+            return // the folder is unreadable or mid-change; try again later
+        }
+        if current == installedHash {
+            checking = false
+            if status != .upToDate { status = .upToDate; onChange() }
+            return
+        }
+        if current == failedHash && !force {
+            checking = false
+            return
+        }
+        guard !isBusy() else { checking = false; return }
+        status = .updating
+        onChange()
+        onNotice(Notice(title: "Updating the Public Desk controller",
+                        body: "It will reopen in a moment. Public Desk's services keep running."))
+        scheduler.background { [runner, destination] in
+            let build = runner.run([destination, "--no-launch"], timeout: SelfUpdater.buildTimeout)
+            self.scheduler.main {
+                self.checking = false
+                if build.succeeded && self.onInstalled() {
+                    return // this copy is quitting
+                }
+                if build.succeeded {
+                    self.failedHash = current
+                    self.status = .failed("The new controller was installed but did not open.")
+                    self.onNotice(Notice(title: "The Public Desk controller could not update",
+                                         body: "The new copy was installed but did not open. Quit and reopen Public Desk."))
+                } else {
+                    self.failedHash = current
+                    let reason = build.lastLine.isEmpty ? "The build exited with code \(build.exitCode)." : build.lastLine
+                    self.status = .failed(reason)
+                    self.onNotice(Notice(title: "The Public Desk controller could not update", body: reason))
+                }
+                self.onChange()
+            }
+        }
     }
 }
 
