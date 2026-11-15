@@ -555,6 +555,46 @@ test("the controller's log rolls over at its size limit, keeping one previous fi
     expectEqual(mode, 0o600)
 }
 
+// MARK: Backups
+
+test("Back Up Now runs a backup and says how it went") {
+    let runner = FakeRunner()
+    runner.actionResult = ok("Backed up 2 cases and 4 saved searches to backups/public-desk-backup-2026-11-15-091620.tar.gz.")
+    let (controller, notices) = makeController(runner)
+    controller.backup(onlyIfDue: false)
+    expectEqual(runner.calls, [["backup"]])
+    expectEqual(notices(), [Notice(title: "Backup saved",
+                                   body: "Backed up 2 cases and 4 saved searches to backups/public-desk-backup-2026-11-15-091620.tar.gz.")])
+}
+
+test("the daily backup check is silent unless it fails") {
+    let runner = FakeRunner()
+    runner.actionResult = ok("")
+    let (controller, notices) = makeController(runner)
+    controller.backup(onlyIfDue: true)
+    expectEqual(runner.calls, [["backup", "--if-due"]])
+    expectEqual(notices(), [])
+    runner.actionResult = CommandResult(exitCode: 1, output: "The backup could not be written to /Users/x/work/backups.")
+    controller.backup(onlyIfDue: true)
+    expectEqual(notices(), [Notice(title: "Public Desk could not back up",
+                                   body: "The backup could not be written to /Users/x/work/backups.")])
+}
+
+test("backups never overlap and never wait for a start or stop") {
+    let runner = FakeRunner()
+    let scheduler = DeferredScheduling()
+    let (controller, _) = makeController(runner, scheduler: scheduler)
+    expect(controller.perform(.start))
+    controller.backup(onlyIfDue: false)
+    controller.backup(onlyIfDue: false)
+    expectEqual(scheduler.pending.count, 2, "the start and one backup; the second backup is skipped")
+    scheduler.drain()
+    expectEqual(runner.actionCalls.filter { $0.first == "backup" }.count, 1)
+    controller.backup(onlyIfDue: false)
+    scheduler.drain()
+    expectEqual(runner.actionCalls.filter { $0.first == "backup" }.count, 2, "a later backup runs")
+}
+
 test("several services stopping at once are reported together") {
     var state = ControllerState()
     _ = state.apply(status: ok(allReady))

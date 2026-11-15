@@ -236,9 +236,60 @@ rotate_log() {
 # The data-source key file that Public Desk's server reads and writes (server.mjs puts it in PUBLIC_DESK_WORK_DIR when
 # that is set, resolved from this folder like the server does), so Open OSINT always reads the same file.
 api_keys_file() {
+  data_dir
+  REPLY="$REPLY/api-keys.env"
+}
+
+# Public Desk's private data folder (cases, saved searches, keys): PUBLIC_DESK_WORK_DIR when set, resolved from this
+# folder as server.mjs resolves it, otherwise work/.
+data_dir() {
   local work="${PUBLIC_DESK_WORK_DIR:-$APP_DIR/work}"
   [[ "$work" == /* ]] || work="$APP_DIR/$work"
-  REPLY="${work:a}/api-keys.env"
+  REPLY="${work:a}"
+}
+
+# Backups of what cannot be recreated: cases, saved Deep Searches, the search history log and data-source API keys
+# (not the Consensus sign-in, which signing in again restores). Each backup is one owner-only .tar.gz in
+# <data>/backups; the newest BACKUP_KEEP are kept. --if-due makes one only if the newest is a day old or more, which
+# is how the menu-bar controller calls it. They protect against deleting or damaging a file, not losing the disk.
+BACKUP_KEEP="${PUBLIC_DESK_BACKUP_KEEP:-14}"
+BACKUP_EVERY=86400
+
+backup_data() {
+  local due_only=0 item name
+  [[ "${1:-}" == "--if-due" ]] && due_only=1
+  data_dir; local data="$REPLY"
+  local folder="$data/backups"
+  local -a items=()
+  for item in cases deep-search-runs deep-search-audit.jsonl api-keys.env; do
+    [[ -e "$data/$item" ]] && items+=("$item")
+  done
+  if (( ! ${#items} )); then
+    print -r -- "Nothing to back up yet."
+    return 0
+  fi
+  (umask 077; mkdir -p "$folder" 2>/dev/null)
+  chmod 700 "$folder" 2>/dev/null
+  local -a existing=("$folder"/public-desk-backup-*.tar.gz(N.om)) # newest first
+  if (( due_only && ${#existing} )); then
+    zmodload -F zsh/stat b:zstat; zmodload zsh/datetime
+    local -a modified
+    zstat -A modified +mtime "$existing[1]"
+    (( EPOCHSECONDS - modified[1] < BACKUP_EVERY )) && return 0
+  fi
+  name="public-desk-backup-$(/bin/date +%Y-%m-%d-%H%M%S).tar.gz"
+  # Written under a temporary name and renamed when complete, so a half-written backup is never taken for a good one.
+  if ! (umask 077; /usr/bin/tar -czf "$folder/$name.partial" -C "$data" $items 2>/dev/null); then
+    rm -f "$folder/$name.partial" 2>/dev/null
+    print -u2 -- "The backup could not be written to $folder."
+    return 1
+  fi
+  mv -f "$folder/$name.partial" "$folder/$name"
+  chmod 600 "$folder/$name"
+  existing=("$folder"/public-desk-backup-*.tar.gz(N.om))
+  for item in $existing[BACKUP_KEEP+1,-1]; do rm -f "$item"; done
+  local -a cases=("$data"/cases/*.json(N)) runs=("$data"/deep-search-runs/*.json(N))
+  print -r -- "Backed up ${#cases} case$( (( ${#cases} == 1 )) || print -n s) and ${#runs} saved search$( (( ${#runs} == 1 )) || print -n es) to backups/$name."
 }
 
 start_headless() {
@@ -673,7 +724,7 @@ show_diagnostics() {
 }
 
 usage() {
-  print -r -- "Usage: ${0:t} start [--open] | open | stop | restart [--open] | status [--json] | diagnostics [--open]"
+  print -r -- "Usage: ${0:t} start [--open] | open | stop | restart [--open] | status [--json] | diagnostics [--open] | backup [--if-due]"
 }
 
 main() {
@@ -691,6 +742,7 @@ main() {
       ;;
     status) show_status "${1:-}" ;;
     diagnostics) show_diagnostics "${1:-}" ;;
+    backup) backup_data "${1:-}" ;;
     *) usage; return 2 ;;
   esac
 }

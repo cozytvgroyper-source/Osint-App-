@@ -400,6 +400,29 @@ final class Controller {
         return true
     }
 
+    private var backingUp = false
+
+    /// Backs up cases and saved searches (`backup` in the control script). The daily check passes onlyIfDue and stays
+    /// quiet unless it fails; Back Up Now always says how it went. Backups only read files, so they never wait for
+    /// a start or stop, and two never run at once.
+    func backup(onlyIfDue: Bool) {
+        guard !backingUp else { return }
+        backingUp = true
+        let arguments = onlyIfDue ? ["backup", "--if-due"] : ["backup"]
+        scheduler.background { [runner] in
+            let result = runner.run(arguments, timeout: Controller.actionTimeout)
+            self.scheduler.main {
+                self.backingUp = false
+                if !result.succeeded {
+                    let reason = result.lastLine.isEmpty ? "The control script exited with code \(result.exitCode)." : result.lastLine
+                    self.onNotice(Notice(title: "Public Desk could not back up", body: reason))
+                } else if !onlyIfDue {
+                    self.onNotice(Notice(title: "Backup saved", body: result.lastLine))
+                }
+            }
+        }
+    }
+
     func requestOpen(_ action: Action = .open) {
         pending = action
         runPending()
