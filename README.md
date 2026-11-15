@@ -12,11 +12,42 @@ npm run setup
 
 The setup script checks out the exact Open OSINT revision named in `config/open-osint.env`, installs its locked Node and Python dependencies under `work/dependencies/`, and applies Public Desk's reviewed patches. It requires Node 22 or newer, Git, npm, and `uv`.
 
-Then double-click **Public Desk.command**. It starts any missing services, waits until all five are ready, opens Public
-Desk, and does not need its Terminal window to remain open; opening it again reuses the running services. When finished, double-click
-**Stop Public Desk.command**. The older **Start Public Desk.command** remains as a compatible shortcut. Every service is
-bound to `127.0.0.1`, so it is
-available only on this computer:
+### Menu-bar controller (recommended)
+
+Build and install the menu-bar app once (it needs only Apple's free command line tools, `xcode-select --install`;
+no Apple developer account):
+
+```bash
+npm run menu-bar
+```
+
+This puts **Public Desk.app** in `~/Applications` and opens it. A magnifying-glass icon appears in the menu bar:
+
+| Icon | Meaning |
+|---|---|
+| Green | All five services are ready |
+| Yellow | Starting, stopping, restarting, or only some services are ready |
+| Red | Stopped, or a start, stop or service failed |
+
+Its menu has **Open Public Desk** (starts anything missing, then opens it), **Start**, **Stop**, **Restart**,
+**Status** (each service's state), **Diagnostics** (opens the logs folder), **Start at Login**, and **Quit Controller**.
+Quitting the controller leaves the services running. It checks status every 10 seconds without starting or restarting
+anything, and sends a notification when Public Desk is ready, when a start fails, or when a ready service stops.
+
+Only one copy of each runs: opening the app again opens the existing menu, and opening Public Desk again brings its
+open tab to the front in Safari, Chrome, Brave or Edge (macOS asks once whether Public Desk may control the browser;
+if you decline, a new tab opens instead). Start, stop and restart run one at a time whichever launcher asked; a lock
+left behind by a crash is cleared automatically. The app remembers this folder, so run `npm run menu-bar` again if you
+move the folder or after pulling changes to the app.
+
+### Finder launchers
+
+The `.command` files still work and use the same controller. Double-click **Public Desk.command**. It starts any missing
+services, waits until all five are ready, opens Public Desk, and does not need its Terminal window to remain open;
+opening it again reuses the running services and browser tab. When finished, double-click **Stop Public Desk.command**.
+The older **Start Public Desk.command** remains as a compatible shortcut.
+
+Every service is bound to `127.0.0.1`, so it is available only on this computer:
 
 | Service | Address |
 |---|---|
@@ -32,6 +63,7 @@ For status, restart, or diagnostics from Terminal, use the shared controller:
 
 ```bash
 zsh scripts/public-desk-control.zsh status
+zsh scripts/public-desk-control.zsh status --json
 zsh scripts/public-desk-control.zsh restart --open
 zsh scripts/public-desk-control.zsh diagnostics --open
 ```
