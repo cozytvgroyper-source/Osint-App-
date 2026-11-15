@@ -104,3 +104,51 @@ print(json.dumps({
   assert.equal(out.reports, `${out.expected}/.omega/reports`);
   assert.equal(out.mode, '0o700', 'reports name investigation targets, so only the owner may read them');
 });
+
+// Some omega-cli modules report a failed lookup only by printing it and then return an empty result. omega_cve does
+// this when the NVD rate-limits it (omega_cli/modules/nvd_cve.py prints the message and returns []), which used to
+// read as "nothing found" for any CVE. These use that module's real messages.
+test('a printed rate limit behind an empty result is reported as an error, without omega-cli\'s command advice', () => {
+  const { result, leaked } = runCaptured(`    print('🔍 NVD CVE Lookup')
+    print('Keyword: CVE-2021-44228  Min CVSS: 0.0')
+    print('NVD rate limit — add API key with: omega config set nvd_api_key KEY')
+    print('Get free key at: https://nvd.nist.gov/developers/request-an-api-key')
+    return {'status': 'ok', 'result': []}`);
+  assert.deepEqual(result, { status: 'error', error: 'NVD rate limit' });
+  assert.equal(leaked, '');
+});
+
+test('other printed failures behind an empty result are reported too', () => {
+  for (const [line, expected] of [
+    ['NVD API error 503', 'NVD API error 503'],
+    ['Error querying NVD: HTTPSConnectionPool(host=services.nvd.nist.gov): Read timed out.', 'Error querying NVD: HTTPSConnectionPool(host=services.nvd.nist.gov): Read timed out.'],
+    ['Request failed: 401 Unauthorized', 'Request failed: 401 Unauthorized']
+  ]) {
+    for (const empty of ['[]', '{}', "''", 'None']) {
+      const { result } = runCaptured(`    print(${JSON.stringify(line)})
+    return {'status': 'ok', 'result': ${empty}}`);
+      assert.deepEqual(result, { status: 'error', error: expected }, `${line} with ${empty}`);
+    }
+  }
+});
+
+test('an empty result with no failure printed is still a clean "nothing found"', () => {
+  const { result } = runCaptured(`    print('🔍 NVD CVE Lookup')
+    print('No CVEs found for this keyword.')
+    return {'status': 'ok', 'result': []}`);
+  assert.deepEqual(result, { status: 'ok', result: [] });
+});
+
+test('real findings are never turned into an error, even if a printed line mentions one', () => {
+  const { result } = runCaptured(`    print('Retrying after a timeout')
+    return {'status': 'ok', 'result': [{'id': 'CVE-2021-44228', 'score': 10.0}]}`);
+  assert.deepEqual(result, { status: 'ok', result: [{ id: 'CVE-2021-44228', score: 10.0 }] });
+});
+
+test('Public Desk classifies the reported failure as an error, not an empty result', async () => {
+  const { classifyToolResult } = await import('../public/result-classifier.js');
+  const text = JSON.stringify({ status: 'error', error: 'NVD rate limit' }, null, 2);
+  assert.deepEqual(classifyToolResult({ content: [{ type: 'text', text }], isError: false }), { kind: 'error', error: 'NVD rate limit' });
+  const before = JSON.stringify({ status: 'ok', result: [] }, null, 2);
+  assert.equal(classifyToolResult({ content: [{ type: 'text', text: before }], isError: false }).kind, 'empty', 'what it used to look like');
+});

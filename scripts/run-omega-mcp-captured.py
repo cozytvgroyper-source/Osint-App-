@@ -8,6 +8,11 @@ Every omega-mcp tool calls server._run_omega_module, so this wrapper replaces th
 stdout while the module runs and, when the module returned nothing, returns the printed text instead of
 "completed". Structured results and errors pass through unchanged; printed output never reaches stdout.
 
+Some modules report a failed lookup (a rate limit, an HTTP error, a timeout) only by printing it, then return an
+empty result, which would read as "nothing found". For example, omega_cve returns an empty list when the NVD refuses
+a request it has rate-limited. When a result is empty and the printed output has a failure line, the wrapper returns
+that line as an error instead, so a failed lookup is never mistaken for a clean one.
+
 omega-cli also saves a report for most lookups under the home folder (~/.omega/reports, ~/omega-reports and
 ~/.config/omega-cli). Those name investigation targets, so the wrapper points HOME at work/omega-home (owner-only,
 git-ignored with the rest of work/) for this process alone; uvx, which keeps its package cache under HOME, is
@@ -62,6 +67,24 @@ def _clean(text):
     return cleaned
 
 
+# A printed line that says a lookup failed rather than found nothing.
+_FAILURE = re.compile(
+    r"\b(?:error|errors|rate[- ]limit(?:ed)?|failed|failure|timed out|timeout|unauthori[sz]ed|forbidden|"
+    r"access denied|unavailable|exceeded)\b", re.IGNORECASE)
+# omega-cli's advice to run one of its own commands (such as "omega config set nvd_api_key KEY"), which does not
+# apply here: Public Desk runs the MCP tools, which do not read omega-cli's settings.
+_CLI_ADVICE = re.compile(r"\s+[—–-]\s+.*\bomega config\b.*$")
+
+
+def _is_empty(value):
+    return value is None or value in ([], {}, "")
+
+
+def _failure_message(output):
+    lines = [_CLI_ADVICE.sub("", line).strip() for line in output.splitlines() if _FAILURE.search(line)]
+    return " ".join(line for line in lines if line)[:500]
+
+
 def capture_module_output(run_module):
     def run_captured(module_path, func_name, *args, **kwargs):
         printed = io.StringIO()
@@ -70,6 +93,10 @@ def capture_module_output(run_module):
         output = _clean(printed.getvalue())
         if output and result == {"status": "ok", "result": "completed"}:
             return {"status": "ok", "result": output}
+        if isinstance(result, dict) and result.get("status") == "ok" and _is_empty(result.get("result")):
+            failure = _failure_message(output)
+            if failure:
+                return {"status": "error", "error": failure}
         return result
 
     return run_captured
