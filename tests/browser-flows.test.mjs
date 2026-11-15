@@ -13,9 +13,14 @@ test('Chrome is available for the browser tests',{skip:!required&&!findChrome()&
 });
 
 // Runs one flow against a fresh server and browser, and fails it on any uncaught error in the page.
-async function inApp(flow,{beforeLoad}={}){
+// stub: stand in for the bundled tool servers (see STUB_MCP), with Open OSINT's answers and delays. It is installed
+// before the page's own scripts run: 100 ms after loading, the page connects to every bundled server by itself, and a
+// stand-in added later is too late. That startup connection would then go to whatever is (or is not) listening on this
+// machine, and while it is still in flight the page ignores a click on Connect, so a slow runner timed out waiting.
+async function inApp(flow,{beforeLoad,stub}={}){
   const server=await startServer();const browser=await startBrowser();
   try{
+    if(stub)await browser.beforeLoad(`${STUB_MCP}window.__mcp.answers=${JSON.stringify(stub.answers||{})};window.__mcp.delays=${JSON.stringify(stub.delays||{})};`);
     if(beforeLoad)await browser.beforeLoad(beforeLoad);
     await browser.open(server.url);
     await flow(browser,server);
@@ -24,9 +29,9 @@ async function inApp(flow,{beforeLoad}={}){
 }
 const show=view=>`document.querySelector('[data-view="${view}"]').click();`;
 const confirmButton=label=>`[...document.querySelectorAll('#confirmDialog button')].find(button=>button.textContent.trim()===${JSON.stringify(label)}).click();`;
+// With inApp's stub, the page's own startup connection reaches the stand-in; these wait for it.
 const connectToolbox=async browser=>{
-  await browser.evaluate(STUB_MCP+show('servers'));
-  await browser.evaluate("[...document.querySelectorAll('[data-connect]')].find(button=>button.closest('article,li')?.textContent.includes('OSINT Toolbox')).click();");
+  await browser.evaluate(show('servers'));
   await browser.waitFor("return [...document.querySelectorAll('article,li')].some(card=>/OSINT Toolbox/.test(card.textContent)&&/Connected · 2 tools/.test(card.textContent))",{timeout:20_000,label:'OSINT Toolbox connected'});
 };
 const startDeepSearch=async(browser,target)=>{
@@ -87,7 +92,7 @@ test('a connected tool runs and shows its answer, and a failing tool says why',o
   await browser.evaluate("document.getElementById('resultDialog').close();window.__mcp.fail='Tool timed out';");
   await browser.evaluate(runWhois);
   await browser.waitFor("return document.getElementById('toast').textContent==='whois_lookup failed: Tool timed out'",{label:'failure message shown'});
-}));
+},{stub:{}}));
 
 test('a Deep Search shows its progress, ends on its results, and is kept in the history',options,()=>inApp(async browser=>{
   await connectToolbox(browser);
@@ -104,7 +109,7 @@ test('a Deep Search shows its progress, ends on its results, and is kept in the 
   await browser.waitFor("return !!document.getElementById('deepResultsHeading')||/Could not open/.test(document.getElementById('toast').textContent)",{label:'reopen answered'});
   assert.equal(await browser.evaluate("return document.getElementById('toast').textContent"),'','no "could not open" message');
   assert.equal(await browser.evaluate("return document.activeElement?.id"),'deepResultsHeading');
-}));
+},{stub:{}}));
 
 test('while a search runs, nothing hides its progress, and Stop asks first and keeps what was found',options,()=>inApp(async browser=>{
   await connectToolbox(browser);
@@ -120,7 +125,7 @@ test('while a search runs, nothing hides its progress, and Stop asks first and k
   await browser.waitFor("return document.getElementById('confirmDialog').open");
   await browser.evaluate(confirmButton('Stop search'));
   await browser.waitFor("return /Stopped early/.test(document.getElementById('deepResults').textContent)&&document.activeElement?.id==='deepResultsHeading'",{label:'stopped, results focused',timeout:15000});
-}));
+},{stub:{}}));
 
 test('a case can be created, filled from a result, renamed and deleted',options,()=>inApp(async browser=>{
   await browser.evaluate("const answers=['Stand-in case','Renamed case'];window.prompt=()=>answers.shift();"+show('evidence')+"document.getElementById('newCase').click();");
@@ -177,10 +182,8 @@ const NAME_ANSWERS={
   get_opensanctions:{entities:[{name:'Owner Example',dataset:'Stand-in list',owner:'Readable owner',related:'wd:Q999',details:{country:'Exampleland',unresolved:'wd:Q998'}}]},
   get_offshore_leaks:{entities:[]}
 };
-const connectOpenOsint=async(browser,answers,delays={})=>{
-  await browser.evaluate(`${STUB_MCP}window.__mcp.answers=${JSON.stringify(answers)};window.__mcp.delays=${JSON.stringify(delays)};${show('servers')}`);
-  await browser.evaluate("[...document.querySelectorAll('[data-connect]')].find(button=>button.closest('article,li')?.textContent.includes('Open OSINT')).click();");
-  // A cold Chromium connection can take longer on the oldest supported Node runner.
+const connectOpenOsint=async browser=>{
+  await browser.evaluate(show('servers'));
   await browser.waitFor("return [...document.querySelectorAll('article,li')].some(card=>/Open OSINT/.test(card.textContent)&&/Connected · 7 tools/.test(card.textContent))",{timeout:45_000,label:'Open OSINT connected'});
   await browser.waitFor("return !document.getElementById('serverList').textContent.includes('Connecting…')",{timeout:45_000,label:'startup server notices settled'});
 };
@@ -193,8 +196,15 @@ const caseFindings=`const id=document.getElementById('caseSelect').value;
   const response=await fetch('/api/cases/'+id,{headers:{'x-public-desk-token':sessionStorage.getItem('publicDesk.access')}});
   return (await response.json()).evidence.map(item=>({title:item.title,note:item.note}));`;
 
+// A slow runner made the page's startup connection outlast the old helper's wait, so its click on Connect was ignored
+// and the test timed out. With the stand-in installed before loading, a slow startup only takes longer.
+test('a slow startup connection to the tool servers still ends connected',options,()=>inApp(async browser=>{
+  await connectOpenOsint(browser);
+  await connectToolbox(browser);
+},{stub:{answers:NAME_ANSWERS},beforeLoad:"const stubbed=window.fetch;window.fetch=async(url,options)=>{if(String(url).endsWith('/api/mcp'))await new Promise(resolve=>setTimeout(resolve,1500));return stubbed(url,options);};"}));
+
 test('a name search groups results, ranks the exact name first, and shows each result once',options,()=>inApp(async browser=>{
-  await connectOpenOsint(browser,NAME_ANSWERS);
+  await connectOpenOsint(browser);
   await search(browser,'Owner Example');
   await browser.waitFor(searchDone,{label:'every source answered'});
   const identity=await browser.evaluate("return document.querySelector('#resultBody .passive-group .passive-card strong')?.textContent");
@@ -206,29 +216,29 @@ test('a name search groups results, ranks the exact name first, and shows each r
   const calls=await browser.evaluate('return window.__mcp.calls');
   for(const name of ['get_wikidata','get_news_rss','get_gdelt','get_opensanctions','get_offshore_leaks'])assert.ok(calls.includes(`tools/call:${name}`),name);
   assert.ok(!calls.includes('tools/call:get_opencorporates'),'a person is not looked up in company registers');
-}));
+},{stub:{answers:NAME_ANSWERS}}));
 
 test('a search result opens to show its complete source record',options,()=>inApp(async browser=>{
-  await connectOpenOsint(browser,NAME_ANSWERS);
+  await connectOpenOsint(browser);
   await search(browser,'Owner Example');
   await browser.waitFor(searchDone,{label:'every source answered'});
   assert.equal(await browser.evaluate("return document.querySelector('#resultBody .record-row .passive-result').open"),false);
   await browser.evaluate("document.querySelector('#resultBody .record-row .passive-result summary').click();");
   assert.deepEqual(await browser.evaluate("const row=document.querySelector('#resultBody .record-row .passive-result');return {open:row.open,text:row.querySelector('.passive-result-expanded').textContent};"),
     {open:true,text:'NameOwner ExampleDatasetStand-in listOwnerReadable ownerDetailsCountryExampleland'});
-}));
+},{stub:{answers:NAME_ANSWERS}}));
 
 test('a subject Wikidata calls an organisation is also looked up in company registers',options,()=>inApp(async browser=>{
-  await connectOpenOsint(browser,{...NAME_ANSWERS,get_wikidata:{entities:[{id:'wd:Q3',label:'Owner Example',description:'Stand-in business',facts:{instanceOf:['wd:Q4830453']}}]},
-    get_opencorporates:{results:{companies:[{company:{name:'Owner Example',jurisdiction_code:'xx',current_status:'Active'}}]}}});
+  await connectOpenOsint(browser);
   await search(browser,'Owner Example');
   await browser.waitFor("return (window.__mcp.calls||[]).includes('tools/call:get_opencorporates')",{label:'company registers asked'});
   await browser.waitFor(searchDone,{label:'every source answered'});
   assert.match(await browser.evaluate(groupText('Records')),/xx · Active/);
-}));
+},{stub:{answers:{...NAME_ANSWERS,get_wikidata:{entities:[{id:'wd:Q3',label:'Owner Example',description:'Stand-in business',facts:{instanceOf:['wd:Q4830453']}}]},
+    get_opencorporates:{results:{companies:[{company:{name:'Owner Example',jurisdiction_code:'xx',current_status:'Active'}}]}}}}}));
 
 test('a website, IP or username opens Deep Search instead',options,()=>inApp(async browser=>{
-  await connectOpenOsint(browser,NAME_ANSWERS);
+  await connectOpenOsint(browser);
   for(const [query,kind] of [['192.0.2.4','IP address'],['@ownername','username']]){
     await search(browser,query);
     await browser.waitFor(`return document.getElementById('resultTitle').textContent===${JSON.stringify(query)}&&/This looks like an? ${kind}\\./.test(document.getElementById('resultBody').textContent)`,{label:`${query} handed off`});
@@ -242,12 +252,10 @@ test('a website, IP or username opens Deep Search instead',options,()=>inApp(asy
   assert.deepEqual(await browser.evaluate("return {value:document.getElementById('deepTarget').value,setup:!document.getElementById('deepSetup').hidden,running:!document.getElementById('deepProgress').hidden,dialog:document.getElementById('resultDialog').open}"),
     {value:'owner-site.example',setup:true,running:false,dialog:false});
   assert.ok(!(await browser.evaluate('return window.__mcp.calls')).some(call=>call.startsWith('tools/call')),'no tool was called');
-}));
+},{stub:{answers:NAME_ANSWERS}}));
 
 test('an event search lists news newest first, and the sort can change',options,()=>inApp(async browser=>{
-  await connectOpenOsint(browser,{get_gdelt:{articles:[
-    {title:'Earthquake shakes Example City',url:'https://news.example/quake',seendate:'20261101T080000Z',domain:'news.example'},
-    {title:'Aftershock reported',url:'https://news.example/aftershock',seendate:'20261112T080000Z',domain:'news.example',snippet:'Residents of Example City felt an aftershock.'}]}});
+  await connectOpenOsint(browser);
   await search(browser,'earthquakes in Example City');
   await browser.waitFor(searchDone,{label:'every source answered'});
   const order="return [...document.querySelectorAll('#resultBody .news-row summary strong')].map(title=>title.textContent)";
@@ -257,11 +265,13 @@ test('an event search lists news newest first, and the sort can change',options,
   await browser.waitFor("return document.querySelector('#resultBody .news-row summary strong')?.textContent==='Earthquake shakes Example City'",{label:'most relevant first'});
   assert.equal(await browser.evaluate("return document.getElementById('newsSort').value"),'relevant');
   assert.equal(await browser.evaluate("return document.querySelectorAll('#newsSort').length"),1);
-}));
+},{stub:{answers:{get_gdelt:{articles:[
+    {title:'Earthquake shakes Example City',url:'https://news.example/quake',seendate:'20261101T080000Z',domain:'news.example'},
+    {title:'Aftershock reported',url:'https://news.example/aftershock',seendate:'20261112T080000Z',domain:'news.example',snippet:'Residents of Example City felt an aftershock.'}]}}}}));
 
 test('Save to case saves that one result with its note',options,()=>inApp(async browser=>{
   await browser.evaluate("window.prompt=()=> 'Stand-in case';");
-  await connectOpenOsint(browser,NAME_ANSWERS);
+  await connectOpenOsint(browser);
   await search(browser,'Owner Example');
   await browser.waitFor(searchDone,{label:'every source answered'});
   await browser.evaluate("document.querySelector('#resultBody .record-row [data-save-result]').click();");
@@ -280,11 +290,11 @@ test('Save to case saves that one result with its note',options,()=>inApp(async 
   const opened=await browser.evaluate("return document.getElementById('resultBody').textContent");
   assert.match(opened,/Readable owner|Exampleland/);
   assert.doesNotMatch(opened,/wd:Q/);
-}));
+},{stub:{answers:NAME_ANSWERS}}));
 
 test('a saved result stays saved through live updates',options,()=>inApp(async browser=>{
   await browser.evaluate("window.prompt=()=> 'Stand-in case';");
-  await connectOpenOsint(browser,NAME_ANSWERS,{get_offshore_leaks:3000});
+  await connectOpenOsint(browser);
   await browser.evaluate("const before=window.fetch;window.__evidencePosts=0;window.fetch=(url,options)=>{if(/\\/evidence$/.test(String(url)))window.__evidencePosts++;return before(url,options);};");
   await search(browser,'Owner Example');
   await browser.waitFor("return !!document.querySelector('#resultBody .news-row [data-save-result]')&&/still working/.test(document.querySelector('#resultBody .search-details').textContent)",{label:'news shown while a source is pending'});
@@ -296,10 +306,10 @@ test('a saved result stays saved through live updates',options,()=>inApp(async b
   await new Promise(resolve=>setTimeout(resolve,500));
   assert.equal(await browser.evaluate('return window.__evidencePosts'),1,'a second press sends nothing');
   assert.equal((await browser.evaluate(caseFindings)).length,1);
-}));
+},{stub:{answers:NAME_ANSWERS,delays:{get_offshore_leaks:3000}}}));
 
 test('a pivot on a website goes to Deep Search',options,()=>inApp(async browser=>{
-  await connectOpenOsint(browser,NAME_ANSWERS);
+  await connectOpenOsint(browser);
   await search(browser,'Owner Example');
   await browser.waitFor(searchDone,{label:'every source answered'});
   const before=(await browser.evaluate('return window.__mcp.calls')).length;
@@ -307,4 +317,4 @@ test('a pivot on a website goes to Deep Search',options,()=>inApp(async browser=
   await browser.waitFor("return !document.getElementById('deep').hidden&&document.getElementById('deepTarget').value==='owner-site.example'",{label:'Deep Search filled in'});
   assert.equal(await browser.evaluate("return document.getElementById('resultDialog').open||!document.getElementById('deepProgress').hidden"),false);
   assert.equal((await browser.evaluate('return window.__mcp.calls')).length,before,'nothing was searched');
-}));
+},{stub:{answers:NAME_ANSWERS}}));
