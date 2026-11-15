@@ -1,6 +1,7 @@
 # Search overhaul: risk tiers, a Sources panel and Deep Search
 
-Status: agreed 2026-11-11. Steps 1 and 2 are built; steps 3–4 are not built. The owner decided A–D on 2026-11-11
+Status: agreed 2026-11-11. All four steps are built: step 3 (the Deep Search page, with server-side enforcement) and
+step 4 (the Omega review) are marked below as implemented and complete. The owner decided A–D on 2026-11-11
 (see Decisions at the end).
 Where this document and the code disagree, the code wins: `public/tool-tiers.js` is the source of truth for tiers.
 
