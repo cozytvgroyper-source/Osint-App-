@@ -30,8 +30,8 @@ drawn from code in `macos/Icon/DrawIcon.swift` when the app is built; a test kee
 | Yellow | Starting, stopping, restarting, or only some services are ready |
 | Red | Stopped, or a start, stop or service failed |
 
-Its menu has **Open Public Desk** (starts anything missing, then opens it), **Start**, **Stop**, **Restart**,
-**Status** (each service's state), **Diagnostics** (opens the logs folder), **Start at Login**, and **Quit Controller**.
+Its menu has **Open Public Desk** (starts anything missing, then opens its window), **Open in Browser** (the same,
+but in a browser tab), **Start**, **Stop**, **Restart**, **Status** (each service's state), **Diagnostics** (opens the logs folder), **Start at Login**, and **Quit Controller**.
 Quitting the controller leaves the services running. It checks status every 10 seconds without starting or restarting
 anything, and sends a notification when Public Desk is ready, when a start fails, or when a ready service stops.
 If notifications for Public Desk are off in System Settings, its menu shows **Turn On Notifications…**, which opens
@@ -41,6 +41,30 @@ If a running service stops on its own, the controller starts it again and tells 
 Automatically** in its menu, on by default). A service that keeps stopping is restarted at most 3 times in 10 minutes,
 then left stopped and reported. Each service keeps its previous run's log as `work/logs/<service>.log.1`, and the
 controller's own log rolls over at 1 MB.
+
+### The Public Desk window
+
+Opening the **Public Desk** app (from Finder, Spotlight or the Dock) starts anything that is not running and opens
+Public Desk in its own window, just like **Open Public Desk** in its menu; when it starts at login it only appears in
+the menu bar. While the window is open the app has a Dock icon and the usual Mac menus; when it closes, only the
+menu-bar icon remains.
+
+**Closing the window, File > Close Window (⌘W) or Quit (⌘Q) stops Public Desk.** If a Deep Search is running, it
+asks first. The window also closes when Public Desk is stopped from the menu, Terminal or a Finder launcher, and
+after a restart from anywhere it reloads once the services are ready again.
+
+Inside the window, "↗" links and other new-window links open in your default browser; the Consensus sign-in stays in
+the window. Reports and case exports are saved with the standard Save panel, and uploads use the Open panel, so macOS
+never needs permission to read your Downloads folder.
+
+To use Public Desk in a browser instead, choose **Open in Browser**. Opening it again brings its open tab to the
+front in Safari, Chrome, Brave or Edge (macOS asks once whether Public Desk may control the browser; if you decline,
+a new tab opens instead). Stopping Public Desk closes its open tabs, since they could no longer do anything; Restart
+keeps them and reconnects them.
+
+Only one copy of the app runs: opening it again opens Public Desk in the running copy. Start, stop and restart run
+one at a time whichever launcher asked; a lock left behind by a crash is cleared automatically. The app remembers
+this folder, so run `npm run menu-bar` again if you move the folder.
 
 ### Backups
 
@@ -59,19 +83,9 @@ and `work/api-keys.env` aside, then unpack the backup into `work/`:
 tar -xzf work/backups/public-desk-backup-YYYY-MM-DD-HHMMSS.tar.gz -C work
 ```
 
-Opening the **Public Desk** app (from Finder, Spotlight or the Dock) opens Public Desk, starting anything that is
-not running, just like **Open Public Desk** in its menu; when it starts at login it only appears in the menu bar.
-
-Only one copy of each runs: opening the app again opens Public Desk in the running copy, and opening Public Desk again brings its
-open tab to the front in Safari, Chrome, Brave or Edge (macOS asks once whether Public Desk may control the browser;
-if you decline, a new tab opens instead). Stopping Public Desk closes its open tabs, since they could no longer do anything; Restart keeps them
-and reconnects them. Start, stop and restart run one at a time whichever launcher asked; a lock
-left behind by a crash is cleared automatically. The app remembers this folder, so run `npm run menu-bar` again if you
-move the folder.
-
 The controller keeps itself up to date: when it opens, and every 15 minutes, it checks whether the app's code in
 this folder has changed (after a `git pull`, say). If so it rebuilds, reinstalls and reopens itself, leaving the
-services running. It never updates while Public Desk is starting or stopping. If a rebuild fails, it notifies you
+services running. It never updates while Public Desk is starting or stopping, or while its window is open. If a rebuild fails, it notifies you
 once, shows **Retry Controller Update** in its menu, and logs the details to `work/logs/menu-bar.log`. Changes to
 `scripts/public-desk-control.zsh` need no rebuild, because the app runs that script straight from this folder.
 Copies installed before this feature need one more `npm run menu-bar`.
