@@ -493,19 +493,6 @@ $('#exportEvidence').onclick = () => {
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 };
-// The switch is a toggle for the dark theme: it says which theme is on, so screen readers announce its state.
-function applyTheme(theme) {
-  document.documentElement.dataset.theme = theme;
-  const toggle = $('#themeToggle');
-  toggle.setAttribute('aria-pressed', String(theme === 'dark'));
-  toggle.setAttribute('aria-label', 'Dark theme');
-}
-$('#themeToggle').onclick = () => {
-  const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
-  applyTheme(next);
-  localStore.setItem('signaldesk.theme', next);
-};
-applyTheme(localStore.getItem('signaldesk.theme') || 'light');
 if (new URLSearchParams(location.search).get('consensus') === 'connected') {
   history.replaceState({}, '', location.pathname);
   toast('Consensus sign-in complete');

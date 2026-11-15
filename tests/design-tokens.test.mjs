@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {rules,rulesAfter} from './helpers/css.mjs';
 
-// Design tokens: WCAG 2.2 AA contrast in both themes, readable text sizes, always-visible focus and short motion that
+// Design tokens: WCAG 2.2 AA contrast in the dark theme, readable text sizes, always-visible focus and short motion that
 // stops for people who ask for less. The values live in ui.css; these tests read them so a later edit cannot slip
 // below the standard unnoticed.
 const read=file=>fs.readFileSync(new URL(`../public/${file}`,import.meta.url),'utf8');
@@ -18,9 +18,8 @@ function block(css,selector){
 }
 function tokens(text){return Object.fromEntries([...text.matchAll(/--([\w-]+):\s*([^;]+)/g)].map(m=>[m[1],m[2].trim()]));}
 const css=read('ui.css');
-const light=tokens(block(css,':root'));
-const dark={...light,...tokens(block(css,'[data-theme="dark"]'))};
-const token=(theme,name)=>{const value=(theme==='dark'?dark:light)[name];assert.match(value||'',/^#[0-9a-f]{6}$/i,`${theme} --${name} is a #rrggbb color`);return value;};
+const dark=tokens(block(css,':root'));
+const token=(theme,name)=>{const value=dark[name];assert.equal(theme,'dark');assert.match(value||'',/^#[0-9a-f]{6}$/i,`dark --${name} is a #rrggbb color`);return value;};
 
 function luminance(hex){
   const [r,g,b]=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255).map(v=>v<=0.03928?v/12.92:((v+0.055)/1.055)**2.4);
@@ -29,11 +28,11 @@ function luminance(hex){
 function ratio(a,b){const [hi,lo]=[luminance(a),luminance(b)].sort((x,y)=>y-x);return (hi+0.05)/(lo+0.05);}
 
 const PAIRS=[['ink','bg',4.5],['ink','surface',4.5],['ink','surface-2',4.5],['muted','bg',4.5],['muted','surface',4.5],['muted','surface-2',4.5],
-  ['accent-dark','bg',4.5],['accent-dark','surface',4.5],['accent-dark','surface-2',4.5],['accent','bg',4.5],['accent','surface',4.5],['accent','surface-2',4.5],
+  ['accent-dark','bg',4.5],['accent-dark','surface',4.5],['accent-dark','surface-2',4.5],
   ['deep','bg',4.5],['deep','surface',4.5],['on-action','action',4.5],['field-border','bg',3],['field-border','surface',3],['focus','bg',3],['focus','surface',3],['focus','surface-2',3]];
 
-test('every text and control color meets WCAG AA in both themes',()=>{
-  for(const theme of ['light','dark'])for(const [fg,bg,min] of PAIRS){
+test('every text and control color meets WCAG AA in dark mode',()=>{
+  for(const theme of ['dark'])for(const [fg,bg,min] of PAIRS){
     const value=ratio(token(theme,fg),token(theme,bg));
     assert.ok(value>=min,`${theme} --${fg} on --${bg} is ${value.toFixed(2)}:1, needs ${min}:1`);
   }
@@ -75,15 +74,17 @@ test('the page has a solid background color under its gradient',()=>{
   assert.match(css,/html\{background-color:var\(--bg\)\}/);
 });
 
-// The sidebar is navy in both themes, so the focus ring and the current-page bar there need their own colors, checked
-// against every shade of its gradient and the hover background (11% white over the gradient).
-test('focus ring and current-page bar stand out on the navy sidebar',()=>{
+// The focus ring stands out on every shade of the navy sidebar. The selected page swaps the two accent roles:
+// light blue fill with a deep-crimson marker, which must remain distinguishable from one another.
+test('sidebar focus and selected-page accents remain distinguishable',()=>{
   const rail=tokens(block(css,'.rail'));
   const mix=(hex,alpha)=>'#'+[1,3,5].map(i=>Math.round(alpha*255+(1-alpha)*parseInt(hex.slice(i,i+2),16)).toString(16).padStart(2,'0')).join('');
   const shades=['#082767','#041744','#020c2b'];
-  for(const bg of [...shades,...shades.map(s=>mix(s,0.11))])for(const name of ['focus','accent']){
-    const value=ratio(rail[name],bg);assert.ok(value>=3,`sidebar --${name} on ${bg} is ${value.toFixed(2)}:1`);
+  for(const bg of [...shades,...shades.map(s=>mix(s,0.11))]){
+    const value=ratio(rail.focus,bg);assert.ok(value>=3,`sidebar --focus on ${bg} is ${value.toFixed(2)}:1`);
   }
+  const selected=ratio(token('dark','orange'),token('dark','accent-dark'));
+  assert.ok(selected>=3,`selected-page marker on fill is ${selected.toFixed(2)}:1`);
 });
 
 // In the one stylesheet, a rule after mine wins on equal specificity, a rule before mine only on higher. So "mine
@@ -120,28 +121,27 @@ test('older rules never style the building blocks',()=>{
   for(const name of ['ui-badge','ui-badge-neutral','ui-badge-safe','ui-badge-warn','ui-badge-danger','ui-empty'])assert.match(css,new RegExp(`\\.${name}\\b`),name);
 });
 
-// Badge tones: --ink text on a hue mixed into the surface, readable in both themes.
-test('badge tones are readable in both themes',()=>{
+// Badge tones: --ink text on a hue mixed into the surface, readable in dark mode.
+test('badge tones are readable in dark mode',()=>{
   const mix=(hex,alpha,base)=>'#'+[1,3,5].map(i=>Math.round(alpha*parseInt(hex.slice(i,i+2),16)+(1-alpha)*parseInt(base.slice(i,i+2),16)).toString(16).padStart(2,'0')).join('');
   for(const m of css.matchAll(/\.ui-badge-(\w+)\{color:var\(--ink\);background:color-mix\(in srgb,(#[0-9a-f]{6}) (\d+)%,var\(--surface\)\)\}/gi))
-    for(const theme of ['light','dark']){
+    for(const theme of ['dark']){
       const value=ratio(token(theme,'ink'),mix(m[2],Number(m[3])/100,token(theme,'surface')));
       assert.ok(value>=4.5,`${theme} ui-badge-${m[1]} is ${value.toFixed(2)}:1`);
     }
   assert.equal([...css.matchAll(/\.ui-badge-\w+\{color:var\(--ink\)/g)].length,4,'four tones, each with --ink text');
 });
 
-// The danger action (Delete case, Remove finding) is readable in both themes.
-test('the danger button meets 4.5:1 in both themes',()=>{
-  for(const theme of ['light','dark']){
+// The danger action (Delete case, Remove finding) is readable in dark mode.
+test('the danger button meets 4.5:1 in dark mode',()=>{
+  for(const theme of ['dark']){
     const value=ratio(token(theme,'on-danger'),token(theme,'danger'));
     assert.ok(value>=4.5,`${theme} --on-danger on --danger is ${value.toFixed(2)}:1`);
   }
 });
 
-// Older rules force white text on .primary in dark mode; the danger button must out-rank that rule, or its dark
-// text on the light red is replaced by white (about 2.7:1).
-test('the danger button keeps its own text color over later .primary rules',()=>{
+// The danger button must keep its white text on the deep crimson background.
+test('the danger button keeps its own text color over primary rules',()=>{
   const rule=rules(css).find(r=>r.body==='background:var(--danger);border-color:var(--danger);color:var(--on-danger)');
   assert.ok(rule,'ui.css styles the danger button');
   const own=rule.selector.split(',').map(s=>s.trim());
@@ -162,12 +162,12 @@ test('tier chip text is fully opaque and the pressed chip has a visible border',
 });
 
 // Tier badges (Passive, Light touch, Active, Unreviewed) used their tier color as small text on a pale tint of the same
-// color (about 3:1). The color stays as tint and border; the label is ink, readable in both themes.
-test('tier badge labels are readable in both themes',()=>{
+// color (about 3:1). The color stays as tint and border; the label is readable ink.
+test('tier badge labels are readable in dark mode',()=>{
   assert.match(css,/span\.tier-badge\{color:var\(--ink\)\}/);
   const mix=(hex,alpha,base)=>'#'+[1,3,5].map(i=>Math.round(alpha*parseInt(hex.slice(i,i+2),16)+(1-alpha)*parseInt(base.slice(i,i+2),16)).toString(16).padStart(2,'0')).join('');
   for(const m of css.matchAll(/\.tier-(\w+)\{--tier:(#[0-9a-f]{6})\}/gi))
-    for(const theme of ['light','dark']){
+    for(const theme of ['dark']){
       const value=ratio(token(theme,'ink'),mix(m[2],0.14,token(theme,'surface')));
       assert.ok(value>=4.5,`${theme} tier-${m[1]} label is ${value.toFixed(2)}:1`);
     }

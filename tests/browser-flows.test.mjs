@@ -151,8 +151,8 @@ test('the app starts and works when the browser blocks site storage',options,()=
   assert.equal(await browser.evaluate("try{localStorage;return 'readable';}catch(error){return error.name;}"),'SecurityError');
   await browser.evaluate(show('deep'));
   await browser.waitFor("return document.querySelectorAll('[data-open-deep]').length===2",{label:'server calls still work'});
-  await browser.evaluate("document.getElementById('themeToggle').click();");
   assert.equal(await browser.evaluate('return document.documentElement.dataset.theme'),'dark');
+  assert.equal(await browser.evaluate("return document.getElementById('themeToggle')"),null);
 },{beforeLoad:BLOCK_STORAGE}));
 
 test('on a phone, both search boxes show and the history table scrolls inside its box',options,()=>inApp(async browser=>{
@@ -216,6 +216,17 @@ test('a name search groups results, ranks the exact name first, and shows each r
   const calls=await browser.evaluate('return window.__mcp.calls');
   for(const name of ['get_wikidata','get_news_rss','get_gdelt','get_opensanctions','get_offshore_leaks'])assert.ok(calls.includes(`tools/call:${name}`),name);
   assert.ok(!calls.includes('tools/call:get_opencorporates'),'a person is not looked up in company registers');
+},{stub:{answers:NAME_ANSWERS}}));
+
+test('desktop results open as a non-blocking right drawer',options,()=>inApp(async browser=>{
+  await connectOpenOsint(browser);
+  await search(browser,'Owner Example');
+  await browser.waitFor("return document.getElementById('resultDialog').open",{label:'result drawer open'});
+  assert.deepEqual(await browser.evaluate(`const dialog=document.getElementById('resultDialog');const box=dialog.getBoundingClientRect();
+    return {modal:dialog.matches(':modal'),position:getComputedStyle(dialog).position,right:Math.round(innerWidth-box.right),rows:getComputedStyle(dialog).gridTemplateRows.split(' ').length};`),
+    {modal:false,position:'fixed',right:0,rows:3});
+  await browser.evaluate("document.querySelector('[data-view=\"evidence\"]').click();");
+  assert.deepEqual(await browser.evaluate("return {page:document.querySelector('[data-view=\"evidence\"]').getAttribute('aria-current'),drawer:document.getElementById('resultDialog').open}"),{page:'page',drawer:true});
 },{stub:{answers:NAME_ANSWERS}}));
 
 test('a search result opens to show its complete source record',options,()=>inApp(async browser=>{
@@ -307,6 +318,15 @@ test('a saved result stays saved through live updates',options,()=>inApp(async b
   assert.equal(await browser.evaluate('return window.__evidencePosts'),1,'a second press sends nothing');
   assert.equal((await browser.evaluate(caseFindings)).length,1);
 },{stub:{answers:NAME_ANSWERS,delays:{get_offshore_leaks:3000}}}));
+
+test('closing a running search keeps it closed after moving to Evidence',options,()=>inApp(async browser=>{
+  await connectOpenOsint(browser);
+  await search(browser,'Owner Example');
+  await browser.waitFor("return document.getElementById('resultDialog').open&&/still working/.test(document.querySelector('#resultBody .search-details')?.textContent||'')",{label:'running results shown'});
+  await browser.evaluate("document.querySelector('[data-close-result]').click();document.querySelector('[data-view=\"evidence\"]').click();");
+  await browser.waitFor("return [...document.querySelectorAll('#history .history-item')].some(item=>item.textContent.includes('Owner Example'))",{label:'background search finished',timeout:10000});
+  assert.deepEqual(await browser.evaluate("return {dialog:document.getElementById('resultDialog').open,page:document.querySelector('[data-view=\"evidence\"]').getAttribute('aria-current')}"),{dialog:false,page:'page'});
+},{stub:{answers:NAME_ANSWERS,delays:{get_offshore_leaks:2500}}}));
 
 test('a pivot on a website goes to Deep Search',options,()=>inApp(async browser=>{
   await connectOpenOsint(browser);

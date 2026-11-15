@@ -142,13 +142,13 @@ async function smartInvestigate(query) {
     time: new Date().toISOString(),
     server: servers()
   });
-  // The last redraw opens the results again if they were closed meanwhile; live redraws only refresh an open window.
-  const show = (finished = false) => {
+  // Background answers update the stored result, but never reopen a window the user closed. The initial call below
+  // opens it once; every later redraw, including the final one, only refreshes it while it remains open.
+  const show = () => {
     if (searchId !== latestSearchId) return null;
     const results = build();
     state.lastResult = record(results);
-    if (finished) showResult(query, state.lastResult.result);
-    else updateOpenResult(query, state.lastResult.result);
+    updateOpenResult(query, state.lastResult.result);
     return results;
   };
   let companyChecked = false;
@@ -180,7 +180,7 @@ async function smartInvestigate(query) {
   state.lastResult = record(build());
   showResult(query, state.lastResult.result);
   await Promise.allSettled(sources.map(run));
-  const final = show(true);
+  const final = show();
   if (!final) return;
   recordHistory({
     title: query,
