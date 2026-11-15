@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -49,7 +49,8 @@ test('the controller offers exactly the requested menu actions and drives only t
 test('the app is built as a single-instance menu-bar app without a paid developer account', () => {
   const build = readFileSync(join(root, 'scripts/build-menu-bar-app.zsh'), 'utf8');
   assert.match(build, /LSUIElement -bool YES/);
-  assert.match(build, /LSMultipleInstancesProhibited -bool YES/);
+  // One copy is enforced by the app's file lock; the LaunchServices key would block the self-update handover.
+  assert.doesNotMatch(build, /plutil -insert LSMultipleInstancesProhibited/);
   assert.match(build, /NSAppleEventsUsageDescription/);
   assert.match(build, /codesign --force --sign - /, 'ad-hoc signing only');
   assert.doesNotMatch(build, /Developer ID|notarytool|--sign "?[A-Z0-9]{10}/);
@@ -66,6 +67,50 @@ test('the build script produces a signed bundle that remembers this folder', { s
   const info = JSON.parse(plist.stdout);
   assert.equal(info.PublicDeskRoot, root.replace(/\/$/, ''));
   assert.equal(info.LSUIElement, true);
-  assert.equal(info.LSMultipleInstancesProhibited, true);
-  assert.equal(spawnSync('/usr/bin/codesign', ['--verify', '--strict', bundle]).status, 0);
+  assert.equal(info.LSMultipleInstancesProhibited, undefined);
+  const hash = spawnSync('/bin/zsh', [join(root, 'scripts/build-menu-bar-app.zsh'), '--source-hash'], { encoding: 'utf8' }).stdout.trim();
+  assert.equal(info.PublicDeskSourceHash, hash, 'the app records the source it was built from');
+  // The build checks the signature strictly before copying; macOS may then tag the copy with a provenance
+  // attribute, which strict mode calls detritus but which leaves the signature itself intact.
+  const verify = spawnSync('/usr/bin/codesign', ['--verify', '--deep', bundle], { encoding: 'utf8' });
+  assert.equal(verify.status, 0, verify.stderr);
+});
+
+// The controller updates itself when this fingerprint differs from the one it was built from.
+test('the source fingerprint changes with the app\'s code but not with the control script', { skip: !existsSync('/bin/zsh') }, () => {
+  const dir = mkdtempSync(join(tmpdir(), 'pd-hash-'));
+  try {
+    mkdirSync(join(dir, 'scripts'));
+    cpSync(join(root, 'macos'), join(dir, 'macos'), { recursive: true });
+    for (const file of ['build-menu-bar-app.zsh', 'public-desk-control.zsh']) cpSync(join(root, 'scripts', file), join(dir, 'scripts', file));
+    const hash = () => {
+      const run = spawnSync('/bin/zsh', [join(dir, 'scripts/build-menu-bar-app.zsh'), '--source-hash'], { encoding: 'utf8' });
+      assert.equal(run.status, 0, run.stderr);
+      return run.stdout.trim();
+    };
+    const first = hash();
+    assert.match(first, /^[0-9a-f]{64}$/);
+    assert.equal(hash(), first, 'stable');
+    appendFileSync(join(dir, 'scripts/public-desk-control.zsh'), '\n# changed\n');
+    assert.equal(hash(), first, 'control-script changes apply without a rebuild');
+    appendFileSync(join(dir, 'macos/PublicDeskController/App.swift'), '\n// changed\n');
+    const second = hash();
+    assert.notEqual(second, first);
+    appendFileSync(join(dir, 'scripts/build-menu-bar-app.zsh'), '\n# changed\n');
+    assert.notEqual(hash(), second, 'a changed build recipe rebuilds too');
+    assert.equal(existsSync(join(dir, 'work')), false, '--source-hash builds nothing');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('the app checks for updates only when installed by the build script, and never while Public Desk is busy', () => {
+  const app = readFileSync(sources[1], 'utf8');
+  assert.match(app, /PublicDeskSourceHash/);
+  assert.match(app, /isBusy: \{ \[weak controller\] in controller\?\.state\.isBusy \?\? true \}/);
+  assert.match(app, /15 \* 60/);
+  assert.match(app, /Retry Controller Update/);
+  // macOS ends an app's child processes with it, so a self-update must not stop the controller from the build script:
+  // --no-launch skips that and the app hands over to the new copy itself.
+  const build = readFileSync(join(root, 'scripts/build-menu-bar-app.zsh'), 'utf8');
+  assert.match(build, /if \(\( LAUNCH \)\) && \/usr\/bin\/pgrep -xq "\$NAME"; then/);
+  assert.match(app, /private func relaunch\(\) -> Bool \{\s*lock\.release\(\)[\s\S]*?"-n"[\s\S]*?NSApp\.terminate/);
 });

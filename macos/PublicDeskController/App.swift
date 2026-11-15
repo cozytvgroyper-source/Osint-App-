@@ -36,6 +36,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     private let menu = NSMenu()
     private var timer: Timer?
     private var lastRefresh = Date.distantPast
+    private var updater: SelfUpdater?
+    private var lastUpdateCheck = Date.distantPast
 
     init(lock: InstanceLock) {
         self.lock = lock
@@ -54,6 +56,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
             controller.onText = { [weak self] title, text in self?.showText(title, text) }
             self.controller = controller
             controller.refresh()
+            updater = makeUpdater(controller: controller, controlRunner: runner)
+            updater?.check()
+            lastUpdateCheck = Date()
         }
         render()
 
@@ -100,7 +105,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         return ScriptRunner(script: script, searchPath: searchPath, logFile: log)
     }
 
+    /// Only an installed app built by scripts/build-menu-bar-app.zsh knows its source fingerprint and can update.
+    private func makeUpdater(controller: Controller, controlRunner: ScriptRunner) -> SelfUpdater? {
+        guard let installed = Bundle.main.infoDictionary?["PublicDeskSourceHash"] as? String else { return nil }
+        let root = controlRunner.script.deletingLastPathComponent().deletingLastPathComponent()
+        let build = root.appendingPathComponent("scripts/build-menu-bar-app.zsh")
+        guard FileManager.default.fileExists(atPath: build.path) else { return nil }
+        let runner = ScriptRunner(script: build, searchPath: controlRunner.searchPath, logFile: controlRunner.logFile,
+                                  quietCommands: ["--source-hash"])
+        let updater = SelfUpdater(runner: runner, scheduler: DispatchScheduling(), installedHash: installed,
+                                  destination: Bundle.main.bundleURL.deletingLastPathComponent().path,
+                                  isBusy: { [weak controller] in controller?.state.isBusy ?? true })
+        updater.onChange = { [weak self] in self?.render() }
+        updater.onNotice = { [weak self] notice in self?.post(notice) }
+        updater.onInstalled = { [weak self] in self?.relaunch() ?? false }
+        return updater
+    }
+
     private func tick() {
+        // Looks for a newer controller in this folder (after a git pull, say) every 15 minutes.
+        if let updater, Date().timeIntervalSince(lastUpdateCheck) >= 15 * 60 {
+            lastUpdateCheck = Date()
+            updater.check()
+        }
         guard let controller else { return }
         let interval: TimeInterval = controller.state.isBusy ? 2 : 10
         guard Date().timeIntervalSince(lastRefresh) >= interval else { return }
@@ -207,6 +234,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         add(.diagnostics)
         menu.addItem(.separator())
 
+        switch updater?.status {
+        case .updating?:
+            let updating = NSMenuItem(title: "Updating Controller…", action: nil, keyEquivalent: "")
+            updating.isEnabled = false
+            menu.addItem(updating)
+        case .failed(let reason)?:
+            let retry = item("Retry Controller Update", #selector(retryUpdate), key: "")
+            retry.toolTip = "The last update failed: \(reason) Details are in work/logs/menu-bar.log."
+            menu.addItem(retry)
+        default:
+            break
+        }
         let login = item("Start at Login", #selector(toggleLogin), key: "")
         login.state = SMAppService.mainApp.status == .enabled ? .on : .off
         menu.addItem(login)
@@ -223,6 +262,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     @objc private func choose(_ sender: NSMenuItem) {
         guard let raw = sender.representedObject as? String, let command = MenuCommand(rawValue: raw) else { return }
         controller?.choose(command)
+    }
+
+    /// Hands over to the newly installed copy: release the single-instance lock, open the new copy, then quit.
+    /// If it cannot be opened, this copy takes the lock back and keeps running.
+    private func relaunch() -> Bool {
+        lock.release()
+        let open = Process()
+        open.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        open.arguments = ["-n", Bundle.main.bundleURL.path]
+        do { try open.run() } catch { _ = lock.acquire(); return false }
+        open.waitUntilExit()
+        guard open.terminationStatus == 0 else { _ = lock.acquire(); return false }
+        NSApp.terminate(nil)
+        return true
+    }
+
+    @objc private func retryUpdate() {
+        lastUpdateCheck = Date()
+        updater?.check(force: true)
     }
 
     @objc private func quit() {
