@@ -337,8 +337,11 @@ test('starting a service keeps its previous log as .log.1', { skip }, () => {
 
 test('every service start rotates its log just before writing a fresh one', () => {
   const controller = readFileSync(join(root, 'scripts/public-desk-control.zsh'), 'utf8');
+  // Escapes every character with a meaning in a regular expression, so a name such as $service matches literally.
+  const literal = text => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   for (const log of ['headless', 'mcp', '$service', 'signaldesk']) {
-    const pattern = new RegExp(`rotate_log "\\$LOG_DIR/${log.replace('$', '\\$')}\\.log"\\s+\\([\\s\\S]*?>"\\$LOG_DIR/${log.replace('$', '\\$')}\\.log"`);
+    const file = literal(`$LOG_DIR/${log}.log`);
+    const pattern = new RegExp(`rotate_log "${file}"\\s+\\([\\s\\S]*?>"${file}"`);
     assert.match(controller, pattern, log);
   }
 });
