@@ -213,6 +213,47 @@ test('with no browser running, Public Desk opens in the default browser', { skip
   } finally { rmSync(app.dir, { recursive: true, force: true }); }
 });
 
+// A restart creates a new token; tabs still holding the old one would fail every search until reopened.
+const refreshTabs = (app, env, token) => spawnSync('/bin/zsh', ['-c', `source ${JSON.stringify(app.script)}; PUBLIC_DESK_TOKEN=${token}; refresh_open_tabs`], { encoding: 'utf8', env: { ...process.env, ...env } });
+
+test('after a start or restart, open tabs are reconnected with the new token in the background', { skip }, () => {
+  const app = copy();
+  try {
+    const browser = fakeBrowser(app, { running: ['Safari', 'Google Chrome'], answer: '1' });
+    const run = refreshTabs(app, browser.env, 'token-two');
+    assert.equal(run.status, 0, run.stderr);
+    assert.match(run.stdout, /Reconnected 2 open Public Desk tabs to this session/);
+    const log = calls(browser.log);
+    assert.equal((log.match(/set URL of t to "http:\/\/127\.0\.0\.1:4173\/#access=token-two"/g) || []).length, 2, 'every running browser is asked');
+    assert.doesNotMatch(log, /activate|set index of w|set current tab|active tab index/, 'the browser is not brought forward');
+    assert.doesNotMatch(log, /^open /m, 'no new tab is opened');
+    assert.match(log, /osascript args: -$/m, 'the token goes on standard input');
+    assert.equal(readFileSync(join(app.runtime, 'browser-tab'), 'utf8').length, 64);
+
+    writeFileSync(browser.log, '');
+    assert.equal(refreshTabs(app, browser.env, 'token-two').stdout, '', 'tabs that already have this token are left alone');
+    assert.equal(calls(browser.log), '');
+  } finally { rmSync(app.dir, { recursive: true, force: true }); }
+});
+
+test('with no Public Desk tab open, nothing is reloaded or remembered', { skip }, () => {
+  const app = copy();
+  try {
+    const browser = fakeBrowser(app, { running: ['Safari'], answer: '0' });
+    assert.equal(refreshTabs(app, browser.env, 'token-one').stdout, '');
+    assert.equal(existsSync(join(app.runtime, 'browser-tab')), false);
+    mkdirSync(join(app.dir, 'other'));
+    const none = fakeBrowser({ dir: join(app.dir, 'other') }, { running: [] });
+    assert.equal(refreshTabs(app, none.env, 'token-one').stdout, '');
+    assert.equal(calls(none.log), '', 'browsers that are not running are never asked or launched');
+  } finally { rmSync(app.dir, { recursive: true, force: true }); }
+});
+
+test('start and restart reconnect open tabs when they do not open a new one', () => {
+  const controller = readFileSync(join(root, 'scripts/public-desk-control.zsh'), 'utf8');
+  assert.match(controller, /if \[\[ "\$\{1:-\}" == "--open" \]\]; then open_public_desk \|\| return 1\s+else refresh_open_tabs\s+fi/);
+});
+
 test('the page reloads with a new token handed to an already-open tab', () => {
   const core = readFileSync(join(root, 'public/app/core.js'), 'utf8');
   assert.match(core, /addEventListener\('hashchange'[\s\S]*?get\('access'\)[\s\S]*?setItem\('publicDesk\.access', access\)[\s\S]*?location\.reload\(\)/);
