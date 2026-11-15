@@ -148,8 +148,10 @@ reverse IP, dorks, threat feeds, breach lookup, email validation, public Git rep
 - install software on first use (`omega_screenshot` installs Playwright and Chromium);
 - send findings to a webhook (`omega_notifier`) or load third-party plugins (`omega_plugin`).
 
-Omega reports some network failures as an empty successful result, so "no results" is not proof that
-nothing exists. `omega_monitor` is not implemented in omega-cli and always fails.
+Some Omega tools report a failed lookup (a rate limit, an HTTP error, a timeout) only by printing it and returning an
+empty result. Public Desk's wrapper turns those into errors, so they show as failures rather than "no results"; for
+example, `omega_cve` reports "NVD API error 429" when the NVD is rate-limiting requests. A failure Omega does not
+print at all still looks empty, so "no results" from Omega is good evidence, not proof, that nothing exists. `omega_monitor` is not implemented in omega-cli and always fails.
 
 ## Cases
 
