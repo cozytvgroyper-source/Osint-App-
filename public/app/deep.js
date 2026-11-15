@@ -128,6 +128,8 @@ function renderDeepProgressSoon(force = false) {
   deepRenderTimer = setTimeout(() => requestAnimationFrame(draw), wait);
 }
 
+// While a search runs, a browser tab warns before leaving. The Mac app's window cannot see beforeunload, so the same
+// moments also set data-busy="deep-search" on <html>, which the window reads to ask before closing.
 const warnDeepUnload = event => {
   event.preventDefault();
   event.returnValue = '';
@@ -179,6 +181,7 @@ async function startDeepSearch() {
   $('#deepProgress').hidden = false;
   renderDeepProgressSoon(true);
   document.getElementById('deepProgressHeading')?.focus();
+  document.documentElement.dataset.busy = 'deep-search';
   window.addEventListener('beforeunload', warnDeepUnload);
   loadDeepHistory();
   const grantTargets = new Map();
@@ -267,6 +270,7 @@ async function startDeepSearch() {
     state.deepRun = null;
     state.deepController = null;
     window.removeEventListener('beforeunload', warnDeepUnload);
+    delete document.documentElement.dataset.busy;
     $('#deepProgress').hidden = true;
     $('#deepResults').hidden = false;
     $('#deepResults').innerHTML = renderDeepResults(run);
