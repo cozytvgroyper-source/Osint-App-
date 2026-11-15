@@ -5,6 +5,11 @@ import {GLOSSARY} from './glossary.js';
 
 export function escapeHtml(value=''){return String(value).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
 
+export function icon(name){
+  const id=/^[a-z0-9-]+$/.test(String(name))?String(name):'circle';
+  return `<svg class="ui-icon" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#${escapeHtml(id)}"></use></svg>`;
+}
+
 // Links in tool answers are untrusted: only a web (http/https) address may become a link; anything else
 // (javascript:, data:, file:, …) gives '' so it is shown as plain text.
 export function safeHttpUrl(value=''){
@@ -13,7 +18,7 @@ export function safeHttpUrl(value=''){
 
 const attributes=attrs=>Object.entries(attrs).filter(([,value])=>value!==undefined&&value!==null&&value!==false)
   .map(([name,value])=>value===true?` ${escapeHtml(name)}`:` ${escapeHtml(name)}="${escapeHtml(value)}"`).join('');
-const decorative=icon=>icon?`<span aria-hidden="true">${escapeHtml(icon)}</span>`:'';
+const decorative=name=>name?icon(name):'';
 
 export function pageHeader({title,intro}){
   return `<h1>${escapeHtml(title)}</h1><p class="page-intro">${escapeHtml(intro)}</p>`;
@@ -48,7 +53,7 @@ export function badge({text,tone='neutral',icon=''}){
 }
 
 export function emptyState({title,text,action=''}){
-  return `<div class="ui-empty"><p class="ui-empty-title">${escapeHtml(title)}</p><p>${escapeHtml(text)}</p>${action}</div>`;
+  return `<div class="ui-empty">${icon('inbox')}<p class="ui-empty-title">${escapeHtml(title)}</p><p>${escapeHtml(text)}</p>${action}</div>`;
 }
 
 // visible:true shows the meaning on the page too, for the place where a term is being explained rather than mentioned.

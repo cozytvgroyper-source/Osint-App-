@@ -1,6 +1,6 @@
 import {isPersonType} from './deep-search.js';
 import {TIERS} from './tool-tiers.js';
-import {button,card,escapeHtml,safeHttpUrl} from './ui.js';
+import {button,card,escapeHtml,icon,safeHttpUrl} from './ui.js?v=7';
 
 const categories=Object.freeze([['social','Social'],['developer','Developer'],['forums','Forums'],['shopping','Shopping'],['other','Other']]);
 const detailGroups=Object.freeze([
@@ -20,7 +20,7 @@ const safeUrl=safeHttpUrl;
 
 function externalLink(url,label){
   const href=safeUrl(url);if(!href)return escapeHtml(label||url);
-  return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label||url)}<span aria-hidden="true"> ↗</span><span class="visually-hidden"> (opens in a new tab)</span></a>`;
+  return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label||url)}${icon('external')}<span class="visually-hidden"> (opens in a new tab)</span></a>`;
 }
 
 function targetButton(value,label='Deep Search this site'){
@@ -28,7 +28,7 @@ function targetButton(value,label='Deep Search this site'){
 }
 
 function pivotButton(value){
-  return button({label:'Pivot →',kind:'secondary',attrs:{'data-pivot':value,'aria-label':`Pivot: investigate ${value}`}});
+  return button({label:'Pivot',kind:'secondary',icon:'arrow-right',attrs:{'data-pivot':value,'aria-label':`Pivot: investigate ${value}`}});
 }
 
 const emptyDetails=()=>Object.fromEntries(detailGroups.map(([key])=>[key,[]]));

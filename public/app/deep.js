@@ -1,6 +1,6 @@
 // Deep Search page: setup, progress, results and run history.
 // Moved unchanged from app.js; see app.js for the startup and button wiring.
-import { escapeHtml } from '../ui.js?v=6';
+import { emptyState, escapeHtml } from '../ui.js?v=7';
 import { TIERS } from '../tool-tiers.js?v=1';
 import { deepRunBlocked, deepToolsFor, detectDeepTarget, isPersonType } from '../deep-search.js?v=5';
 import { runDeepSearch as runDeepEngine } from '../deep-engine.js?v=2';
@@ -38,10 +38,10 @@ async function loadDeepHistory() {
     $('#deepHistoryBusy').hidden = !busy;
     box.innerHTML = runs.length
       ? `<div class="table-scroll" role="region" tabindex="0" aria-label="Run history table"><table class="deep-history-table"><thead><tr><th scope="col">When</th><th scope="col">Target</th><th scope="col">Max level</th><th scope="col">Tools</th><th scope="col">Outcome</th><th scope="col">Results</th></tr></thead><tbody>${runs.map(entry => `<tr><td>${escapeHtml(new Date(entry.time).toLocaleString())}</td><td><code>${escapeHtml(entry.target)}</code></td><td>${escapeHtml(levelName(entry.level))}</td><td title="${escapeHtml((entry.tools || []).join(', '))}">${entry.toolCount ?? (entry.tools || []).length} tool${(entry.toolCount ?? (entry.tools || []).length) === 1 ? '' : 's'}</td><td>${escapeHtml(entry.outcome)}</td><td>${entry.runId ? `<button type="button" class="text-button" data-open-deep="${escapeHtml(entry.runId)}"${busy ? ' disabled' : ''}>Open results</button>` : "Results weren't kept for this run"} ${deleteButton(entry)}</td></tr>`).join('')}</tbody></table></div>${total > runs.length ? `<p class="subtle">Showing the latest ${runs.length} of ${total} audit entries.</p>` : ''}${skipped ? `<p class="subtle">${skipped} damaged line${skipped === 1 ? ' was' : 's were'} skipped in the audit log.</p>` : ''}`
-      : '<div class="empty-state">No Deep Search runs yet.</div>';
+      : emptyState({title:'No Deep Search runs yet.',text:'Completed searches will appear here with their saved results.'});
   } catch (error) {
     $('#deleteAllDeepHistory').hidden = true;
-    box.innerHTML = `<div class="empty-state">Could not read the audit log: ${escapeHtml(error.message)}</div>`;
+    box.innerHTML = emptyState({title:'Could not read the search history.',text:error.message});
   }
 }
 function deepCandidateTypes(target) {

@@ -1,6 +1,6 @@
 // MCP servers page view: server cards as HTML strings, DOM-free so it can be tested with node --test. Each bundled
 // server says what it is for, the state reads as words, and the actions keep the data-* hooks app.js listens for.
-import {escapeHtml} from './ui.js?v=5';
+import {escapeHtml} from './ui.js?v=7';
 
 export const SERVER_PURPOSES=Object.freeze({
   'http://127.0.0.1:8892/mcp':'Public databases and news feeds; never contacts your target.',
@@ -31,7 +31,7 @@ export function serverCard(server,{bundled=false,toolCountText=''}={}){
     +`<div class="server-card-top"><h3>${escapeHtml(server.name)}</h3><span class="server-dot${server.status==='connected'?' connected':''}" aria-hidden="true"></span></div>`
     +(purpose?`<p class="server-purpose">${escapeHtml(purpose)}</p>`:'')
     +`<p class="server-status">${escapeHtml(serverStatusText(server,toolCountText))}</p>`
-    +`<p class="endpoint"><span class="visually-hidden">Address: </span>${escapeHtml(server.endpoint)}</p>`
+    +`<details class="technical-details"><summary>Technical details</summary><p class="endpoint"><span class="visually-hidden">Address: </span>${escapeHtml(server.endpoint)}</p></details>`
     +(server.caution?`<p class="form-note">${escapeHtml(server.caution)}</p>`:'')
     +`<div class="server-actions">${action(bundled?'Disable':'Remove','data-remove')}${primary}</div>`
     +`</article>`;

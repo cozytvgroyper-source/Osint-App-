@@ -1,6 +1,7 @@
 // Shared setup: page helpers, saved settings, the shared state, dialogs, messages, page switching and server calls.
 // Moved unchanged from app.js; see app.js for the startup and button wiring.
 import { activeCaseId } from '../cases-client.js';
+import { icon } from '../ui.js?v=7';
 import { loadStoredState, mergeStoredServers, persistStoredState, safeStorage } from '../browser-storage.js';
 import { renderRecentSearches } from './search.js';
 import { intelNews, loadIntelNews } from './news.js';
@@ -227,10 +228,10 @@ function toast(message, ms = 2400) {
   setTimeout(() => el.classList.remove('show'), ms);
 }
 function iconFor(name = '') {
-  if (/cyber|cve|threat|domain|ip/i.test(name)) return '⌁';
-  if (/geo|satellite|place|flight|vessel/i.test(name)) return '◈';
-  if (/sanction|entity|company/i.test(name)) return '◎';
-  return '▤';
+  if (/cyber|cve|threat|domain|ip/i.test(name)) return icon('shield');
+  if (/geo|satellite|place|flight|vessel/i.test(name)) return icon('search');
+  if (/sanction|entity|company/i.test(name)) return icon('evidence');
+  return icon('file');
 }
 
 // Each view's name and one plain line on what it is for, shown in the page header and the browser tab.

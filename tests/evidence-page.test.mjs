@@ -22,7 +22,7 @@ test('destructive actions ask in a real dialog, starting on Cancel',()=>{
 test('the case picker is named by its visible label',()=>{
   assert.doesNotMatch(html,/id="caseSelect" aria-label=/);
   assert.match(html,/<label>Case<select id="caseSelect"/);
-  assert.match(html,/id="deleteCase">Delete</);
+  assert.match(html,/id="deleteCase">[\s\S]*?icons\.svg#trash[\s\S]*?Delete</);
 });
 
 test('Evidence uses the view module and opens findings in the results panel',()=>{
@@ -33,7 +33,7 @@ test('Evidence uses the view module and opens findings in the results panel',()=
 });
 
 test('Export is one menu button with three described items',()=>{
-  assert.match(html,/id="exportButton" aria-haspopup="menu" aria-expanded="false" aria-controls="exportItems">Export</);
+  assert.match(html,/id="exportButton" aria-haspopup="menu" aria-expanded="false" aria-controls="exportItems">[\s\S]*?icons\.svg#download[\s\S]*?Export</);
   assert.equal((html.match(/role="menuitem"/g)||[]).length,3);
   for(const id of ['reportMarkdown','reportHtml','exportEvidence'])assert.match(html,new RegExp(`role="menuitem" tabindex="-1" id="${id}"`));
 });
@@ -60,7 +60,7 @@ test('an opened finding is shown as saved, with no Save button',()=>{
   assert.match(app,/data-open-finding[\s\S]{0,250}showResult\(item\.title,item\.result,\{saved:true\}\)/);
 });
 test('focus lands somewhere sensible after a confirmed delete',()=>{
-  assert.match(html,/<p id="caseSummary" class="subtle" tabindex="-1">/);
+  assert.match(html,/<div id="caseSummary" tabindex="-1">/);
   assert.match(app,/Remove this finding\?[\s\S]{0,500}\.then\(\(\)=>\$\('#caseSummary'\)\.focus\(\)\)/);
   assert.match(app,/Delete this case\?[\s\S]{0,500}\$\('#caseSelect'\)\.focus\(\)/);
   assert.match(app,/Remove this key\?[\s\S]{0,400}data-source-edit="\$\{CSS\.escape\(source\.id\)\}"\]'?\)?\??\.focus\(\)|Remove this key\?[\s\S]{0,400}focusSourceCard\(/);

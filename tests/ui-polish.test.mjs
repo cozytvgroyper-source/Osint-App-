@@ -44,7 +44,7 @@ test('there is no ⌘K shortcut or header Search button',()=>{
 test('the Passive search field has no focus box, while other controls keep theirs',()=>{
   assert.match(css,/\.search-row:focus-within\{border-color:var\(--accent-dark\)\}/);
   assert.doesNotMatch(css,/\.search-row:focus-within\{[^}]*outline/);
-  assert.match(css,/#query:focus-visible\{outline:none\}/);
+  assert.match(css,/#query:focus-visible,#deepTarget:focus-visible\{outline:none\}/);
   assert.match(css,/:focus-visible\{[^}]*outline:/);
 });
 

@@ -1,6 +1,6 @@
 // Search page: planning and running a search, and uploaded files.
 // Moved unchanged from app.js; see app.js for the startup and button wiring.
-import { emptyState, escapeHtml } from '../ui.js?v=6';
+import { emptyState, escapeHtml } from '../ui.js?v=7';
 import { classifyToolResult, hasUsefulData, parseToolResult } from '../result-classifier.js';
 import { passiveQuery, passiveSources, addCompanySources } from '../passive-search.js';
 import { buildPassiveResults } from '../passive-results.js';

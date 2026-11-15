@@ -1,7 +1,7 @@
 // Evidence page: cases, saved findings and recent-search history.
 // Moved unchanged from app.js; see app.js for the startup and button wiring.
-import { browserOnlyNotice, caseSummary, evidenceEmpty, findingCard } from '../evidence-view.js?v=3';
-import { escapeHtml } from '../ui.js?v=6';
+import { browserOnlyNotice, caseSummaryView, evidenceEmpty, findingCard } from '../evidence-view.js?v=4';
+import { escapeHtml } from '../ui.js?v=7';
 import { activeCaseId, defaultCaseName, newestFirst } from '../cases-client.js';
 import { $, localStore, state, persist, toast, apiGet, api } from './core.js';
 import { updateOpenResult } from './results.js';
@@ -22,7 +22,7 @@ function renderEvidence() {
   $('#caseImport').hidden = !legacy;
   $('#caseImport').innerHTML = legacy ? browserOnlyNotice(legacy) : '';
   const current = state.activeCase;
-  $('#caseSummary').textContent = caseSummary(current);
+  $('#caseSummary').innerHTML = caseSummaryView(current);
   $('#evidenceList').innerHTML = !current
     ? evidenceEmpty('no-case')
     : current.evidence.length

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#020d2d" />
   <title>Public Desk — OSINT workspace</title>
-  <link rel="stylesheet" href="/ui.css?v=35" />
+  <link rel="stylesheet" href="/ui.css?v=36" />
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -15,20 +15,20 @@
       <nav aria-label="Primary">
         <div class="nav-group" role="group" aria-labelledby="nav-g-1">
           <p id="nav-g-1" class="nav-group-label visually-hidden">Main</p>
-          <button class="nav active" data-view="workspace" aria-current="page"><span aria-hidden="true">⌕</span>Passive search</button>
-          <button class="nav" data-view="evidence"><span aria-hidden="true">◇</span>Evidence</button>
+          <button class="nav active" data-view="workspace" aria-current="page"><svg class="ui-icon" aria-hidden="true"><use href="/assets/icons.svg#search"></use></svg>Passive search</button>
+          <button class="nav" data-view="evidence"><svg class="ui-icon" aria-hidden="true"><use href="/assets/icons.svg#evidence"></use></svg>Evidence</button>
           <button class="nav" data-view="news"><img class="nav-logo" src="/assets/intelmap-logo.svg" alt="" aria-hidden="true" />News</button>
         </div>
         <div class="nav-group" role="group" aria-labelledby="nav-g-2">
           <p id="nav-g-2" class="nav-group-label">Tools and services</p>
-          <button class="nav" data-view="servers"><span aria-hidden="true">⌘</span>MCP servers</button>
-          <button class="nav" data-view="library"><span aria-hidden="true">◫</span>Tool library</button>
-          <button class="nav nav-deep" data-view="deep"><span aria-hidden="true">⚠</span>Deep Search</button>
+          <button class="nav" data-view="servers"><svg class="ui-icon" aria-hidden="true"><use href="/assets/icons.svg#server"></use></svg>MCP servers</button>
+          <button class="nav" data-view="library"><svg class="ui-icon" aria-hidden="true"><use href="/assets/icons.svg#grid"></use></svg>Tool library</button>
+          <button class="nav nav-deep" data-view="deep"><svg class="ui-icon" aria-hidden="true"><use href="/assets/icons.svg#shield"></use></svg>Deep Search</button>
         </div>
         <div class="nav-group" role="group" aria-labelledby="nav-g-3">
           <p id="nav-g-3" class="nav-group-label">Outside sites</p>
-          <a class="nav nav-external" href="https://intelmap.watch/" target="_blank" rel="noopener noreferrer" aria-label="Open IntelMap (opens in a new tab)"><img class="nav-logo" src="/assets/intelmap-logo.svg" alt="" aria-hidden="true" />IntelMap <i aria-hidden="true">↗</i></a>
-          <a class="nav nav-external" href="https://situationroom.io/" target="_blank" rel="noopener noreferrer" aria-label="Open Situation Room (opens in a new tab)"><img class="nav-logo" src="/assets/situation-room-logo.svg" alt="" aria-hidden="true" />Situation Room <i aria-hidden="true">↗</i></a>
+          <a class="nav nav-external" href="https://intelmap.watch/" target="_blank" rel="noopener noreferrer" aria-label="Open IntelMap (opens in a new tab)"><img class="nav-logo" src="/assets/intelmap-logo.svg" alt="" aria-hidden="true" />IntelMap <svg class="ui-icon external-icon" aria-hidden="true"><use href="/assets/icons.svg#external"></use></svg></a>
+          <a class="nav nav-external" href="https://situationroom.io/" target="_blank" rel="noopener noreferrer" aria-label="Open Situation Room (opens in a new tab)"><img class="nav-logo" src="/assets/situation-room-logo.svg" alt="" aria-hidden="true" />Situation Room <svg class="ui-icon external-icon" aria-hidden="true"><use href="/assets/icons.svg#external"></use></svg></a>
         </div>
       </nav>
       <div class="rail-foot">
@@ -39,15 +39,15 @@
     <main id="main" tabindex="-1">
       <header>
         <div><h1 id="pageTitle">Passive search</h1><p id="pageIntro" class="page-intro">Look up a person, company or news event in public sources. Nothing here contacts anyone.</p></div>
-        <div class="header-actions"><button class="primary" id="newInvestigation">＋ New investigation</button></div>
+        <div class="header-actions"><button class="primary" id="newInvestigation"><svg class="ui-icon" aria-hidden="true"><use href="/assets/icons.svg#plus"></use></svg>New investigation</button></div>
       </header>
 
       <section id="workspace" class="view active-view">
         <div class="hero-card">
           <form id="investigateForm" class="search-box">
             <label for="query" class="search-label">What do you want to look up?</label>
-            <div class="search-row"><span class="search-icon" aria-hidden="true">⌕</span><input id="query" autocomplete="off" placeholder="e.g. Donald Trump, Rosneft or earthquakes in Chile" /><button type="submit">Search</button></div>
-            <div class="file-actions"><label class="upload-button">＋ Add a file (picture, video, PDF, Word, text, CSV or JSON)<input id="fileInput" type="file" accept="image/*,video/*,.pdf,.doc,.docx,.txt,.csv,.json,.rtf" /></label><div id="fileSelection" class="file-selection" hidden><span id="fileIcon">◇</span><div><b id="fileName"></b><small id="fileDetails"></small></div><button type="button" id="removeFile" aria-label="Remove selected file">×</button></div><small class="file-privacy">Analyzed locally · 50 MB maximum</small></div>
+            <div class="search-row"><svg class="ui-icon search-icon" aria-hidden="true"><use href="/assets/icons.svg#search"></use></svg><input id="query" autocomplete="off" placeholder="e.g. Donald Trump, Rosneft or earthquakes in Chile" /><button type="submit"><svg class="ui-icon" aria-hidden="true"><use href="/assets/icons.svg#search"></use></svg>Search</button></div>
+            <div class="file-actions"><label class="upload-button"><svg class="ui-icon" aria-hidden="true"><use href="/assets/icons.svg#plus"></use></svg>Add a file (picture, video, PDF, Word, text, CSV or JSON)<input id="fileInput" type="file" accept="image/*,video/*,.pdf,.doc,.docx,.txt,.csv,.json,.rtf" /></label><div id="fileSelection" class="file-selection" hidden><span id="fileIcon"><svg class="ui-icon" aria-hidden="true"><use href="/assets/icons.svg#file"></use></svg></span><div><b id="fileName"></b><small id="fileDetails"></small></div><button type="button" id="removeFile" aria-label="Remove selected file"><svg class="ui-icon" aria-hidden="true"><use href="/assets/icons.svg#close"></use></svg></button></div><small class="file-privacy">Analyzed locally · 50 MB maximum</small></div>
             <div class="chips" role="group" aria-label="Example searches">
               <button type="button" data-prompt="Donald Trump">A person: Donald Trump</button>
               <button type="button" data-prompt="Rosneft">A company: Rosneft</button>
@@ -60,22 +60,22 @@
 
 
         <div class="lower-grid">
-          <section class="panel"><div class="panel-head"><div><h2>Recent searches</h2></div><button class="icon-button" id="clearHistory" aria-label="Clear history"><span aria-hidden="true">⌫</span></button></div><div id="history" class="history"></div></section>
+          <section class="panel"><div class="panel-head"><div><h2>Recent searches</h2></div><button class="icon-button" id="clearHistory" aria-label="Clear history"><svg class="ui-icon" aria-hidden="true"><use href="/assets/icons.svg#trash"></use></svg></button></div><div id="history" class="history"></div></section>
         </div>
       </section>
 
       <section id="servers" class="view">
-        <div class="section-heading view-actions"><button class="primary" id="addServer">＋ Add server</button></div>
+        <div class="section-heading view-actions"><button class="primary" id="addServer"><svg class="ui-icon" aria-hidden="true"><use href="/assets/icons.svg#plus"></use></svg>Add server</button></div>
         <h2 class="visually-hidden">Your MCP servers</h2>
         <div id="serverList" class="server-grid"></div>
-        <div class="self-check"><div class="section-heading"><div><p class="eyebrow">HEALTH</p><h2>Tool self-check: test that each search tool still works</h2><p class="subtle" id="selfCheckIntro">Runs each tool the automatic search uses against harmless test targets (example.com, 8.8.8.8, user@example.com, @octocat, CVE-2021-44228 and the EICAR test hash) to spot tools that stopped working. Passive lookups only; the services behind them see these queries.</p></div><div class="self-check-actions"><button class="ghost" id="stopSelfCheck" hidden>Stop</button><button class="primary" id="runSelfCheck">Run self-check</button></div></div><p class="subtle" id="selfCheckSummary"></p><div id="selfCheckResults"></div></div>
+        <div class="self-check"><div class="section-heading"><div><p class="eyebrow">HEALTH</p><h2>Tool self-check: test that each search tool still works</h2><p class="subtle" id="selfCheckIntro">Runs each tool the automatic search uses against harmless test targets (example.com, 8.8.8.8, user@example.com, @octocat, CVE-2021-44228 and the EICAR test hash) to spot tools that stopped working. Passive lookups only; the services behind them see these queries.</p></div><div class="self-check-actions"><button class="ghost" id="stopSelfCheck" hidden><svg class="ui-icon" aria-hidden="true"><use href="/assets/icons.svg#stop"></use></svg>Stop</button><button class="primary" id="runSelfCheck"><svg class="ui-icon" aria-hidden="true"><use href="/assets/icons.svg#play"></use></svg>Run self-check</button></div></div><p class="subtle" id="selfCheckSummary"></p><div id="selfCheckResults"></div></div>
         <div class="section-heading"><div><p class="eyebrow">CONNECTIONS</p><h2>Data sources</h2><p class="subtle">API keys for the services behind Open OSINT's tools. Keys are saved on this Mac only, in work/api-keys.env, and are never shown again. Connect and Disconnect apply right away.</p></div><span class="subtle" id="dataSourceCount"></span></div>
-        <div id="dataSourceList" class="server-grid"><div class="empty-state">Loading data sources…</div></div>
+        <div id="dataSourceList" class="server-grid"><div class="system-state system-state-loading"><svg class="ui-icon" aria-hidden="true"><use href="/assets/icons.svg#refresh"></use></svg><div><b>Loading data sources</b><p>Checking the services configured on this Mac.</p></div></div></div>
         <div class="source-gaps"><h3>Not supported yet</h3><p class="subtle">These keys would improve results, but Public Desk cannot use them yet, so there is nothing to connect:</p><ul><li><b>Have I Been Pwned:</b> reliable email breach checks. Without it, <code>omega_leaked</code> reports "no breaches" even though it never checked (see the Omega tool review).</li><li><b>Shodan:</b> full host, port and banner data for IP searches, beyond the free InternetDB summary in the IP dossier.</li></ul><p class="subtle">Both are read by Omega from its own settings rather than this page, so adding them needs a small change first.</p></div>
       </section>
 
       <section id="library" class="view">
-        <div class="section-heading"><div><p class="subtle" id="toolCount">Connect a server to discover tools.</p></div><label class="filter"><span>⌕</span><input id="toolFilter" placeholder="Filter tools" /></label></div>
+        <div class="section-heading"><div><p class="subtle" id="toolCount">Connect a server to discover tools.</p></div><label class="filter"><svg class="ui-icon" aria-hidden="true"><use href="/assets/icons.svg#search"></use></svg><input id="toolFilter" placeholder="Filter tools" aria-label="Filter tools" /></label></div>
         <div id="tierFilters" class="tier-filters" role="group" aria-label="Filter tools by risk tier"></div>
         <div id="toolLibrary" class="tier-groups"></div>
       </section>
@@ -84,21 +84,11 @@
         <section id="deepSetup" class="deep-search-box" aria-labelledby="deepSearchHeading">
           <h2 id="deepSearchHeading">Find everything about one email, username, website or IP</h2>
           <p class="subtle">Takes a few minutes. Keep this tab open.</p>
-          <label for="deepTarget">What should Deep Search check?</label>
-          <input id="deepTarget" autocomplete="off" placeholder="Email, username, website or IP" />
-          <p id="deepStatus" class="deep-status" role="status"></p>
-          <div id="deepLevelWrap" class="deep-level" hidden>
-            <label for="deepLevel">How far may Deep Search go?</label>
-            <select id="deepLevel" aria-describedby="deepLevelExplain"><option value="0">Passive</option><option value="1" selected>Light touch</option><option value="2">Active</option><option value="3">Intrusive</option></select>
-            <p id="deepLevelExplain" class="field-hint deep-level-explain"></p>
+          <div class="deep-setup-steps">
+            <section class="deep-setup-step" aria-labelledby="deepStepTarget"><span class="step-number" aria-hidden="true">1</span><div class="step-content"><h3 id="deepStepTarget">Target and reach</h3><label for="deepTarget">What should Deep Search check?</label><input id="deepTarget" autocomplete="off" placeholder="Email, username, website or IP" /><p id="deepStatus" class="deep-status" role="status"></p><div id="deepLevelWrap" class="deep-level" hidden><label for="deepLevel">How far may Deep Search go?</label><select id="deepLevel" aria-describedby="deepLevelExplain"><option value="0">Passive</option><option value="1" selected>Light touch</option><option value="2">Active</option><option value="3">Intrusive</option></select><p id="deepLevelExplain" class="field-hint deep-level-explain"></p></div></div></section>
+            <section class="deep-setup-step" aria-labelledby="deepStepTools"><span class="step-number" aria-hidden="true">2</span><div class="step-content"><h3 id="deepStepTools">Review tools</h3><p class="subtle">Only connected and reviewed tools that fit the target are included.</p><details class="deep-tool-choices"><summary>Choose tools</summary><div id="deepTools"><p class="subtle">Type a supported target to see the tools Deep Search can use.</p></div></details></div></section>
+            <section class="deep-setup-step" aria-labelledby="deepStepConfirm"><span class="step-number" aria-hidden="true">3</span><div class="step-content"><h3 id="deepStepConfirm">Confirm and run</h3><div id="deepConfirmations" class="deep-confirmations" hidden><label class="run-check"><input type="checkbox" id="deepAuthorize" /> I own this target or have written permission to test it.</label><label id="deepTypedWrap" hidden>Type the target exactly to confirm Intrusive testing<input id="deepTypedTarget" autocomplete="off" /></label></div><p id="deepError" class="form-error"></p><button class="primary" id="startDeepSearch" disabled><svg class="ui-icon" aria-hidden="true"><use href="/assets/icons.svg#play"></use></svg>Start Deep Search</button></div></section>
           </div>
-          <div id="deepConfirmations" class="deep-confirmations" hidden>
-            <label class="run-check"><input type="checkbox" id="deepAuthorize" /> I own this target or have written permission to test it.</label>
-            <label id="deepTypedWrap" hidden>Type the target exactly to confirm Intrusive testing<input id="deepTypedTarget" autocomplete="off" /></label>
-          </div>
-          <p id="deepError" class="form-error"></p>
-          <button class="primary" id="startDeepSearch" disabled>Start Deep Search</button>
-          <details class="deep-tool-choices"><summary>Choose tools</summary><div id="deepTools"><p class="subtle">Type a supported target to see the tools Deep Search can use.</p></div></details>
         </section>
         <div id="deepProgress" hidden></div>
         <div id="deepResults" hidden></div>
@@ -106,8 +96,8 @@
       </section>
 
       <section id="news" class="view">
-        <div class="section-heading news-heading view-actions"><div class="header-actions"><button class="primary" id="refreshIntelNews"><span aria-hidden="true">↻ </span>Refresh</button></div></div>
-        <div class="news-toolbar"><label class="filter"><span aria-hidden="true">⌕</span>Search news<input id="intelNewsFilter" placeholder="Title, source or country" /></label><label class="news-category">Category<select id="intelNewsCategory"><option value="">All categories</option></select></label><span id="intelNewsFreshness" class="subtle"></span></div>
+        <div class="section-heading news-heading view-actions"><div class="header-actions"><button class="primary" id="refreshIntelNews"><svg class="ui-icon" aria-hidden="true"><use href="/assets/icons.svg#refresh"></use></svg>Refresh</button></div></div>
+        <div class="news-toolbar"><label class="filter"><svg class="ui-icon" aria-hidden="true"><use href="/assets/icons.svg#search"></use></svg>Search news<input id="intelNewsFilter" placeholder="Title, source or country" /></label><label class="news-category">Category<select id="intelNewsCategory"><option value="">All categories</option></select></label><span id="intelNewsFreshness" class="subtle"></span></div>
         <div id="intelNewsMetrics" class="news-metrics"></div>
         <p id="intelNewsStatus" class="news-status" role="status"></p>
         <h2 class="visually-hidden">Stories</h2>
@@ -116,16 +106,16 @@
 
       <section id="evidence" class="view">
         <div class="section-heading view-actions"><div class="menu" id="exportMenu">
-          <button type="button" class="ghost" id="exportButton" aria-haspopup="menu" aria-expanded="false" aria-controls="exportItems">Export</button>
+          <button type="button" class="ghost" id="exportButton" aria-haspopup="menu" aria-expanded="false" aria-controls="exportItems"><svg class="ui-icon" aria-hidden="true"><use href="/assets/icons.svg#download"></use></svg>Export</button>
           <div role="menu" id="exportItems" aria-labelledby="exportButton" hidden>
             <button type="button" role="menuitem" tabindex="-1" id="reportMarkdown"><b>Report (Markdown)</b><span>A readable report with every finding and its fingerprint.</span></button>
             <button type="button" role="menuitem" tabindex="-1" id="reportHtml"><b>Report (printable page / PDF)</b><span>Open it, then print or save as PDF.</span></button>
             <button type="button" role="menuitem" tabindex="-1" id="exportEvidence"><b>Raw data (JSON)</b><span>The whole case as data, for other tools.</span></button>
           </div>
         </div></div>
-        <div class="case-bar"><label>Case<select id="caseSelect"></select></label><button class="ghost" id="newCase">＋ New case</button><button class="text-button" id="renameCase">Rename</button><button class="text-button" id="deleteCase">Delete</button></div>
+        <div class="case-bar"><label>Case<select id="caseSelect"></select></label><button class="ghost" id="newCase"><svg class="ui-icon" aria-hidden="true"><use href="/assets/icons.svg#plus"></use></svg>New case</button><button class="text-button" id="renameCase"><svg class="ui-icon" aria-hidden="true"><use href="/assets/icons.svg#edit"></use></svg>Rename</button><button class="text-button" id="deleteCase"><svg class="ui-icon" aria-hidden="true"><use href="/assets/icons.svg#trash"></use></svg>Delete</button></div>
         <div id="caseImport" class="case-import" hidden></div>
-        <p id="caseSummary" class="subtle" tabindex="-1"></p>
+        <div id="caseSummary" tabindex="-1"></div>
         <h2 class="visually-hidden">Findings</h2>
         <div id="evidenceList" class="evidence-list"></div>
       </section>
@@ -133,7 +123,7 @@
   </div>
 
   <dialog id="serverDialog" aria-labelledby="serverDialogTitle">
-    <form method="dialog" id="serverForm"><div class="dialog-head"><div><p class="eyebrow">NEW CONNECTION</p><h2 id="serverDialogTitle">Add MCP server</h2></div><button type="button" data-close-dialog class="icon-button" aria-label="Close">×</button></div>
+    <form method="dialog" id="serverForm"><div class="dialog-head"><div><p class="eyebrow">NEW CONNECTION</p><h2 id="serverDialogTitle">Add MCP server</h2></div><button type="button" data-close-dialog class="icon-button" aria-label="Close"><svg class="ui-icon" aria-hidden="true"><use href="/assets/icons.svg#close"></use></svg></button></div>
       <div class="field"><label for="serverName">Name</label><input id="serverName" name="name" autocomplete="off" placeholder="OSINT MCP" aria-describedby="serverName-hint serverName-error" /><p id="serverName-hint" class="field-hint">A name you'll recognize.</p><p id="serverName-error" class="field-error"></p></div>
       <div class="field"><label for="serverEndpoint">Endpoint</label><input id="serverEndpoint" name="endpoint" type="url" autocomplete="off" placeholder="https://example.com/mcp" aria-describedby="serverEndpoint-hint serverEndpoint-error" /><p id="serverEndpoint-hint" class="field-hint">Must start with https://</p><p id="serverEndpoint-error" class="field-error"></p></div>
       <div class="field"><label for="serverToken">Bearer token <span>(optional)</span></label><input id="serverToken" name="token" type="password" autocomplete="off" aria-describedby="serverToken-hint" /><p id="serverToken-hint" class="field-hint">Kept only until you close this tab.</p></div>
@@ -144,7 +134,7 @@
   </dialog>
 
   <dialog id="keyDialog" aria-labelledby="keyDialogTitle">
-    <form method="dialog" id="keyForm"><div class="dialog-head"><div><p class="eyebrow">DATA SOURCE</p><h2 id="keyDialogTitle">Connect</h2></div><button type="button" data-close-dialog class="icon-button" aria-label="Close">×</button></div>
+    <form method="dialog" id="keyForm"><div class="dialog-head"><div><p class="eyebrow">DATA SOURCE</p><h2 id="keyDialogTitle">Connect</h2></div><button type="button" data-close-dialog class="icon-button" aria-label="Close"><svg class="ui-icon" aria-hidden="true"><use href="/assets/icons.svg#close"></use></svg></button></div>
       <div id="keyFields"></div>
       <p class="form-note" id="keyNote"></p><p id="keyError" class="form-error"></p>
       <div class="dialog-actions"><button type="button" data-close-dialog class="ghost">Cancel</button><button value="default" class="primary" id="saveKey">Connect</button></div>
@@ -152,13 +142,13 @@
   </dialog>
 
   <dialog id="runDialog" aria-labelledby="runToolName">
-    <form method="dialog" id="runForm"><div class="dialog-head"><div><p class="eyebrow">RUN TOOL</p><h2 id="runToolName">Tool</h2></div><button type="button" data-close-dialog class="icon-button" aria-label="Close">×</button></div>
+    <form method="dialog" id="runForm"><div class="dialog-head"><div><p class="eyebrow">RUN TOOL</p><h2 id="runToolName">Tool</h2></div><button type="button" data-close-dialog class="icon-button" aria-label="Close"><svg class="ui-icon" aria-hidden="true"><use href="/assets/icons.svg#close"></use></svg></button></div>
       <p id="runToolDescription" class="subtle"></p><div id="runRisk"></div><label>Tool settings (JSON)<textarea id="runArgs" rows="9" aria-describedby="runArgs-hint">{}</textarea></label><p id="runArgs-hint" class="field-hint">Leave as {} to use the defaults.</p><p id="runError" class="form-error"></p>
       <div class="dialog-actions"><button type="button" data-close-dialog class="ghost">Cancel</button><button value="default" class="primary" id="executeTool">Run tool</button></div>
     </form>
   </dialog>
 
-  <dialog id="resultDialog" class="result-dialog" aria-labelledby="resultTitle"><div class="dialog-head"><div><p class="eyebrow">INVESTIGATION RESULT</p><h2 id="resultTitle">Result</h2></div><button class="icon-button" data-close-result aria-label="Close">×</button></div><div id="resultBody" class="result-body"></div><div class="dialog-actions"><button class="ghost" data-close-result>Close</button><button class="primary" id="saveEvidence">Save to evidence</button></div></dialog>
+  <dialog id="resultDialog" class="result-dialog" aria-labelledby="resultTitle"><div class="dialog-head"><div><p class="eyebrow">INVESTIGATION RESULT</p><h2 id="resultTitle">Result</h2></div><button class="icon-button" data-close-result aria-label="Close"><svg class="ui-icon" aria-hidden="true"><use href="/assets/icons.svg#close"></use></svg></button></div><div id="resultBody" class="result-body"></div><div class="dialog-actions"><button class="ghost" data-close-result>Close</button><button class="primary" id="saveEvidence"><svg class="ui-icon" aria-hidden="true"><use href="/assets/icons.svg#save"></use></svg>Save to evidence</button></div></dialog>
 
   <dialog id="confirmDialog" aria-labelledby="confirmTitle" aria-describedby="confirmMessage">
     <h2 id="confirmTitle"></h2><p id="confirmMessage"></p>
@@ -166,6 +156,6 @@
   </dialog>
 
   <div id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/app.js?v=63"></script>
+  <script type="module" src="/app.js?v=64"></script>
 </body>
 </html>

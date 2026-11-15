@@ -9,14 +9,22 @@ const deep=html.match(/<section id="deep"[\s\S]*?<section id="news"/)[0];
 // One named function's source, so a check can't be satisfied by unrelated code elsewhere in app.js.
 const fn=name=>{const start=app.indexOf(`async function ${name}(`);assert.ok(start>=0,name);const end=app.indexOf('\nasync function ',start+1);return app.slice(start,end<0?undefined:end);};
 
-test('Deep Search is one clear box with one start button and optional tool choices',()=>{
+test('Deep Search is a clear three-step sequence with one start button',()=>{
   assert.match(deep,/Find everything about one email, username, website or IP/);
+  assert.equal((deep.match(/class="deep-setup-step"/g)||[]).length,3);
+  assert.match(deep,/>1<\/span>[\s\S]*Target and reach/);
+  assert.match(deep,/>2<\/span>[\s\S]*Review tools/);
+  assert.match(deep,/>3<\/span>[\s\S]*Confirm and run/);
   assert.equal((deep.match(/id="deepTarget"/g)||[]).length,1);
   assert.match(deep,/id="deepStatus"[^>]*role="status"/);
   assert.match(deep,/id="deepLevelWrap"[^>]*hidden/);
   for(const id of ['deepLevel','deepAuthorize','deepTypedTarget'])assert.match(deep,new RegExp(`id="${id}"`));
   assert.equal((deep.match(/id="startDeepSearch"/g)||[]).length,1);
   assert.match(deep,/<details[^>]*>[\s\S]*<summary>Choose tools<\/summary>/);
+});
+
+test('the target field has no blue focus outline',()=>{
+  assert.match(styles,/#query:focus-visible,#deepTarget:focus-visible\{outline:none\}/);
 });
 
 test('unsupported input explains the limit, links to Search and disables Start',()=>{
@@ -119,7 +127,7 @@ test('person result modules and app use the refined-result versions',()=>{
   assert.match(app,/deep-adapters\.js\?v=2/);
   assert.match(app,/deep-linking\.js\?v=2/);
   assert.match(app,/deep-results-view\.js\?v=2/);
-  assert.match(html,/src="\/app\.js\?v=63"/);
+  assert.match(html,/src="\/app\.js\?v=64"/);
 });
 
 test('result links use the accessible theme color',()=>assert.match(styles,/#deepResults a\{color:var\(--accent-dark\)\}/));

@@ -2,7 +2,7 @@
 // records, and a "Search details" list. Every value is escaped; a link that is not http(s) is shown as plain text.
 // Groups are <h3> because the result dialog's title is the <h2>.
 import {sortNews} from './passive-results.js';
-import {escapeHtml as defaultEscape,safeHttpUrl as defaultSafeUrl} from './ui.js';
+import {escapeHtml as defaultEscape,safeHttpUrl as defaultSafeUrl} from './ui.js?v=7';
 
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const readable=iso=>{const d=new Date(iso);return Number.isNaN(d.getTime())?String(iso):`${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;};

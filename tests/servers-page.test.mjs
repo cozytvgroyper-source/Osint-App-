@@ -34,8 +34,9 @@ test('data source cards lead with what the key improves',()=>{
   assert.match(fn,/\(opens in a new tab\)/);
 });
 test('self-check results are words with an icon, and tables have column headers',()=>{
-  assert.match(app,/'✓','Working'|✓ Working/);
-  assert.match(app,/'✕','Failing'|✕ Failing/);
+  assert.match(app,/working:\s*\['check',\s*'Working'\]/);
+  assert.match(app,/failing:\s*\['ban',\s*'Failing'\]/);
+  assert.match(app,/icon\(label\[r\.outcome\]\[0\]\)/);
   assert.doesNotMatch(app,/<th>/,'every th has scope="col"');
   assert.match(html,/Tool self-check: test that each search tool still works/);
 });

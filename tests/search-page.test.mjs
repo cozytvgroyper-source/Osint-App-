@@ -11,7 +11,7 @@ const workspace=html.match(/<section id="workspace"[\s\S]*?<\/section>\s*<sectio
 
 test('the search box has a visible label and a plain button',()=>{
   assert.match(workspace,/<label for="query" class="search-label">What do you want to look up\?<\/label>/);
-  assert.match(workspace,/<button type="submit">Search<\/button>/);
+  assert.match(workspace,/<button type="submit">[\s\S]*?icons\.svg#search[\s\S]*?Search<\/button>/);
   assert.match(workspace,/Add a file \(picture, video, PDF, Word, text, CSV or JSON\)/);
 });
 
@@ -22,7 +22,7 @@ test('example searches fill the box with a plain value',()=>{
 });
 
 test('the page is called Passive search',()=>{
-  assert.match(html,/data-view="workspace"[^>]*aria-current="page"[^>]*><span[^>]*>⌕<\/span>Passive search<\/button>/);
+  assert.match(html,/data-view="workspace"[^>]*aria-current="page"[^>]*>[\s\S]*?icons\.svg#search[\s\S]*?Passive search<\/button>/);
   assert.match(html,/<h1 id="pageTitle">Passive search<\/h1>/);
   assert.match(html,/Look up a person, company or news event in public sources\. Nothing here contacts anyone\./);
   assert.match(workspace,/placeholder="e\.g\. Donald Trump, Rosneft or earthquakes in Chile"/);

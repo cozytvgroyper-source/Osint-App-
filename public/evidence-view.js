@@ -1,12 +1,12 @@
 // Evidence page view: finding cards, the case summary, empty states and the browser-only notice as HTML strings,
 // DOM-free so it can be tested with node --test. Statuses keep their stored values (unverified, confirmed, ruled out);
 // only their labels are plain words from the glossary.
-import {button,emptyState,escapeHtml,term} from './ui.js?v=5';
+import {button,emptyState,escapeHtml,icon,term} from './ui.js?v=7';
 import {GLOSSARY} from './glossary.js';
 import {shortFingerprint} from './cases-client.js';
 
 const NOTE_LIMIT=4000;
-const STATUSES=[['unverified','unverified','○'],['confirmed','confirmed','✓'],['ruled out','ruledOut','✕']];
+const STATUSES=[['unverified','unverified','circle'],['confirmed','confirmed','check'],['ruled out','ruledOut','ban']];
 const plural=(n,word)=>`${n} ${word}${n===1?'':'s'}`;
 
 export function caseSummary(record){
@@ -16,11 +16,19 @@ export function caseSummary(record){
   return `${plural(evidence.length,'finding')}: ${count('confirmed')} confirmed, ${count('unverified')} not checked yet, ${count('ruled out')} ruled out`;
 }
 
+export function caseSummaryView(record){
+  if(!record)return '';
+  const evidence=record.evidence||[];
+  const count=status=>evidence.filter(item=>(item.status||'unverified')===status).length;
+  const stats=[['All findings',evidence.length],['Confirmed',count('confirmed')],['Not checked',count('unverified')],['Ruled out',count('ruled out')]];
+  return `<section class="case-overview" aria-label="Case summary"><div><p class="eyebrow">OPEN CASE</p><h2>${escapeHtml(record.name||'Untitled case')}</h2><p class="subtle">${escapeHtml(caseSummary(record))}</p></div><dl>${stats.map(([label,value])=>`<div><dt>${escapeHtml(label)}</dt><dd>${value}</dd></div>`).join('')}</dl></section>`;
+}
+
 export function findingCard(item){
   const id=escapeHtml(item.id);
   const current=item.status||'unverified';
   const found=item.time?new Date(item.time).toLocaleString():'';
-  const statuses=STATUSES.map(([value,key,icon])=>`<button type="button" class="status-option" data-set-status="${escapeHtml(value)}" data-finding="${id}" data-label="${escapeHtml(GLOSSARY[key].label)}" aria-pressed="${current===value}"><span aria-hidden="true">${icon}</span>${escapeHtml(GLOSSARY[key].label)}</button>`).join('');
+  const statuses=STATUSES.map(([value,key,iconName])=>`<button type="button" class="status-option" data-set-status="${escapeHtml(value)}" data-finding="${id}" data-label="${escapeHtml(GLOSSARY[key].label)}" aria-pressed="${current===value}">${icon(iconName)}${escapeHtml(GLOSSARY[key].label)}</button>`).join('');
   const note=String(item.note||'');
   return `<article class="evidence-card">`
     +`<h3>${escapeHtml(item.title)}</h3>`
@@ -28,8 +36,8 @@ export function findingCard(item){
     +`<div role="group" aria-label="Status of ${escapeHtml(item.title)}" class="status-group">${statuses}</div>`
     +`<div class="evidence-note"><label for="note-${id}">Note</label><textarea id="note-${id}" data-evidence-note="${id}" maxlength="${NOTE_LIMIT}" aria-describedby="note-count-${id}" rows="2" placeholder="Why you trust or doubt this finding">${escapeHtml(note)}</textarea>`
     +`<p id="note-count-${id}" class="note-count">${note.length} of ${NOTE_LIMIT} characters</p>${button({label:'Save note',attrs:{'data-save-note':item.id}})}</div>`
-    +`<div class="card-actions">${button({label:'Open',kind:'quiet',attrs:{'data-open-finding':item.id}})}${button({label:'Remove',kind:'quiet',attrs:{'data-delete-evidence':item.id}})}</div>`
-    +`<p class="fingerprint">${term('fingerprint',{visible:true})} <code>${escapeHtml(shortFingerprint(item.sha256))}</code></p>`
+    +`<div class="card-actions">${button({label:'Open',kind:'quiet',icon:'arrow-right',attrs:{'data-open-finding':item.id}})}${button({label:'Remove',kind:'quiet',icon:'trash',attrs:{'data-delete-evidence':item.id}})}</div>`
+    +`<details class="technical-details"><summary>Technical details</summary><p class="fingerprint">${term('fingerprint',{visible:true})} <code>${escapeHtml(shortFingerprint(item.sha256))}</code></p></details>`
     +`</article>`;
 }
 

@@ -1,7 +1,7 @@
 // News page: the IntelMap news feed.
 // Moved unchanged from app.js; see app.js for the startup and button wiring.
 import { newsCard, newsMetrics, relativeTime } from '../news-view.js?v=2';
-import { emptyState, escapeHtml, safeHttpUrl } from '../ui.js?v=6';
+import { emptyState, escapeHtml, icon, safeHttpUrl } from '../ui.js?v=7';
 import { $, api } from './core.js';
 import { humanize } from './results.js';
 
@@ -24,12 +24,12 @@ function renderIntelNews() {
   const status = $('#intelNewsStatus');
   if (intelNews.loading) {
     status.textContent = 'Loading news…';
-    list.innerHTML = '';
+    list.innerHTML = `<div class="system-state system-state-loading">${icon('refresh')}<div><b>Loading news</b><p>Contacting IntelMap for the latest public events.</p></div></div>`;
     return;
   }
   if (intelNews.error) {
     status.textContent = "Couldn't reach IntelMap. Check your internet connection and try again.";
-    list.innerHTML = '<button class="ghost" id="retryIntelNews">Try again</button>';
+    list.innerHTML = emptyState({title:"Couldn't reach IntelMap.",text:'Check your internet connection and try again.',action:`<button class="ghost" id="retryIntelNews">${icon('refresh')}Try again</button>`});
     $('#retryIntelNews').addEventListener('click', () => {
       $('#refreshIntelNews').focus();
       loadIntelNews(true);

@@ -1,7 +1,7 @@
 // MCP servers page: connecting servers, their status and the data-source keys.
 // Moved unchanged from app.js; see app.js for the startup and button wiring.
 import { serverCard, serverFocusTarget } from '../servers-view.js?v=4';
-import { emptyState, escapeHtml } from '../ui.js?v=6';
+import { emptyState, escapeHtml, icon } from '../ui.js?v=7';
 import { recordToolHealth, toolCountLabel } from '../tool-health.js';
 import { $, bundledServers, state, sessionKeyFor, openDialog, toast, api, renderAll } from './core.js';
 
@@ -126,10 +126,13 @@ function renderDataSources() {
   $('#dataSourceCount').textContent = count;
   renderSourcesStatus();
   if (dataSources.error) {
-    $('#dataSourceList').innerHTML = `<div class="empty-state">${escapeHtml(dataSources.error)}</div>`;
+    $('#dataSourceList').innerHTML = emptyState({title:'Could not load data sources.',text:dataSources.error});
     return;
   }
-  if (!dataSources.loaded) return;
+  if (!dataSources.loaded) {
+    $('#dataSourceList').innerHTML = `<div class="system-state system-state-loading">${icon('refresh')}<div><b>Loading data sources</b><p>Checking the services configured on this Mac.</p></div></div>`;
+    return;
+  }
   $('#dataSourceList').innerHTML = list
     .map(s => {
       const dot = s.status === 'connected' ? 'connected' : s.status === 'disconnected' ? '' : 'idle';
@@ -137,14 +140,14 @@ function renderDataSources() {
       const id = escapeHtml(s.id);
       const actions =
         s.status === 'not_configured'
-          ? `<a class="ghost" href="${escapeHtml(s.signup)}" target="_blank" rel="noopener noreferrer">Get a key<span aria-hidden="true"> ↗</span><span class="visually-hidden"> (opens in a new tab)</span></a><button class="primary" data-source-edit="${id}">Connect</button>`
+          ? `<a class="ghost" href="${escapeHtml(s.signup)}" target="_blank" rel="noopener noreferrer">Get a key${icon('external')}<span class="visually-hidden"> (opens in a new tab)</span></a><button class="primary" data-source-edit="${id}">Connect</button>`
           : `<button class="ghost" data-source-remove="${id}">Remove</button><button class="ghost" data-source-edit="${id}">Change key</button>${s.status === 'connected' ? `<button class="primary" data-source-disconnect="${id}">Disconnect</button>` : `<button class="primary" data-source-connect="${id}">Connect</button>`}`;
       return (
         `<article class="server-card source-card"><div class="server-card-top"><h3>${escapeHtml(s.name)}${s.recommended ? ' <span class="ui-badge ui-badge-safe">Recommended</span>' : ''}</h3><span class="server-dot ${dot}" aria-hidden="true"></span></div>` +
         `<p class="source-improves"><b>Improves:</b> ${escapeHtml(s.improves || '')}</p>` +
         `<p class="server-status">${SOURCE_STATUS[s.status] || ''}</p>` +
-        `<p class="endpoint">${escapeHtml(feeds)}</p><p class="form-note">${escapeHtml(s.note)}</p>` +
-        `${s.example ? `<button class="text-button source-try" data-prompt="${escapeHtml(s.example)}">Try a search: ${escapeHtml(s.example)} →</button>` : ''}<div class="server-actions">${actions}</div></article>`
+        `<details class="technical-details"><summary>Technical details</summary><p class="endpoint">${escapeHtml(feeds)}</p><p class="form-note">${escapeHtml(s.note)}</p></details>` +
+        `${s.example ? `<button class="text-button source-try" data-prompt="${escapeHtml(s.example)}">Try a search: ${escapeHtml(s.example)}${icon('arrow-right')}</button>` : ''}<div class="server-actions">${actions}</div></article>`
       );
     })
     .join('');

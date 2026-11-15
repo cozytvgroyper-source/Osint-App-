@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {escapeHtml,pageHeader,navItem,button,field,card,badge,emptyState,term} from '../public/ui.js';
+import {escapeHtml,pageHeader,navItem,button,field,card,badge,emptyState,icon,term} from '../public/ui.js';
 
 // Shared building blocks return HTML strings. Every value they interpolate is escaped, and each one carries the
 // accessibility its use needs, so pages built from them get it for free.
@@ -20,16 +20,16 @@ test('one h1 per page header, with its intro',()=>{
 });
 
 test('nav items hide their icon from screen readers and mark the current page',()=>{
-  const html=navItem({view:'evidence',icon:'◇',label:'Evidence',current:true});
-  assert.match(html,/<span aria-hidden="true">◇<\/span>/);
+  const html=navItem({view:'evidence',icon:'evidence',label:'Evidence',current:true});
+  assert.match(html,/<svg class="ui-icon" aria-hidden="true" focusable="false"><use href="\/assets\/icons\.svg#evidence"><\/use><\/svg>/);
   assert.match(html,/aria-current="page"/);
   assert.match(html,/data-view="evidence"/);
   assert.doesNotMatch(navItem({view:'news',icon:'x',label:'News'}),/aria-current/);
 });
 
 test('icon-only buttons get their label as an accessible name, and a label is required',()=>{
-  assert.match(button({label:'Clear history',icon:'⌫',iconOnly:true}),/aria-label="Clear history"/);
-  assert.match(button({label:'Clear history',icon:'⌫',iconOnly:true}),/<span aria-hidden="true">⌫<\/span>/);
+  assert.match(button({label:'Clear history',icon:'trash',iconOnly:true}),/aria-label="Clear history"/);
+  assert.match(button({label:'Clear history',icon:'trash',iconOnly:true}),/icons\.svg#trash/);
   assert.match(button({label:'Go'}),/type="button"/);
   assert.match(button({label:'Go',kind:'primary'}),/class="btn btn-primary"/);
   assert.match(button({label:'Save',attrs:{type:'submit'}}),/type="submit"/);
@@ -49,7 +49,12 @@ test('fields link their label, hint and error',()=>{
 
 test('badges always carry text',()=>{
   assert.match(badge({text:'Passive',tone:'safe'}),/Passive/);
-  assert.match(badge({text:'Passive',tone:'safe',icon:'✓'}),/<span aria-hidden="true">✓<\/span>/);
+  assert.match(badge({text:'Passive',tone:'safe',icon:'check'}),/icons\.svg#check/);
+});
+
+test('icons stay in the self-hosted family and reject unsafe symbol names',()=>{
+  assert.match(icon('external'),/href="\/assets\/icons\.svg#external"/);
+  assert.match(icon(hostile),/href="\/assets\/icons\.svg#circle"/);
 });
 
 test('cards and empty states keep their heading and next action',()=>{

@@ -49,10 +49,10 @@ test('no text smaller than 13 px in any stylesheet',()=>{
   for(const file of STYLESHEETS)for(const [rule,size] of fontSizes(read(file)))if(size>0)assert.ok(size>=13,`${file}: ${rule}`);
 });
 
-test('focus is visible except for the deliberately borderless Passive search field',()=>{
-  const passiveException='#query:focus-visible{outline:none}';
-  for(const file of STYLESHEETS)assert.doesNotMatch(read(file).replace(passiveException,''),/outline:\s*(?:0|none)\b/,file);
-  assert.match(css,new RegExp(passiveException.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
+test('focus is visible except for the two deliberately borderless search fields',()=>{
+  const searchException='#query:focus-visible,#deepTarget:focus-visible{outline:none}';
+  for(const file of STYLESHEETS)assert.doesNotMatch(read(file).replace(searchException,''),/outline:\s*(?:0|none)\b/,file);
+  assert.match(css,new RegExp(searchException.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
   assert.match(css,/:focus-visible\{outline:3px solid var\(--focus\)/);
 });
 
