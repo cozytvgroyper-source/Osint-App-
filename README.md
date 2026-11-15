@@ -40,7 +40,8 @@ not running, just like **Open Public Desk** in its menu; when it starts at login
 
 Only one copy of each runs: opening the app again opens Public Desk in the running copy, and opening Public Desk again brings its
 open tab to the front in Safari, Chrome, Brave or Edge (macOS asks once whether Public Desk may control the browser;
-if you decline, a new tab opens instead). Start, stop and restart run one at a time whichever launcher asked; a lock
+if you decline, a new tab opens instead). Stopping Public Desk closes its open tabs, since they could no longer do anything; Restart keeps them
+and reconnects them. Start, stop and restart run one at a time whichever launcher asked; a lock
 left behind by a crash is cleared automatically. The app remembers this folder, so run `npm run menu-bar` again if you
 move the folder.
 

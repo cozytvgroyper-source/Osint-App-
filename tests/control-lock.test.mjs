@@ -254,6 +254,61 @@ test('start and restart reconnect open tabs when they do not open a new one', ()
   assert.match(controller, /if \[\[ "\$\{1:-\}" == "--open" \]\]; then open_public_desk \|\| return 1\s+else refresh_open_tabs\s+fi/);
 });
 
+// Stopping Public Desk closes its tabs: they could no longer do anything. Restart keeps them (they reconnect).
+const closeTabs = (app, env) => spawnSync('/bin/zsh', ['-c', `source ${JSON.stringify(app.script)}; close_open_tabs`], { encoding: 'utf8', env: { ...process.env, ...env } });
+
+test('closing Public Desk tabs asks every running browser and reports how many closed', { skip }, () => {
+  const app = copy();
+  try {
+    const browser = fakeBrowser(app, { running: ['Safari', 'Google Chrome'], answer: '2' });
+    const run = closeTabs(app, browser.env);
+    assert.equal(run.status, 0, run.stderr);
+    assert.equal(run.stdout.trim(), 'Closed 4 Public Desk tabs.');
+    const log = calls(browser.log);
+    assert.equal((log.match(/close t\n/g) || []).length, 2, 'Safari and Chrome are both asked');
+    assert.match(log, /if \(URL of t as text\) starts with "http:\/\/127\.0\.0\.1:4173" then\s+close t/, 'only Public Desk tabs');
+    assert.match(log, /repeat with windowIndex from \(count of windows\) to 1 by -1[\s\S]*repeat with tabIndex from \(count of tabs of w\) to 1 by -1/, 'walked backwards so closing does not skip tabs');
+    assert.doesNotMatch(log, /activate|set URL|#access=/, 'never brought forward, reloaded or given a token');
+    assert.doesNotMatch(log, /^open /m);
+  } finally { rmSync(app.dir, { recursive: true, force: true }); }
+});
+
+test('with no Public Desk tab open, or no browser running, closing says and does nothing', { skip }, () => {
+  const app = copy();
+  try {
+    const none = fakeBrowser(app, { running: ['Safari'], answer: '0' });
+    assert.equal(closeTabs(app, none.env).stdout, '');
+    mkdirSync(join(app.dir, 'other'));
+    const idle = fakeBrowser({ dir: join(app.dir, 'other') }, { running: [] });
+    assert.equal(closeTabs(app, idle.env).stdout, '');
+    assert.equal(calls(idle.log), '', 'a browser that is not running is never launched');
+    const off = fakeBrowser({ dir: (mkdirSync(join(app.dir, 'off')), join(app.dir, 'off')) }, { running: ['Safari'], answer: '1' });
+    assert.equal(closeTabs(app, { ...off.env, PUBLIC_DESK_REUSE_TAB: '0' }).stdout, '');
+    assert.equal(calls(off.log), '', 'PUBLIC_DESK_REUSE_TAB=0 leaves the browser alone');
+  } finally { rmSync(app.dir, { recursive: true, force: true }); }
+});
+
+test('Stop closes the open Public Desk tabs, and Restart keeps them', { skip, timeout: 60_000 }, () => {
+  const app = copy();
+  try {
+    const browser = fakeBrowser(app, { running: ['Safari'], answer: '1' });
+    const stop = control(app, ['stop'], browser.env);
+    assert.equal(stop.status, 0, stop.stderr);
+    assert.match(stop.stdout, /Public Desk services are stopped\.\nClosed 1 Public Desk tab\./);
+    assert.match(calls(browser.log), /close t/);
+
+    writeFileSync(browser.log, '');
+    control(app, ['restart'], browser.env); // this copy has no dependencies, so the start half fails; tabs still stay
+    assert.doesNotMatch(calls(browser.log), /close t/, 'restart never closes tabs');
+  } finally { rmSync(app.dir, { recursive: true, force: true }); }
+});
+
+test('a stop that leaves something running keeps the tabs open', () => {
+  const controller = readFileSync(join(root, 'scripts/public-desk-control.zsh'), 'utf8');
+  assert.match(controller, /stop\) LOCK_ACTION=stop stop_all && close_open_tabs ;;/);
+  assert.doesNotMatch(controller.match(/restart\)[\s\S]*?;;/)[0], /close_open_tabs/);
+});
+
 test('the page reloads with a new token handed to an already-open tab', () => {
   const core = readFileSync(join(root, 'public/app/core.js'), 'utf8');
   assert.match(core, /addEventListener\('hashchange'[\s\S]*?get\('access'\)[\s\S]*?setItem\('publicDesk\.access', access\)[\s\S]*?location\.reload\(\)/);
