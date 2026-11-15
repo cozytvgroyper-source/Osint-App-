@@ -23,6 +23,10 @@ test('Deep Search is a clear three-step sequence with one start button',()=>{
   assert.match(deep,/<details[^>]*>[\s\S]*<summary>Choose tools<\/summary>/);
 });
 
+test('the target field has no blue focus outline',()=>{
+  assert.match(styles,/#query:focus-visible,#deepTarget:focus-visible\{outline:none\}/);
+});
+
 test('unsupported input explains the limit, links to Search and disables Start',()=>{
   assert.match(progress,/Deep Search needs an email, username, website or IP\. To search a name, use Search\./);
   assert.match(app,/data-view-link="workspace"/);

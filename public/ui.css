@@ -83,7 +83,7 @@ dialog.result-dialog{width:min(1100px,calc(100vw - 32px));max-height:90vh}
 /* Passive search: a visible label, a large box, one source line, and recent searches as buttons. */
 .search-label{display:block;font:650 var(--text-md) var(--sans);margin:0 0 var(--space-2)}
 #query{font-size:var(--text-md)}
-#query:focus-visible{outline:none}
+#query:focus-visible,#deepTarget:focus-visible{outline:none}
 .passive-group a{color:var(--accent-dark)}
 .sources-status{position:relative;z-index:2;color:var(--muted);font-size:var(--text-sm);margin:var(--space-4) 0 0}
 button.history-item{width:100%;min-height:44px;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);color:inherit;font:inherit;cursor:pointer}
