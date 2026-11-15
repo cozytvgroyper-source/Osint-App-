@@ -350,9 +350,32 @@ token_fingerprint() {
 }
 
 # focus: bring the first Public Desk tab forward, giving it $url first if set. refresh: give every Public Desk tab
-# $url without bringing the browser forward; prints how many tabs were reloaded.
+# $url without bringing the browser forward; prints how many tabs were reloaded. close: close every Public Desk tab
+# (a window whose last tab it was closes too); prints how many. Windows and tabs are walked backwards, because closing
+# one renumbers those after it.
 browser_tab_script() {
   local app="$1" kind="$2" url="$3" mode="${4:-focus}" navigate="" select
+  if [[ "$mode" == close ]]; then
+    REPLY="with timeout of 10 seconds
+set closed to 0
+tell application \"$app\"
+  repeat with windowIndex from (count of windows) to 1 by -1
+    try
+      set w to window windowIndex
+      repeat with tabIndex from (count of tabs of w) to 1 by -1
+        set t to tab tabIndex of w
+        if (URL of t as text) starts with \"$PUBLIC_DESK_ORIGIN\" then
+          close t
+          set closed to closed + 1
+        end if
+      end repeat
+    end try
+  end repeat
+end tell
+end timeout
+return closed as text"
+    return
+  fi
   if [[ "$mode" == refresh ]]; then
     REPLY="with timeout of 10 seconds
 set reloaded to 0
@@ -411,7 +434,7 @@ run_in_browsers() {
     reply+=("$(print -r -- "$REPLY" | "$osascript" - 2>/dev/null)")
     [[ "$mode" == focus && "$reply[-1]" == found ]] && return 0
   done
-  [[ "$mode" == refresh ]] || return 1
+  [[ "$mode" != focus ]]
 }
 
 focus_existing_tab() {
@@ -429,6 +452,17 @@ refresh_open_tabs() {
   (( total > 0 )) || return 0
   (umask 077; print -rn -- "$fingerprint" > "$BROWSER_MARK_FILE")
   print -r -- "Reconnected $total open Public Desk tab$( (( total == 1 )) || print -n s) to this session."
+}
+
+# After a stop: the open Public Desk tabs could no longer do anything, so they close with it. Restart keeps them (they
+# are reconnected instead), and so does a stop that left something running.
+close_open_tabs() {
+  [[ "${PUBLIC_DESK_REUSE_TAB:-1}" == 1 ]] || return 0
+  local answer total=0
+  run_in_browsers "" close
+  for answer in $reply; do [[ "$answer" == <-> ]] && (( total += answer )); done
+  (( total > 0 )) && print -r -- "Closed $total Public Desk tab$( (( total == 1 )) || print -n s)."
+  return 0
 }
 
 open_public_desk() {
@@ -620,7 +654,7 @@ main() {
   case "$action" in
     start) start_all "${1:-}" ;;
     open) prepare_folders; load_token; all_services_ready || { print -u2 -- "Public Desk is not ready."; return 1; }; open_public_desk ;;
-    stop) LOCK_ACTION=stop stop_all ;;
+    stop) LOCK_ACTION=stop stop_all && close_open_tabs ;;
     restart)
       LOCK_ACTION=restart
       stop_all || return 1
