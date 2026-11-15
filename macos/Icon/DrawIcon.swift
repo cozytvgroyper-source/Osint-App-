@@ -1,9 +1,11 @@
-// Draws the Public Desk app icon as a 1024 × 1024 PNG: a magnifying glass over a document on a navy tile.
-// Run by scripts/build-menu-bar-app.zsh, which turns the PNG into AppIcon.icns. Drawn with Core Graphics only, so the
-// icon needs no image files, design tools or SF Symbols (whose license does not cover app icons).
+// Draws the Public Desk app icon as a 1024 × 1024 PNG. It is the brand mark from the app's sidebar (`.brand-mark` in
+// public/ui.css): a bold italic Georgia "P" in navy on a silver gradient tile. Run by scripts/build-menu-bar-app.zsh,
+// which turns the PNG into AppIcon.icns. Drawn with Core Graphics and Core Text only, so it needs no image files or
+// design tools; Georgia comes with macOS.
 //   swiftc -o draw-icon macos/Icon/DrawIcon.swift && ./draw-icon AppIcon.png
 
 import CoreGraphics
+import CoreText
 import Foundation
 import ImageIO
 
@@ -22,84 +24,46 @@ func color(_ hex: UInt32, _ alpha: CGFloat = 1) -> CGColor {
                                             CGFloat(hex & 0xff) / 255, alpha])!
 }
 
-func roundedRect(_ rect: CGRect, _ radius: CGFloat) -> CGPath {
-    CGPath(roundedRect: rect, cornerWidth: radius, cornerHeight: radius, transform: nil)
-}
-
-// The tile: Apple's icon grid leaves a 100 px margin on a 1024 canvas; the soft shadow sits in that margin.
-let tile = roundedRect(CGRect(x: 100, y: 100, width: 824, height: 824), 185)
+// The tile follows Apple's icon grid: 824 px with a 100 px margin, where the soft shadow sits, and the corner radius
+// macOS uses so the icon matches others in the Dock (the sidebar's 10 px on 33 px is a little rounder).
+let tileRect = CGRect(x: 100, y: 100, width: 824, height: 824)
+let tile = CGPath(roundedRect: tileRect, cornerWidth: 185, cornerHeight: 185, transform: nil)
 context.saveGState()
-context.setShadow(offset: CGSize(width: 0, height: -12), blur: 28, color: color(0x000000, 0.35))
+context.setShadow(offset: CGSize(width: 0, height: -14), blur: 34, color: color(0x000000, 0.3))
 context.addPath(tile)
-context.setFillColor(color(0x173563))
+context.setFillColor(color(0xD6DEEB))
 context.fillPath()
 context.restoreGState()
 
+// background: linear-gradient(145deg, #fff, #aebbd3 45%, #fff), mapped onto the tile the way CSS does it: the
+// gradient line runs through the centre at 145° (down and to the right) and is long enough to reach both corners.
+let radians = 145 * CGFloat.pi / 180
+let direction = CGVector(dx: sin(radians), dy: cos(radians)) // y up: 145° points down-right
+let length = tileRect.width * abs(sin(radians)) + tileRect.height * abs(cos(radians))
+let center = CGPoint(x: tileRect.midX, y: tileRect.midY)
+let start = CGPoint(x: center.x - direction.dx * length / 2, y: center.y - direction.dy * length / 2)
+let end = CGPoint(x: center.x + direction.dx * length / 2, y: center.y + direction.dy * length / 2)
 context.saveGState()
 context.addPath(tile)
 context.clip()
-let background = CGGradient(colorsSpace: space, colors: [color(0x2D5FA8), color(0x12284D)] as CFArray,
-                            locations: [0, 1])!
-context.drawLinearGradient(background, start: CGPoint(x: 512, y: 924), end: CGPoint(x: 512, y: 100), options: [])
+let silver = CGGradient(colorsSpace: space, colors: [color(0xFFFFFF), color(0xAEBBD3), color(0xFFFFFF)] as CFArray,
+                        locations: [0, 0.45, 1])!
+context.drawLinearGradient(silver, start: start, end: end, options: [.drawsBeforeStartLocation, .drawsAfterEndLocation])
 context.restoreGState()
 
-// The document: a white page with a headline and lines of text, tilted slightly.
-context.saveGState()
-context.translateBy(x: 450, y: 545)
-context.rotate(by: 4 * .pi / 180)
-context.setShadow(offset: CGSize(width: 0, height: -10), blur: 24, color: color(0x000000, 0.3))
-context.addPath(roundedRect(CGRect(x: -215, y: -275, width: 430, height: 550), 42))
-context.setFillColor(color(0xFFFFFF))
-context.fillPath()
-context.setShadow(offset: .zero, blur: 0, color: nil)
-context.addPath(roundedRect(CGRect(x: -160, y: 170, width: 320, height: 46), 23))
-context.setFillColor(color(0x1E3A6E))
-context.fillPath()
-for (index, width) in [320, 300, 320, 240, 280].enumerated() {
-    context.addPath(roundedRect(CGRect(x: -160, y: 100 - CGFloat(index) * 62, width: CGFloat(width), height: 26), 13))
-}
-context.setFillColor(color(0xC9D3E3))
-context.fillPath()
-context.restoreGState()
-
-// The magnifying glass: an amber ring with a tinted lens and a handle running down to the right.
-let lensCenter = CGPoint(x: 590, y: 440)
-let lensRadius: CGFloat = 165
-let angle = -45 * CGFloat.pi / 180
-let handleStart = CGPoint(x: lensCenter.x + cos(angle) * (lensRadius + 10), y: lensCenter.y + sin(angle) * (lensRadius + 10))
-let handleEnd = CGPoint(x: lensCenter.x + cos(angle) * (lensRadius + 175), y: lensCenter.y + sin(angle) * (lensRadius + 175))
-
-context.saveGState()
-context.setShadow(offset: CGSize(width: 0, height: -10), blur: 26, color: color(0x000000, 0.4))
-context.setLineCap(.round)
-context.setLineWidth(78)
-context.setStrokeColor(color(0xD9891A))
-context.move(to: handleStart)
-context.addLine(to: handleEnd)
-context.strokePath()
-context.restoreGState()
-
-context.addEllipse(in: CGRect(x: lensCenter.x - lensRadius, y: lensCenter.y - lensRadius,
-                              width: lensRadius * 2, height: lensRadius * 2))
-context.setFillColor(color(0xBFE3FF, 0.35))
-context.fillPath()
-
-context.saveGState()
-context.setShadow(offset: CGSize(width: 0, height: -8), blur: 20, color: color(0x000000, 0.35))
-context.setLineWidth(52)
-context.setStrokeColor(color(0xF6B940))
-context.addEllipse(in: CGRect(x: lensCenter.x - lensRadius, y: lensCenter.y - lensRadius,
-                              width: lensRadius * 2, height: lensRadius * 2))
-context.strokePath()
-context.restoreGState()
-
-// A highlight on the glass.
-context.setLineCap(.round)
-context.setLineWidth(22)
-context.setStrokeColor(color(0xFFFFFF, 0.75))
-context.addArc(center: lensCenter, radius: lensRadius - 62, startAngle: 115 * .pi / 180, endAngle: 165 * .pi / 180,
-               clockwise: false)
-context.strokePath()
+// The letter: Georgia Bold Italic (font-weight 750, italic), 18 px on a 33 px tile, in #082767. Like the browser, it is
+// centred on its line box and advance width rather than its ink, so it sits where it does in the sidebar.
+let fontSize = tileRect.width * 18 / 33
+let font = CTFontCreateWithName("Georgia-BoldItalic" as CFString, fontSize, nil)
+let attributes: [NSAttributedString.Key: Any] = [
+    NSAttributedString.Key(kCTFontAttributeName as String): font,
+    NSAttributedString.Key(kCTForegroundColorAttributeName as String): color(0x082767)
+]
+let line = CTLineCreateWithAttributedString(NSAttributedString(string: "P", attributes: attributes))
+var ascent: CGFloat = 0, descent: CGFloat = 0, leading: CGFloat = 0
+let advance = CGFloat(CTLineGetTypographicBounds(line, &ascent, &descent, &leading))
+context.textPosition = CGPoint(x: center.x - advance / 2, y: center.y - (ascent + descent) / 2 + descent)
+CTLineDraw(line, context)
 
 guard let image = context.makeImage(),
       let destination = CGImageDestinationCreateWithURL(URL(fileURLWithPath: CommandLine.arguments[1]) as CFURL,

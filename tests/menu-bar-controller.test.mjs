@@ -126,6 +126,24 @@ test('the app checks for updates only when installed by the build script, and ne
   assert.match(app, /private func relaunch\(\) -> Bool \{\s*lock\.release\(\)[\s\S]*?"-n"[\s\S]*?NSApp\.terminate/);
 });
 
+// The app icon is the sidebar's brand mark; if the mark's look changes in the stylesheet, the icon must follow.
+test('the app icon matches the brand mark in the sidebar', () => {
+  const css = readFileSync(join(root, 'public/ui.css'), 'utf8');
+  const mark = [...css.matchAll(/\.brand-mark\{([^}]*)\}/g)].map(match => match[1]).at(-1);
+  const icon = readFileSync(join(root, 'macos/Icon/DrawIcon.swift'), 'utf8');
+  const hex = value => `0x${value.replace('#', '').toUpperCase()}`;
+  const [, angle, from, middle, stop, to] = mark.match(/linear-gradient\((\d+)deg,(#\w+),(#\w+) (\d+)%,(#\w+)\)/);
+  const letter = mark.match(/color:(#\w+)/)[1];
+  assert.match(icon, new RegExp(`let radians = ${angle} \\*`), 'gradient angle');
+  assert.ok(icon.includes(`[color(${hex(from === '#fff' ? '#ffffff' : from)}), color(${hex(middle)}), color(${hex(to === '#fff' ? '#ffffff' : to)})]`), 'gradient colours');
+  assert.ok(icon.includes(`locations: [0, 0.${stop}, 1]`), 'gradient stop');
+  assert.ok(icon.includes(`color(${hex(letter)})`), 'letter colour');
+  assert.match(css, /\.brand-mark\{[^}]*font-family:Georgia,serif;font-style:italic/);
+  assert.match(icon, /"Georgia-BoldItalic"/);
+  assert.match(readFileSync(join(root, 'public/index.html'), 'utf8'), /<span class="brand-mark">P<\/span>/);
+  assert.match(icon, /string: "P"/);
+});
+
 test('the icon is drawn at 1024 × 1024 without image files or SF Symbols', { skip: noSwift, timeout: 300_000 }, () => {
   const source = readFileSync(join(root, 'macos/Icon/DrawIcon.swift'), 'utf8');
   assert.doesNotMatch(source, /systemSymbolName|NSImage\(named|import AppKit/, 'drawn with Core Graphics, not SF Symbols or files');
