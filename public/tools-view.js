@@ -1,7 +1,7 @@
 // Tool library view: tier filter chips and tool cards as HTML strings, DOM-free so it can be tested with node --test.
 // Chips are toggle buttons that explain each tier; cards say where a tool is used and write out paid or side-effect
 // flags. The tier names (Passive, Light touch, Active, Intrusive) stay as they are.
-import {badge,escapeHtml} from './ui.js?v=5';
+import {badge,escapeHtml,icon} from './ui.js?v=7';
 
 const FLAG_TEXT={credits:'Uses paid AI credits','side-effects':'Has side effects: it may send, store, schedule or change data'};
 const TONE={passive:'safe',light:'warn',active:'warn',intrusive:'danger'};
@@ -18,6 +18,6 @@ export function toolCard(tool,{risk,usage}){
     +`<p class="tool-meta">${escapeHtml(tool.serverName)} · ${escapeHtml(usage)}${risk.needsReview?' · needs review':''}</p>`
     +flags
     +`<p class="tool-desc" title="${escapeHtml(tool.description||'')}">${escapeHtml(tool.description||'No description provided.')}</p>`
-    +`<button class="text-button" data-run="${escapeHtml(tool.serverId)}::${escapeHtml(tool.name)}">${escapeHtml(run)}<span aria-hidden="true"> →</span></button>`
+    +`<button class="text-button" data-run="${escapeHtml(tool.serverId)}::${escapeHtml(tool.name)}">${escapeHtml(run)}${icon('arrow-right')}</button>`
     +`</article>`;
 }

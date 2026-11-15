@@ -1,6 +1,6 @@
 // Result window: turning a tool answer into readable sections.
 // Moved unchanged from app.js; see app.js for the startup and button wiring.
-import { escapeHtml, safeHttpUrl, term } from '../ui.js?v=6';
+import { escapeHtml, icon, safeHttpUrl, term } from '../ui.js?v=7';
 import { parseToolResult } from '../result-classifier.js';
 import { reportHasFindings } from '../search-report.js?v=4';
 import { renderRankedReport } from '../search-results-view.js?v=4';
@@ -27,7 +27,7 @@ function readableValue(key, value) {
   }
   if (typeof value === 'string') {
     if (/^https?:\/\//.test(value))
-      return `<a href="${escapeHtml(value)}" target="_blank" rel="noreferrer">Open source ↗</a>`;
+      return `<a href="${escapeHtml(value)}" target="_blank" rel="noreferrer">Open source${icon('external')}<span class="visually-hidden"> (opens in a new tab)</span></a>`;
     if (/^\d{4}-\d{2}-\d{2}T/.test(value)) {
       const date = new Date(value);
       if (!Number.isNaN(date.valueOf())) return date.toLocaleString();
@@ -39,7 +39,7 @@ function readableValue(key, value) {
 function pivotButton(value) {
   const pivot = resultPivot(value);
   return pivot
-    ? `<button type="button" class="pivot-button" data-pivot="${escapeHtml(pivot.target)}" aria-label="${escapeHtml(`Pivot: ${pivot.label[0].toLowerCase()}${pivot.label.slice(1)} ${pivot.target}`)}">Pivot →</button>`
+    ? `<button type="button" class="pivot-button" data-pivot="${escapeHtml(pivot.target)}" aria-label="${escapeHtml(`Pivot: ${pivot.label[0].toLowerCase()}${pivot.label.slice(1)} ${pivot.target}`)}">Pivot${icon('arrow-right')}</button>`
     : '';
 }
 function renderRecord(data) {

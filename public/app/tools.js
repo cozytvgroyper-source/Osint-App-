@@ -2,7 +2,7 @@
 // Moved unchanged from app.js; see app.js for the startup and button wiring.
 import { toolUsage } from '../search-planner.js?v=1';
 import { tierChips, toolCard } from '../tools-view.js?v=2';
-import { emptyState, escapeHtml } from '../ui.js?v=6';
+import { emptyState, escapeHtml, icon } from '../ui.js?v=7';
 import { classifyToolResult } from '../result-classifier.js';
 import { selfCheckPlan, summarizeSelfCheck } from '../self-check.js';
 import { groupToolsByTier, runRequirements, toolRisk } from '../tool-tiers.js?v=1';
@@ -58,13 +58,13 @@ function renderSelfCheck(results, pending = 0) {
     : '';
   // Each result is a word with an icon (never color alone).
   const label = {
-    working: ['✓', 'Working'],
-    empty: ['○', 'Returned nothing'],
-    failing: ['✕', 'Failing'],
-    skipped: ['–', 'Skipped']
+    working: ['check', 'Working'],
+    empty: ['circle', 'Returned nothing'],
+    failing: ['ban', 'Failing'],
+    skipped: ['info', 'Skipped']
   };
   $('#selfCheckResults').innerHTML = results.length
-    ? `<div class="table-scroll" role="region" tabindex="0" aria-label="Tool check results table"><table class="deep-history-table"><thead><tr><th scope="col">Tool</th><th scope="col">Server</th><th scope="col">Test target</th><th scope="col">Result</th><th scope="col">Time</th></tr></thead><tbody>${results.map(r => `<tr class="self-check-${r.outcome}"><td><code>${escapeHtml(r.tool)}</code></td><td>${escapeHtml(r.server)}</td><td><code>${escapeHtml(r.target)}</code></td><td>${label[r.outcome] ? `<span aria-hidden="true">${label[r.outcome][0]} </span>${escapeHtml(label[r.outcome][1])}` : escapeHtml(r.outcome)}${r.detail ? `<br><small>${escapeHtml(r.detail)}</small>` : ''}</td><td>${r.ms == null ? '' : `${(r.ms / 1000).toFixed(1)} s`}</td></tr>`).join('')}</tbody></table></div>`
+    ? `<div class="table-scroll" role="region" tabindex="0" aria-label="Tool check results table"><table class="deep-history-table"><thead><tr><th scope="col">Tool</th><th scope="col">Server</th><th scope="col">Test target</th><th scope="col">Result</th><th scope="col">Time</th></tr></thead><tbody>${results.map(r => `<tr class="self-check-${r.outcome}"><td><code>${escapeHtml(r.tool)}</code></td><td>${escapeHtml(r.server)}</td><td><code>${escapeHtml(r.target)}</code></td><td>${label[r.outcome] ? `${icon(label[r.outcome][0])}${escapeHtml(label[r.outcome][1])}` : escapeHtml(r.outcome)}${r.detail ? `<br><small>${escapeHtml(r.detail)}</small>` : ''}</td><td>${r.ms == null ? '' : `${(r.ms / 1000).toFixed(1)} s`}</td></tr>`).join('')}</tbody></table></div>`
     : '';
 }
 async function runSelfCheck() {

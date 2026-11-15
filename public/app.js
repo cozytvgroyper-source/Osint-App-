@@ -281,7 +281,7 @@ $('#fileInput').addEventListener('change', event => {
   state.pendingFile = file;
   $('#fileName').textContent = file.name;
   $('#fileDetails').textContent = `${file.type || 'Unknown type'} · ${formatBytes(file.size)}`;
-  $('#fileIcon').textContent = file.type.startsWith('image/') ? '▧' : file.type.startsWith('video/') ? '▶' : '◇';
+  $('#fileIcon').innerHTML = `<svg class="ui-icon" aria-hidden="true"><use href="/assets/icons.svg#${file.type.startsWith('video/') ? 'play' : 'file'}"></use></svg>`;
   $('#fileSelection').hidden = false;
 });
 $('#removeFile').onclick = clearSelectedFile;

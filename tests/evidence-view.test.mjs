@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {caseSummary,findingCard,evidenceEmpty,browserOnlyNotice} from '../public/evidence-view.js';
+import {caseSummary,caseSummaryView,findingCard,evidenceEmpty,browserOnlyNotice} from '../public/evidence-view.js';
 
 // Evidence for non-technical readers: statuses as labeled toggle buttons (stored values unchanged), a labeled note
 // with a character count, Open instead of raw JSON, and empty states that say what to do next.
@@ -13,12 +13,22 @@ test('the summary counts statuses in plain words',()=>{
   assert.equal(caseSummary(null),'');
 });
 
+test('the case overview gives the case name and a clear status hierarchy',()=>{
+  const html=caseSummaryView({name:'Operation North',evidence:[{status:'confirmed'},{},{status:'ruled out'}]});
+  assert.match(html,/<section class="case-overview" aria-label="Case summary">/);
+  assert.match(html,/<h2>Operation North<\/h2>/);
+  assert.match(html,/All findings<\/dt><dd>3<\/dd>/);
+  assert.match(html,/Confirmed<\/dt><dd>1<\/dd>/);
+  assert.match(html,/Not checked<\/dt><dd>1<\/dd>/);
+  assert.match(html,/Ruled out<\/dt><dd>1<\/dd>/);
+});
+
 test('statuses are labeled toggle buttons that keep the stored values',()=>{
   const html=findingCard(item,{escapeHtml});
   assert.match(html,/role="group" aria-label="Status of &lt;img src=x&gt;&quot;"/);
-  assert.match(html,/data-set-status="ruled out"[^>]*aria-pressed="true"[^>]*><span aria-hidden="true">✕<\/span>Ruled out/);
-  assert.match(html,/data-set-status="unverified"[^>]*aria-pressed="false"[^>]*><span aria-hidden="true">○<\/span>Not checked yet/);
-  assert.match(html,/data-set-status="confirmed"[^>]*aria-pressed="false"[^>]*><span aria-hidden="true">✓<\/span>Confirmed/);
+  assert.match(html,/data-set-status="ruled out"[^>]*aria-pressed="true"[^>]*>[\s\S]*?icons\.svg#ban[\s\S]*?Ruled out/);
+  assert.match(html,/data-set-status="unverified"[^>]*aria-pressed="false"[^>]*>[\s\S]*?icons\.svg#circle[\s\S]*?Not checked yet/);
+  assert.match(html,/data-set-status="confirmed"[^>]*aria-pressed="false"[^>]*>[\s\S]*?icons\.svg#check[\s\S]*?Confirmed/);
   assert.doesNotMatch(html,/<img src=x>/);
   assert.match(findingCard({...item,status:undefined},{escapeHtml}),/data-set-status="unverified"[^>]*aria-pressed="true"/);
 });
@@ -32,9 +42,9 @@ test('the note has a label, a limit and a live character count',()=>{
 
 test('findings open in the results panel and explain their fingerprint',()=>{
   const html=findingCard(item,{escapeHtml});
-  assert.match(html,/data-open-finding="abcdef123456">Open</);
-  assert.match(html,/data-delete-evidence="abcdef123456">Remove</);
-  assert.match(html,/Fingerprint \(SHA-256\)<\/b>: Proves this saved result hasn&#39;t changed\./);
+  assert.match(html,/data-open-finding="abcdef123456">[\s\S]*?Open</);
+  assert.match(html,/data-delete-evidence="abcdef123456">[\s\S]*?Remove</);
+  assert.match(html,/<details class="technical-details"><summary>Technical details<\/summary>[\s\S]*Fingerprint \(SHA-256\)<\/b>: Proves this saved result hasn&#39;t changed\./);
   assert.doesNotMatch(html,/<pre>/);
 });
 

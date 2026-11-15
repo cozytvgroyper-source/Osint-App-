@@ -94,7 +94,7 @@ test('every card list has a section heading so headings never skip a level',()=>
 // for voice control; the rest says what it looks up.
 test('the Pivot button is named by the word it shows',()=>{
   const fn=app.match(/function pivotButton\(value\)\{[\s\S]*?\n\}/)[0];
-  assert.match(fn,/>Pivot →<\/button>/);
+  assert.match(fn,/>Pivot\$\{icon\('arrow-right'\)\}<\/button>/);
   assert.match(fn,/aria-label="\$\{escapeHtml\(`Pivot: \$\{pivot\.label\[0\]\.toLowerCase\(\)\}\$\{pivot\.label\.slice\(1\)\} \$\{pivot\.target\}`\)\}"/);
 });
 

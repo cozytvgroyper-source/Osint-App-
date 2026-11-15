@@ -1,5 +1,5 @@
 import {detectDeepTarget,isPersonType,phoneNeedsCountryCode} from './deep-search.js';
-import {button,escapeHtml} from './ui.js';
+import {button,escapeHtml,icon} from './ui.js?v=7';
 
 const stages=Object.freeze([
   ['start','Checking what you typed'],
@@ -37,7 +37,7 @@ export function renderProgress(state){
   const stageList=stages.map(([key,label],index)=>{
     const complete=index<current||state.finished;const active=key===state.stage&&!state.finished;
     const leads=(state.leads||[]).filter(item=>item.stage===key).map(item=>`<li>${escapeHtml(item.identifier?.value||'New lead')}</li>`).join('');
-    return `<li class="deep-progress-stage${active?' is-active':''}"><span aria-hidden="true">${complete?'✓':'○'}</span> ${escapeHtml(label)}${leads?`<ul>${leads}</ul>`:''}</li>`;
+    return `<li class="deep-progress-stage${active?' is-active':''}">${icon(complete?'check':'circle')} ${escapeHtml(label)}${leads?`<ul>${leads}</ul>`:''}</li>`;
   }).join('');
   return `<section class="deep-progress-card" aria-labelledby="deepProgressHeading"><h2 id="deepProgressHeading" tabindex="-1">${escapeHtml(state.target?.value||'Deep Search')}</h2>${estimate?`<p>About ${estimate} ${estimate===1?'minute':'minutes'} left</p>`:''}<p>You can switch to other pages in the app. Keep this tab open until it finishes.</p><progress aria-label="Deep Search progress" max="${total}" value="${done}"></progress><p>${state.linked} linked so far · ${state.possible} possible · ${done} of ${state.total||0} tools done</p><ol class="deep-progress-stages">${stageList}</ol>${button({label:'Cancel search',kind:'danger',attrs:{'data-deep-cancel':true}})}</section>`;
 }

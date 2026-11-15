@@ -32,7 +32,7 @@ test('each metric explains itself',()=>{
 test('a news card gives exact time to screen readers and says the link opens a new tab',()=>{
   const html=newsCard({category:'cyber',timestamp:'2026-11-13T10:00:00Z',title:'<b>X</b>',source:'Reuters',url:'https://e.com/a'},{escapeHtml,safeExternalUrl,now});
   assert.match(html,/<time datetime="2026-11-13T10:00:00.000Z">2 hours ago<span class="visually-hidden"> \(/);
-  assert.match(html,/Open source<span aria-hidden="true"> ↗<\/span><span class="visually-hidden"> \(opens in a new tab\)<\/span>/);
+  assert.match(html,/Open source[\s\S]*?icons\.svg#external[\s\S]*?<span class="visually-hidden"> \(opens in a new tab\)<\/span>/);
   assert.match(html,/target="_blank" rel="noopener noreferrer"/);
   assert.doesNotMatch(html,/<b>X<\/b>/);
   assert.match(html,/class="ui-badge/);

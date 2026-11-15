@@ -21,7 +21,7 @@ test('a dangerous link in a Deep Search result is shown as text, never as a link
       id:'a',kind:'account',status:'linked',reason:'Registered with owner@example.com.',level:3,confirmedBy:['a'],reasons:[{rule:'a',text:'Registered with owner@example.com.'}],
       subject:{type:'username',value:'ownername'},account:{site:'Example',url,category:'other',presence:'found',details:{names:[],usernames:[],emails:[],phones:[],ips:[],websites:[url],places:[]}},
       evidence:{names:[],emails:[],usernames:[],phones:[],urls:[],places:[]},sources:[{name:'maigret',serverName:'T'}],trail:[]}]});
-    const hrefs=[...html.matchAll(/href="([^"]*)"/g)].map(match=>match[1]);
+    const hrefs=[...html.matchAll(/<a\b[^>]*\bhref="([^"]*)"/g)].map(match=>match[1]);
     assert.ok(hrefs.every(href=>/^(?:https?:\/\/|#)/.test(href)),`${JSON.stringify(url)} → ${hrefs.join(' ')}`);
   }
 });
