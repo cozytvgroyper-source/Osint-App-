@@ -226,6 +226,13 @@ check_port() {
   refuse_foreign_listener "$name" "$port" "$REPLY[1]" "$REPLY[2]"
 }
 
+# Each start of a service writes a fresh log; the previous run's log is kept as .log.1, so the reason a service
+# stopped is still there after it is restarted (automatically or by hand). Only one previous log is kept.
+rotate_log() {
+  [[ -s "$1" ]] && mv -f "$1" "$1.1"
+  return 0
+}
+
 start_headless() {
   check_port headless || return 1
   service_is_ready headless && return 0
@@ -241,6 +248,7 @@ start_headless() {
     if [[ ! -e "$keys" ]]; then
       (umask 077; cp "$APP_DIR/config/api-keys.env.example" "$keys")
     fi
+    rotate_log "$LOG_DIR/headless.log"
     (
       cd "$OSINT_ROOT/server"
       PUBLIC_DESK_API_KEYS_FILE="$keys" /usr/bin/nohup node --import tsx --import "$APP_DIR/scripts/live-api-keys.mjs" \
@@ -263,6 +271,7 @@ start_mcp() {
     stop_service mcp || return 1
   fi
   if [[ -z "$(listener_pid 8892)" ]]; then
+    rotate_log "$LOG_DIR/mcp.log"
     (
       cd "$OSINT_ROOT/mcp"
       OSINT_MCP_API_KEY="$PUBLIC_DESK_TOKEN" HEADLESS_BASE_URL="http://127.0.0.1:8080" \
@@ -285,6 +294,7 @@ start_bridge() {
     stop_service "$service" || return 1
   fi
   if [[ -z "$(listener_pid "$port")" ]]; then
+    rotate_log "$LOG_DIR/$service.log"
     (
       cd "$APP_DIR"
       FASTMCP_HTTP_HOST_ORIGIN_PROTECTION=true /usr/bin/nohup "$UVX_BIN" --from 'fastmcp-slim[server]==4.1.8' \
@@ -305,6 +315,7 @@ start_signaldesk() {
     stop_service signaldesk || return 1
   fi
   if [[ -z "$(listener_pid 4173)" ]]; then
+    rotate_log "$LOG_DIR/signaldesk.log"
     (
       cd "$APP_DIR"
       /usr/bin/nohup node server.mjs >"$LOG_DIR/signaldesk.log" 2>&1 </dev/null &!

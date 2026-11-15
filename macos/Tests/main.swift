@@ -61,10 +61,14 @@ final class FakeRunner: CommandRunning {
     var calls: [[String]] = []
     var status = allStopped
     var actionResult = CommandResult(exitCode: 0, output: "Public Desk is ready.")
+    /// Status after a start, stop or restart has run (unchanged when nil).
+    var statusAfterAction: String?
 
     func run(_ arguments: [String], timeout: TimeInterval) -> CommandResult {
         calls.append(arguments)
-        return arguments.first == "status" && arguments.contains("--json") ? ok(status) : actionResult
+        if arguments.first == "status" && arguments.contains("--json") { return ok(status) }
+        if let next = statusAfterAction, ["start", "stop", "restart"].contains(arguments.first ?? "") { status = next }
+        return actionResult
     }
 
     var actionCalls: [[String]] { calls.filter { $0 != ["status", "--json"] } }
@@ -414,10 +418,11 @@ test("a failure with no output still explains itself") {
     expectEqual(notices.first?.body, "The control script exited with code 2.")
 }
 
-test("a ready service that stops on its own is reported once and shown as failed") {
+test("with automatic restarts off, a ready service that stops on its own is reported once and shown as failed") {
     let runner = FakeRunner()
     runner.status = allReady
     let (controller, notices) = makeController(runner)
+    controller.autoRestart = false
     controller.refresh()
     runner.status = omegaDown
     controller.refresh()
@@ -430,6 +435,124 @@ test("a ready service that stops on its own is reported once and shown as failed
     runner.status = allReady
     controller.perform(.start)
     expectEqual(controller.state.health, .green)
+}
+
+// MARK: Automatic restarts
+
+final class Clock {
+    var time = Date(timeIntervalSince1970: 1_800_000_000)
+    func advance(_ seconds: TimeInterval) { time = time.addingTimeInterval(seconds) }
+}
+
+func crashOmega(_ runner: FakeRunner, _ controller: Controller) {
+    runner.status = omegaDown
+    runner.statusAfterAction = allReady
+    controller.refresh()
+}
+
+test("a service that stops on its own is restarted, and only the missing one is started") {
+    let runner = FakeRunner()
+    runner.status = allReady
+    let (controller, notices) = makeController(runner)
+    let events = windowEvents(controller)
+    controller.refresh()
+    crashOmega(runner, controller)
+    expectEqual(runner.actionCalls, [["start"]], "start brings back only what is missing")
+    expectEqual(notices(), [Notice(title: "Omega tools stopped", body: "Restarting it now."),
+                            Notice(title: "Omega tools running again", body: "Public Desk restarted it automatically.")])
+    expectEqual(controller.state.health, .green)
+    expectEqual(events(), [], "an open window stays open")
+}
+
+test("a service that keeps stopping is restarted at most 3 times in 10 minutes, then left stopped and reported") {
+    let runner = FakeRunner()
+    runner.status = allReady
+    let clock = Clock()
+    let (controller, notices) = makeController(runner)
+    controller.now = { clock.time }
+    controller.refresh()
+    for _ in 0..<4 {
+        crashOmega(runner, controller)
+        clock.advance(60)
+    }
+    expectEqual(runner.actionCalls.count, 3, "three restarts, not four")
+    expectEqual(notices().last, Notice(title: "Omega tools stopped", body: "It keeps stopping, so it was not restarted "
+                                       + "again. Choose Diagnostics to see why, then Start."))
+    expectEqual(controller.state.health, .red, "shown as failed")
+    clock.advance(600)
+    runner.status = allReady
+    controller.refresh()
+    crashOmega(runner, controller)
+    expectEqual(runner.actionCalls.count, 4, "after 10 quiet minutes it may restart again")
+}
+
+test("a failed automatic restart is reported like any failed start") {
+    let runner = FakeRunner()
+    runner.status = allReady
+    let (controller, notices) = makeController(runner)
+    controller.refresh()
+    runner.actionResult = CommandResult(exitCode: 1, output: "Omega tools did not become ready.")
+    runner.status = omegaDown
+    controller.refresh()
+    expectEqual(notices().last, Notice(title: "Public Desk could not start", body: "Omega tools did not become ready."))
+    expectEqual(controller.state.health, .red)
+}
+
+test("nothing is restarted after a Stop, while turned off, or while the window is closing") {
+    let runner = FakeRunner()
+    runner.status = allReady
+    let (stopped, _) = makeController(runner)
+    stopped.refresh()
+    runner.status = allStopped // Stop from anywhere: everything stopped, nothing "lost"
+    stopped.refresh()
+    expectEqual(runner.actionCalls, [])
+
+    let off = FakeRunner()
+    off.status = allReady
+    let (manual, _) = makeController(off)
+    manual.autoRestart = false
+    manual.refresh()
+    crashOmega(off, manual)
+    expectEqual(off.actionCalls, [], "turned off in the menu")
+
+    let closing = FakeRunner()
+    closing.status = allReady
+    let scheduler = DeferredScheduling()
+    let (window, _) = makeController(closing, scheduler: scheduler)
+    window.refresh(); scheduler.drain()
+    expect(window.perform(.restart))
+    window.requestStop() // the window closes while a restart runs
+    closing.status = omegaDown
+    scheduler.drain()
+    expectEqual(closing.actionCalls, [["restart"], ["stop"]], "the stop wins; nothing is restarted")
+}
+
+test("the restart budget forgets attempts older than its window") {
+    var budget = RestartBudget()
+    let start = Date(timeIntervalSince1970: 0)
+    expect(budget.spend(at: start))
+    expect(budget.spend(at: start.addingTimeInterval(100)))
+    expect(budget.spend(at: start.addingTimeInterval(200)))
+    expect(!budget.spend(at: start.addingTimeInterval(300)), "fourth within 10 minutes")
+    expect(budget.spend(at: start.addingTimeInterval(600)), "the first attempt has aged out")
+}
+
+test("the controller's log rolls over at its size limit, keeping one previous file") {
+    let folder = temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let log = folder.appendingPathComponent("menu-bar.log")
+    LogFile.append("first entry\n", to: log, limit: 20)
+    LogFile.append("second entry\n", to: log, limit: 20)
+    expectEqual(try String(contentsOf: log, encoding: .utf8), "first entry\nsecond entry\n", "under the limit: appended")
+    LogFile.append("third\n", to: log, limit: 20)
+    expectEqual(try String(contentsOf: log, encoding: .utf8), "third\n", "over the limit: a fresh file")
+    expectEqual(try String(contentsOf: log.appendingPathExtension("1"), encoding: .utf8), "first entry\nsecond entry\n")
+    LogFile.append("fourth entry that is long\n", to: log, limit: 20)
+    LogFile.append("fifth\n", to: log, limit: 20)
+    expectEqual(try String(contentsOf: log.appendingPathExtension("1"), encoding: .utf8), "third\nfourth entry that is long\n",
+                "only one previous file is kept")
+    let mode = (try FileManager.default.attributesOfItem(atPath: log.path)[.posixPermissions] as? Int) ?? 0
+    expectEqual(mode, 0o600)
 }
 
 test("several services stopping at once are reported together") {

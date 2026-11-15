@@ -314,6 +314,35 @@ test('a stop that leaves something running keeps the tabs open', () => {
   assert.doesNotMatch(controller.match(/restart\)[\s\S]*?;;/)[0], /close_open_tabs/);
 });
 
+// Each start writes a fresh service log; the previous run's log is kept as .log.1 so the reason a service stopped
+// survives its restart. Only one previous log is kept, and an empty log is not kept at all.
+test('starting a service keeps its previous log as .log.1', { skip }, () => {
+  const app = copy();
+  try {
+    const logs = join(app.dir, 'logs'); mkdirSync(logs);
+    const rotate = name => spawnSync('/bin/zsh', ['-c', `source ${JSON.stringify(app.script)}; rotate_log ${JSON.stringify(join(logs, name))}`], { encoding: 'utf8' });
+    writeFileSync(join(logs, 'omega.log'), 'first run: Omega crashed here\n');
+    assert.equal(rotate('omega.log').status, 0);
+    assert.equal(existsSync(join(logs, 'omega.log')), false, 'the service then writes a fresh log');
+    assert.equal(readFileSync(join(logs, 'omega.log.1'), 'utf8'), 'first run: Omega crashed here\n');
+    writeFileSync(join(logs, 'omega.log'), 'second run\n');
+    rotate('omega.log');
+    assert.equal(readFileSync(join(logs, 'omega.log.1'), 'utf8'), 'second run\n', 'only the latest previous run is kept');
+    writeFileSync(join(logs, 'empty.log'), '');
+    assert.equal(rotate('empty.log').status, 0);
+    assert.equal(existsSync(join(logs, 'empty.log.1')), false, 'an empty log is not kept');
+    assert.equal(rotate('missing.log').status, 0, 'a first start has nothing to keep');
+  } finally { rmSync(app.dir, { recursive: true, force: true }); }
+});
+
+test('every service start rotates its log just before writing a fresh one', () => {
+  const controller = readFileSync(join(root, 'scripts/public-desk-control.zsh'), 'utf8');
+  for (const log of ['headless', 'mcp', '$service', 'signaldesk']) {
+    const pattern = new RegExp(`rotate_log "\\$LOG_DIR/${log.replace('$', '\\$')}\\.log"\\s+\\([\\s\\S]*?>"\\$LOG_DIR/${log.replace('$', '\\$')}\\.log"`);
+    assert.match(controller, pattern, log);
+  }
+});
+
 test('the page reloads with a new token handed to an already-open tab', () => {
   const core = readFileSync(join(root, 'public/app/core.js'), 'utf8');
   assert.match(core, /addEventListener\('hashchange'[\s\S]*?get\('access'\)[\s\S]*?setItem\('publicDesk\.access', access\)[\s\S]*?location\.reload\(\)/);

@@ -118,11 +118,26 @@ final class ScriptRunner: CommandRunning {
     private func appendToLog(arguments: [String], code: Int32, text: String) {
         guard let logFile else { return }
         let stamp = ISO8601DateFormatter().string(from: Date())
-        let entry = "[\(stamp)] \(arguments.joined(separator: " ")) → exit \(code)\n\(text)\n"
-        if !FileManager.default.fileExists(atPath: logFile.path) {
-            FileManager.default.createFile(atPath: logFile.path, contents: nil, attributes: [.posixPermissions: 0o600])
+        LogFile.append("[\(stamp)] \(arguments.joined(separator: " ")) → exit \(code)\n\(text)\n", to: logFile)
+    }
+}
+
+/// The controller's log (work/logs/menu-bar.log). Once it passes `limit` bytes it becomes menu-bar.log.1 (replacing
+/// the previous one) and a new file starts, so it never grows without bound. Owner-only, like the rest of work/.
+enum LogFile {
+    static let limit = 1_000_000
+
+    static func append(_ entry: String, to file: URL, limit: Int = LogFile.limit) {
+        let manager = FileManager.default
+        if let size = (try? manager.attributesOfItem(atPath: file.path))?[.size] as? Int, size >= limit {
+            let previous = file.appendingPathExtension("1")
+            try? manager.removeItem(at: previous)
+            try? manager.moveItem(at: file, to: previous)
         }
-        guard let handle = try? FileHandle(forWritingTo: logFile) else { return }
+        if !manager.fileExists(atPath: file.path) {
+            manager.createFile(atPath: file.path, contents: nil, attributes: [.posixPermissions: 0o600])
+        }
+        guard let handle = try? FileHandle(forWritingTo: file) else { return }
         defer { try? handle.close() }
         _ = try? handle.seekToEnd()
         try? handle.write(contentsOf: Data(entry.utf8))
@@ -158,6 +173,8 @@ struct ControllerState: Equatable {
     private(set) var runningAction: Action?
     private(set) var failure: String?
     private(set) var statusError: String?
+    /// The services the latest status check found had stopped on their own (empty otherwise).
+    private(set) var lostServices: [ServiceStatus] = []
 
     // MARK: Events
 
@@ -198,6 +215,7 @@ struct ControllerState: Equatable {
             return []
         }
         statusError = nil
+        lostServices = []
         let previous = snapshot
         snapshot = next
         if next.overall == "ready" || next.overall == "stopped" { failure = nil }
@@ -207,6 +225,7 @@ struct ControllerState: Equatable {
         let wasReady = Set(previous.services.filter { $0.state == "ready" }.map(\.id))
         let lost = next.services.filter { wasReady.contains($0.id) && $0.state != "ready" }
         guard !lost.isEmpty else { return [] }
+        lostServices = lost
         let names = lost.map(\.name)
         failure = names.count == 1 ? "\(names[0]) is unavailable" : "\(names.count) services are unavailable"
         let subject = names.count == 1 ? "\(names[0]) stopped" : "\(names.count) Public Desk services stopped"
@@ -280,6 +299,23 @@ struct ControllerState: Equatable {
     }
 }
 
+// MARK: - Automatic restarts
+
+/// How many times a stopped service may be restarted automatically: at most `limit` restarts in any `window`, so a
+/// service that keeps crashing is left stopped (and reported) instead of being restarted for ever.
+struct RestartBudget {
+    var limit = 3
+    var window: TimeInterval = 600
+    private(set) var attempts: [Date] = []
+
+    mutating func spend(at now: Date) -> Bool {
+        attempts.removeAll { now.timeIntervalSince($0) >= window }
+        guard attempts.count < limit else { return false }
+        attempts.append(now)
+        return true
+    }
+}
+
 // MARK: - Controller
 
 /// Where work runs. The app uses a background queue and the main thread; tests run everything immediately.
@@ -309,6 +345,12 @@ final class Controller {
     var onText: (String, String) -> Void = { _, _ in }
     /// Show the window once Public Desk is ready; close it once Public Desk has stopped, however it was stopped.
     var onWindow: (WindowEvent) -> Void = { _ in }
+    /// Restart a service that stopped on its own (a menu setting, on unless the user turns it off).
+    var autoRestart = true
+    var now: () -> Date = Date.init
+    private var restartBudget = RestartBudget()
+    /// The services an automatic restart is bringing back, for its notice.
+    private var recovering: [String] = []
 
     init(runner: CommandRunning, scheduler: Scheduling) {
         self.runner = runner
@@ -325,7 +367,7 @@ final class Controller {
                 self.refreshing = false
                 let before = self.state.snapshot?.overall
                 let notices = self.state.apply(status: result)
-                notices.forEach(self.onNotice)
+                if !self.recoverIfNeeded() { notices.forEach(self.onNotice) }
                 // Stopped from somewhere else (the menu, Stop Public Desk.command, Terminal): the window goes too.
                 // Not mid-restart or mid-start, here or from a launcher, when everything is briefly stopped too.
                 if let before, before != "stopped", self.state.snapshot?.overall == "stopped", !self.state.isBusy {
@@ -340,6 +382,24 @@ final class Controller {
     /// Opening the app's icon opens Public Desk, like Open Public Desk in the menu: it starts anything missing, then
     /// opens or brings forward the browser tab. If a start or stop is running (from here or a Finder launcher), it
     /// opens once that finishes, so the click is never lost and never runs beside it. Repeated requests open once.
+    /// A service that was running stopped on its own: start just the missing ones (start_all leaves running services
+    /// alone), within the restart budget. Never after a Stop, during a start, stop or restart, or while the window
+    /// is closing. Returns true when it has announced what it is doing instead of the plain "stopped" notice.
+    private func recoverIfNeeded() -> Bool {
+        let lost = state.lostServices.map(\.name)
+        guard autoRestart, !lost.isEmpty, pending != .stop, !state.isBusy else { return false }
+        let subject = lost.count == 1 ? "\(lost[0]) stopped" : "\(lost.count) Public Desk services stopped"
+        guard restartBudget.spend(at: now()) else {
+            onNotice(Notice(title: subject, body: "It keeps stopping, so it was not restarted again. "
+                            + "Choose Diagnostics to see why, then Start."))
+            return true
+        }
+        recovering = lost
+        onNotice(Notice(title: subject, body: "Restarting \(lost.count == 1 ? "it" : "them") now."))
+        perform(.start)
+        return true
+    }
+
     func requestOpen(_ action: Action = .open) {
         pending = action
         runPending()
@@ -371,7 +431,13 @@ final class Controller {
         scheduler.background { [runner] in
             let result = runner.run(arguments, timeout: Controller.actionTimeout)
             self.scheduler.main {
-                let notices = self.state.finish(action, result)
+                var notices = self.state.finish(action, result)
+                let recovered = self.recovering
+                self.recovering = []
+                if action == .start, result.succeeded, !recovered.isEmpty {
+                    let names = recovered.count == 1 ? recovered[0] : "\(recovered.count) services"
+                    notices = [Notice(title: "\(names) running again", body: "Public Desk restarted it automatically.")]
+                }
                 notices.forEach(self.onNotice)
                 if result.succeeded && action == .open { self.onWindow(.show) }
                 if result.succeeded && action == .stop { self.onWindow(.close) }

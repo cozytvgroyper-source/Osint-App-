@@ -88,6 +88,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
                 }
             }
             publicDeskWindow = window
+            controller.autoRestart = UserDefaults.standard.object(forKey: autoRestartKey) as? Bool ?? true
             NSApp.mainMenu = makeMainMenu()
             self.controller = controller
             controller.refresh()
@@ -330,6 +331,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
                 + "stopped services are not announced."
             menu.addItem(notifications)
         }
+        let restart = item("Restart Stopped Services Automatically", #selector(toggleAutoRestart), key: "")
+        restart.state = controller.autoRestart ? .on : .off
+        restart.toolTip = "If a running service stops on its own, start it again (at most 3 times in 10 minutes)."
+        menu.addItem(restart)
         let login = item("Start at Login", #selector(toggleLogin), key: "")
         login.state = SMAppService.mainApp.status == .enabled ? .on : .off
         menu.addItem(login)
@@ -425,6 +430,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     @objc private func printWindow() { publicDeskWindow?.printPage() }
     @objc private func goHome() { publicDeskWindow?.goHome() }
 
+    private let autoRestartKey = "autoRestartServices"
+
+    @objc private func toggleAutoRestart() {
+        guard let controller else { return }
+        controller.autoRestart.toggle()
+        UserDefaults.standard.set(controller.autoRestart, forKey: autoRestartKey)
+        logLine("automatic restarts turned \(controller.autoRestart ? "on" : "off")")
+        render()
+    }
+
     @objc private func retryUpdate() {
         lastUpdateCheck = Date()
         updater?.check(force: true)
@@ -456,14 +471,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         guard let root = (ProcessInfo.processInfo.environment["PUBLIC_DESK_ROOT"]
                           ?? Bundle.main.infoDictionary?["PublicDeskRoot"] as? String) else { return }
         let file = URL(fileURLWithPath: root).appendingPathComponent("work/logs/menu-bar.log")
-        let line = "[\(ISO8601DateFormatter().string(from: Date()))] controller: \(text)\n"
-        if !FileManager.default.fileExists(atPath: file.path) {
-            FileManager.default.createFile(atPath: file.path, contents: nil, attributes: [.posixPermissions: 0o600])
-        }
-        guard let handle = try? FileHandle(forWritingTo: file) else { return }
-        defer { try? handle.close() }
-        _ = try? handle.seekToEnd()
-        try? handle.write(contentsOf: Data(line.utf8))
+        LogFile.append("[\(ISO8601DateFormatter().string(from: Date()))] controller: \(text)\n", to: file)
     }
 
     private func post(_ notice: Notice) {
