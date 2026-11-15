@@ -165,3 +165,15 @@ test('the icon is drawn at 1024 × 1024 without image files or SF Symbols', { sk
     assert.notEqual(spawnSync(binary, []).status, 0, 'a missing output path is refused');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+// macOS can turn the app's notifications off (a permission request that closed on its own counts as "no") and then
+// drops every notification without telling the app. The controller records macOS's answer and says so in its menu.
+test('the controller records whether notifications are allowed and offers to turn them on', () => {
+  const app = readFileSync(sources[1], 'utf8');
+  assert.match(app, /requestAuthorization\(options: \[\.alert, \.sound\]\) \{ \[weak self\] granted, error in[\s\S]*?logLine\("notifications: request granted=/);
+  assert.match(app, /add\(request\) \{ \[weak self\] error in\s+self\?\.logLine\("notification/, 'each notification is logged as handed over or refused');
+  assert.match(app, /let allowed = settings\.authorizationStatus != \.denied/);
+  assert.match(app, /if !notificationsAllowed \{\s+let notifications = item\("Turn On Notifications…", #selector\(openNotificationSettings\)/);
+  assert.match(app, /x-apple\.systempreferences:com\.apple\.Notifications-Settings\.extension/);
+  assert.match(app, /func menuWillOpen\(_ menu: NSMenu\) \{\s+UNUserNotificationCenter\.current\(\)\.getNotificationSettings/, 're-checked whenever the menu opens');
+});

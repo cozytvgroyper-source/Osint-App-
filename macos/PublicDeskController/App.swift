@@ -41,6 +41,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     private var timer: Timer?
     private var lastRefresh = Date.distantPast
     private var updater: SelfUpdater?
+    /// False when macOS has notifications for Public Desk turned off; the menu then offers to open their settings.
+    private var notificationsAllowed = true
     private var lastUpdateCheck = Date.distantPast
 
     init(lock: InstanceLock) {
@@ -90,7 +92,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
 
         let center = UNUserNotificationCenter.current()
         center.delegate = self
-        center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
+        center.requestAuthorization(options: [.alert, .sound]) { [weak self] granted, error in
+            center.getNotificationSettings { settings in
+                DispatchQueue.main.async { self?.noteNotificationSettings(settings) }
+                self?.logLine("notifications: request granted=\(granted) error=\(error.map { "\($0)" } ?? "none") "
+                    + "authorization=\(settings.authorizationStatus.rawValue) alerts=\(settings.alertSetting.rawValue)")
+            }
+        }
 
         DistributedNotificationCenter.default().addObserver(self, selector: #selector(openPublicDesk),
                                                             name: openPublicDeskNotification, object: nil,
@@ -173,7 +181,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         statusItem.button?.performClick(nil)
     }
 
+    /// Notifications can be switched off in System Settings at any time (or by a permission request that closed on its
+    /// own), and macOS then drops them without telling the app, so the menu says so.
+    private func noteNotificationSettings(_ settings: UNNotificationSettings) {
+        let allowed = settings.authorizationStatus != .denied
+        guard allowed != notificationsAllowed else { return }
+        notificationsAllowed = allowed
+        logLine("notifications are \(allowed ? "on" : "off") in System Settings")
+        render()
+    }
+
+    @objc private func openNotificationSettings() {
+        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension")!)
+    }
+
     func menuWillOpen(_ menu: NSMenu) {
+        UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
+            DispatchQueue.main.async { self?.noteNotificationSettings(settings) }
+        }
         lastRefresh = Date()
         controller?.refresh()
     }
@@ -278,6 +303,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         default:
             break
         }
+        if !notificationsAllowed {
+            let notifications = item("Turn On Notifications…", #selector(openNotificationSettings), key: "")
+            notifications.toolTip = "Notifications for Public Desk are off in System Settings, so start failures and "
+                + "stopped services are not announced."
+            menu.addItem(notifications)
+        }
         let login = item("Start at Login", #selector(toggleLogin), key: "")
         login.state = SMAppService.mainApp.status == .enabled ? .on : .off
         menu.addItem(login)
@@ -336,12 +367,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
 
     // MARK: Notices
 
+    /// Adds a line to work/logs/menu-bar.log, beside the control script's actions.
+    private func logLine(_ text: String) {
+        guard let root = (ProcessInfo.processInfo.environment["PUBLIC_DESK_ROOT"]
+                          ?? Bundle.main.infoDictionary?["PublicDeskRoot"] as? String) else { return }
+        let file = URL(fileURLWithPath: root).appendingPathComponent("work/logs/menu-bar.log")
+        let line = "[\(ISO8601DateFormatter().string(from: Date()))] controller: \(text)\n"
+        if !FileManager.default.fileExists(atPath: file.path) {
+            FileManager.default.createFile(atPath: file.path, contents: nil, attributes: [.posixPermissions: 0o600])
+        }
+        guard let handle = try? FileHandle(forWritingTo: file) else { return }
+        defer { try? handle.close() }
+        _ = try? handle.seekToEnd()
+        try? handle.write(contentsOf: Data(line.utf8))
+    }
+
     private func post(_ notice: Notice) {
         let content = UNMutableNotificationContent()
         content.title = notice.title
         content.body = notice.body
         let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
-        UNUserNotificationCenter.current().add(request) { error in
+        UNUserNotificationCenter.current().add(request) { [weak self] error in
+            self?.logLine("notification \"\(notice.title)\": \(error.map { "not shown: \($0)" } ?? "handed to macOS")")
             if let error { NSLog("Public Desk notification not shown: %@", error.localizedDescription) }
         }
     }

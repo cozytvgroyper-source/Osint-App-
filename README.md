@@ -34,6 +34,8 @@ Its menu has **Open Public Desk** (starts anything missing, then opens it), **St
 **Status** (each service's state), **Diagnostics** (opens the logs folder), **Start at Login**, and **Quit Controller**.
 Quitting the controller leaves the services running. It checks status every 10 seconds without starting or restarting
 anything, and sends a notification when Public Desk is ready, when a start fails, or when a ready service stops.
+If notifications for Public Desk are off in System Settings, its menu shows **Turn On Notifications…**, which opens
+that setting; the controller's log (`work/logs/menu-bar.log`) records whether macOS accepted each notification.
 
 Opening the **Public Desk** app (from Finder, Spotlight or the Dock) opens Public Desk, starting anything that is
 not running, just like **Open Public Desk** in its menu; when it starts at login it only appears in the menu bar.
