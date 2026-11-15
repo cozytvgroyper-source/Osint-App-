@@ -38,7 +38,18 @@ Only one copy of each runs: opening the app again opens the existing menu, and o
 open tab to the front in Safari, Chrome, Brave or Edge (macOS asks once whether Public Desk may control the browser;
 if you decline, a new tab opens instead). Start, stop and restart run one at a time whichever launcher asked; a lock
 left behind by a crash is cleared automatically. The app remembers this folder, so run `npm run menu-bar` again if you
-move the folder or after pulling changes to the app.
+move the folder.
+
+The controller keeps itself up to date: when it opens, and every 15 minutes, it checks whether the app's code in
+this folder has changed (after a `git pull`, say). If so it rebuilds, reinstalls and reopens itself, leaving the
+services running. It never updates while Public Desk is starting or stopping. If a rebuild fails, it notifies you
+once, shows **Retry Controller Update** in its menu, and logs the details to `work/logs/menu-bar.log`. Changes to
+`scripts/public-desk-control.zsh` need no rebuild, because the app runs that script straight from this folder.
+Copies installed before this feature need one more `npm run menu-bar`.
+
+Keep the Public Desk folder outside **Desktop**, **Documents** and **Downloads** (for example `~/Public Desk`). macOS
+asks before an app reads those folders, and because the controller is signed on this Mac rather than by a developer
+account, it would ask again after every rebuild. Until the question is answered, the controller's status checks wait.
 
 ### Finder launchers
 
