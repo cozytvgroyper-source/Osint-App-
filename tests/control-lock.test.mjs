@@ -292,6 +292,11 @@ test('Stop closes the open Public Desk tabs, and Restart keeps them', { skip, ti
   const app = copy();
   try {
     const browser = fakeBrowser(app, { running: ['Safari'], answer: '1' });
+    // A stand-in lsof that sees no services: a Public Desk running on this Mac holds the same ports, and this copy
+    // would rightly refuse to stop it, fail, and keep the tabs, which made the test depend on the machine's state.
+    writeFileSync(join(app.dir, 'bin', 'lsof'), '#!/bin/zsh\nexit 0\n');
+    chmodSync(join(app.dir, 'bin', 'lsof'), 0o755);
+    browser.env.PUBLIC_DESK_LSOF = join(app.dir, 'bin', 'lsof');
     const stop = control(app, ['stop'], browser.env);
     assert.equal(stop.status, 0, stop.stderr);
     assert.match(stop.stdout, /Public Desk services are stopped\.\nClosed 1 Public Desk tab\./);
