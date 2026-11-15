@@ -146,6 +146,16 @@ function renderReadableResult(result, openKeys = null, { savedKeys = new Set(), 
 function saveButtonLabel(activeCase) {
   return activeCase?.name ? `Save to ${activeCase.name} case` : 'Save to a new case';
 }
+// On desktop, results are a non-modal workspace drawer: the user can keep them visible while changing pages. Small
+// screens retain the existing modal behavior. Both paths move focus into the newly opened result once.
+function openResult(dialog) {
+  if (matchMedia('(min-width: 721px)').matches) {
+    dialog.show();
+    dialog.querySelector('[data-close-result]')?.focus();
+    return;
+  }
+  openDialog(dialog);
+}
 // saved:true shows a finding that is already in the case, so there is nothing to save.
 function showResult(title, result, { saved = false } = {}) {
   const dialog = $('#resultDialog');
@@ -176,7 +186,7 @@ function showResult(title, result, { saved = false } = {}) {
     dialog.scrollTop = scroll[0];
     $('#resultBody').scrollTop = scroll[1];
   }
-  if (!dialog.open) openDialog(dialog);
+  if (!dialog.open) openResult(dialog);
 }
 // Refreshes a search that is still running without reopening the window if the user has closed it.
 function updateOpenResult(title, result) {
@@ -257,6 +267,7 @@ export {
   renderSources,
   renderReadableResult,
   saveButtonLabel,
+  openResult,
   showResult,
   updateOpenResult,
   categoryNames,

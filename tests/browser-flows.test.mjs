@@ -218,6 +218,17 @@ test('a name search groups results, ranks the exact name first, and shows each r
   assert.ok(!calls.includes('tools/call:get_opencorporates'),'a person is not looked up in company registers');
 },{stub:{answers:NAME_ANSWERS}}));
 
+test('desktop results open as a non-blocking right drawer',options,()=>inApp(async browser=>{
+  await connectOpenOsint(browser);
+  await search(browser,'Owner Example');
+  await browser.waitFor("return document.getElementById('resultDialog').open",{label:'result drawer open'});
+  assert.deepEqual(await browser.evaluate(`const dialog=document.getElementById('resultDialog');const box=dialog.getBoundingClientRect();
+    return {modal:dialog.matches(':modal'),position:getComputedStyle(dialog).position,right:Math.round(innerWidth-box.right),rows:getComputedStyle(dialog).gridTemplateRows.split(' ').length};`),
+    {modal:false,position:'fixed',right:0,rows:3});
+  await browser.evaluate("document.querySelector('[data-view=\"evidence\"]').click();");
+  assert.deepEqual(await browser.evaluate("return {page:document.querySelector('[data-view=\"evidence\"]').getAttribute('aria-current'),drawer:document.getElementById('resultDialog').open}"),{page:'page',drawer:true});
+},{stub:{answers:NAME_ANSWERS}}));
+
 test('a search result opens to show its complete source record',options,()=>inApp(async browser=>{
   await connectOpenOsint(browser);
   await search(browser,'Owner Example');

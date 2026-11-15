@@ -454,3 +454,20 @@ dialog{padding:var(--space-5);border-radius:var(--radius-panel)}
   .dialog-actions{flex-wrap:wrap}
   .dialog-actions .primary,.dialog-actions .ghost{flex:1}
 }
+
+/* Desktop workspace refinement: results stay available in a non-blocking right drawer, while each page's primary
+   actions occupy the same compact toolbar. The phone layout and its modal result window remain unchanged. */
+@media(min-width:721px){
+  .view>.view-actions:first-child{min-height:58px;padding:0 0 var(--space-3);margin:0 0 var(--space-5);border-bottom:1px solid var(--line)}
+  .view>.section-heading:first-child:not(.view-actions){min-height:58px;padding:0 0 var(--space-3);margin:0 0 var(--space-5);border-bottom:1px solid var(--line)}
+
+  dialog.result-dialog{
+    position:fixed;inset:0 0 0 auto;margin:0;width:min(590px,calc(100vw - 326px));height:100vh;max-height:none;
+    padding:0;border-width:0 0 0 1px;border-radius:var(--radius-panel) 0 0 var(--radius-panel);z-index:40
+  }
+  dialog.result-dialog[open]{display:grid;grid-template-rows:auto minmax(0,1fr) auto}
+  dialog.result-dialog .dialog-head{margin:0;padding:var(--space-5);border-bottom:1px solid var(--line);background:var(--surface)}
+  dialog.result-dialog .result-body{min-height:0;max-height:none;padding:var(--space-5);overflow:auto;overscroll-behavior:contain}
+  dialog.result-dialog .dialog-actions{margin:0;padding:var(--space-4) var(--space-5);border-top:1px solid var(--line);background:var(--surface)}
+  dialog.result-dialog .dialog-actions [data-close-result]{display:none}
+}
