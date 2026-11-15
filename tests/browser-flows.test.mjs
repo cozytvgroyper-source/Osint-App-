@@ -180,8 +180,9 @@ const NAME_ANSWERS={
 const connectOpenOsint=async(browser,answers,delays={})=>{
   await browser.evaluate(`${STUB_MCP}window.__mcp.answers=${JSON.stringify(answers)};window.__mcp.delays=${JSON.stringify(delays)};${show('servers')}`);
   await browser.evaluate("[...document.querySelectorAll('[data-connect]')].find(button=>button.closest('article,li')?.textContent.includes('Open OSINT')).click();");
-  await browser.waitFor("return [...document.querySelectorAll('article,li')].some(card=>/Open OSINT/.test(card.textContent)&&/Connected · 7 tools/.test(card.textContent))",{timeout:20_000,label:'Open OSINT connected'});
-  await browser.waitFor("return !document.getElementById('serverList').textContent.includes('Connecting…')",{timeout:20_000,label:'startup server notices settled'});
+  // A cold Chromium connection can take longer on the oldest supported Node runner.
+  await browser.waitFor("return [...document.querySelectorAll('article,li')].some(card=>/Open OSINT/.test(card.textContent)&&/Connected · 7 tools/.test(card.textContent))",{timeout:45_000,label:'Open OSINT connected'});
+  await browser.waitFor("return !document.getElementById('serverList').textContent.includes('Connecting…')",{timeout:45_000,label:'startup server notices settled'});
 };
 const search=async(browser,query)=>{
   await browser.evaluate(`${show('workspace')}document.getElementById('query').value=${JSON.stringify(query)};document.getElementById('investigateForm').requestSubmit();`);

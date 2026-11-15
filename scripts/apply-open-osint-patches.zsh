@@ -1,5 +1,5 @@
 # Applies Public Desk's fixes for the bundled Open OSINT checkout (patches/*.patch) before its data service starts.
-# Sourced by Start Public Desk.command. Each patch is applied once: an already-applied patch is skipped silently, and
+# Sourced by the shared Public Desk controller. Each patch is applied once: an already-applied patch is skipped silently, and
 # one that no longer fits (Open OSINT's code changed) is reported and skipped, so startup always continues.
 # Patches are kept in this repo so they are reviewed and survive Open OSINT updates.
 

@@ -35,6 +35,8 @@ jobs:
         run: |
           zsh -n "Start Public Desk.command"
           zsh -n "Stop Public Desk.command"
+          zsh -n "Public Desk.command"
+          zsh -n scripts/public-desk-control.zsh
           zsh -n scripts/apply-open-osint-patches.zsh
           zsh -n scripts/service-ownership.zsh
           zsh -n scripts/setup-local.zsh
