@@ -183,7 +183,7 @@ function requestGuard({ method, url, headers }, expectedToken = PUBLIC_DESK_TOKE
   if (method === 'POST' && !/^application\/json(?:;|$)/i.test(String(headers['content-type'] || ''))) {
     return { status: 415, error: 'API requests must be JSON' };
   }
-  if (!validAccessToken(headers['x-public-desk-token'], expectedToken)) return { status: 401, error: 'Open Public Desk from its launcher to continue' };
+  if (!validAccessToken(headers['x-public-desk-token'], expectedToken)) return { status: 401, error: 'This tab is not connected to the running Public Desk. Choose Open Public Desk from the menu-bar icon or the launcher to reconnect it' };
   return null;
 }
 

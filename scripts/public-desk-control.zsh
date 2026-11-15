@@ -338,8 +338,9 @@ check_dependencies() {
 
 # Opening Public Desk again brings its existing tab forward instead of adding another. Safari and Chromium-based
 # browsers that are already running are asked through AppleScript (macOS asks once for permission; if it is refused,
-# a new tab opens as before). BROWSER_MARK_FILE holds a fingerprint of the token the open tab was given, so a tab
-# from before a restart is reloaded with the new token rather than left signed out.
+# a new tab opens as before). BROWSER_MARK_FILE holds a fingerprint of the token the open tabs were given. A restart
+# creates a new token, so start and restart also reload any open Public Desk tabs with it, in the background, rather
+# than leaving them signed out ("Open Public Desk from its launcher to continue" on every search).
 BROWSER_MARK_FILE="$RUNTIME_DIR/browser-tab"
 PUBLIC_DESK_ORIGIN="http://127.0.0.1:4173"
 
@@ -348,8 +349,29 @@ token_fingerprint() {
   REPLY="${REPLY%% *}"
 }
 
+# focus: bring the first Public Desk tab forward, giving it $url first if set. refresh: give every Public Desk tab
+# $url without bringing the browser forward; prints how many tabs were reloaded.
 browser_tab_script() {
-  local app="$1" kind="$2" url="$3" navigate="" select
+  local app="$1" kind="$2" url="$3" mode="${4:-focus}" navigate="" select
+  if [[ "$mode" == refresh ]]; then
+    REPLY="with timeout of 10 seconds
+set reloaded to 0
+tell application \"$app\"
+  repeat with w in windows
+    try
+      repeat with t in tabs of w
+        if (URL of t as text) starts with \"$PUBLIC_DESK_ORIGIN\" then
+          set URL of t to \"$url\"
+          set reloaded to reloaded + 1
+        end if
+      end repeat
+    end try
+  end repeat
+end tell
+end timeout
+return reloaded as text"
+    return
+  fi
   [[ -n "$url" ]] && navigate="set URL of t to \"$url\""
   if [[ "$kind" == safari ]]; then select='set current tab of w to t'
   else select='set active tab index of w to i'
@@ -376,17 +398,37 @@ end timeout
 return \"none\""
 }
 
-# The script goes to osascript on standard input, so the token never appears on a command line.
-focus_existing_tab() {
-  local url="$1" entry app kind
+# Runs a tab script in each supported browser that is already running (never launching one) and collects the
+# answers in reply. The script goes to osascript on standard input, so the token never appears on a command line.
+run_in_browsers() {
+  local url="$1" mode="$2" entry app kind
   local osascript="${PUBLIC_DESK_OSASCRIPT:-/usr/bin/osascript}" pgrep="${PUBLIC_DESK_PGREP:-/usr/bin/pgrep}"
+  reply=()
   for entry in "Safari:safari" "Google Chrome:chromium" "Brave Browser:chromium" "Microsoft Edge:chromium" "Chromium:chromium"; do
     app="${entry%%:*}"; kind="${entry##*:}"
     "$pgrep" -xq "$app" 2>/dev/null || continue
-    browser_tab_script "$app" "$kind" "$url"
-    [[ "$(print -r -- "$REPLY" | "$osascript" - 2>/dev/null)" == found ]] && return 0
+    browser_tab_script "$app" "$kind" "$url" "$mode"
+    reply+=("$(print -r -- "$REPLY" | "$osascript" - 2>/dev/null)")
+    [[ "$mode" == focus && "$reply[-1]" == found ]] && return 0
   done
-  return 1
+  [[ "$mode" == refresh ]] || return 1
+}
+
+focus_existing_tab() {
+  run_in_browsers "$1" focus
+}
+
+# After a start or restart: reconnect tabs that still hold an older token. Nothing happens if they already have it.
+refresh_open_tabs() {
+  [[ "${PUBLIC_DESK_REUSE_TAB:-1}" == 1 && -n "${PUBLIC_DESK_TOKEN:-}" ]] || return 0
+  token_fingerprint; local fingerprint="$REPLY" mark="" answer total=0
+  [[ -f "$BROWSER_MARK_FILE" ]] && mark="$(<"$BROWSER_MARK_FILE")"
+  [[ "$mark" == "$fingerprint" ]] && return 0
+  run_in_browsers "$PUBLIC_DESK_ORIGIN/#access=$PUBLIC_DESK_TOKEN" refresh
+  for answer in $reply; do [[ "$answer" == <-> ]] && (( total += answer )); done
+  (( total > 0 )) || return 0
+  (umask 077; print -rn -- "$fingerprint" > "$BROWSER_MARK_FILE")
+  print -r -- "Reconnected $total open Public Desk tab$( (( total == 1 )) || print -n s) to this session."
 }
 
 open_public_desk() {
@@ -435,7 +477,9 @@ start_all() {
     all_services_ready || { print -u2 -- "Public Desk did not finish starting. Diagnostics: $LOG_DIR"; return 1; }
     print -r -- "Public Desk is ready."
   fi
-  if [[ "${1:-}" == "--open" ]]; then open_public_desk || return 1; fi
+  if [[ "${1:-}" == "--open" ]]; then open_public_desk || return 1
+  else refresh_open_tabs
+  fi
   return 0
 }
 
