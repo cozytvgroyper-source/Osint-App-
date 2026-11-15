@@ -56,7 +56,11 @@ test('the app is built as a single-instance menu-bar app without a paid develope
   assert.doesNotMatch(build, /Developer ID|notarytool|--sign "?[A-Z0-9]{10}/);
   const app = readFileSync(sources[1], 'utf8');
   assert.match(app, /SMAppService\.mainApp/, 'Start at Login uses the built-in login-item service');
-  assert.match(app, /lock\.acquire\(\)[\s\S]*?showMenuNotification[\s\S]*?exit\(0\)/, 'a second copy hands off and exits');
+  assert.match(app, /lock\.acquire\(\)[\s\S]*?openPublicDeskNotification[\s\S]*?exit\(0\)/, 'a second copy asks the first to open Public Desk and exits');
+  // Clicking the app's icon opens Public Desk rather than its menu; update and install relaunches stay quiet.
+  assert.match(app, /applicationShouldHandleReopen[\s\S]*?openPublicDesk\(\)/);
+  assert.match(app, /"-n", Bundle\.main\.bundleURL\.path, "--args", LaunchIntent\.quietFlag/);
+  assert.match(readFileSync(join(root, 'scripts/build-menu-bar-app.zsh'), 'utf8'), /open "\$DEST\/\$NAME\.app" --args --background/);
 });
 
 test('the build script produces a signed bundle that remembers this folder', { skip: noSwift || !existsSync('/usr/bin/codesign'), timeout: 300_000 }, () => {
