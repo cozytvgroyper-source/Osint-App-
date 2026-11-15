@@ -67,6 +67,17 @@ export async function startServer(){
     async stop(){if(child.exitCode===null){child.kill('SIGTERM');await new Promise(resolve=>child.once('exit',resolve));}fs.rmSync(work,{recursive:true,force:true});}};
 }
 
+// What the page shows, in one line, for a timed-out wait.
+const PAGE_SNAPSHOT=`const text=element=>(element?.textContent||'').replace(/\\s+/g,' ').trim().slice(0,200);
+  const active=document.activeElement;
+  return JSON.stringify({
+    view:document.querySelector('[data-view][aria-current="page"]')?.dataset.view||'',
+    dialogs:[...document.querySelectorAll('dialog[open]')].map(dialog=>dialog.id+': '+text(dialog)),
+    toast:text(document.getElementById('toast')),
+    announced:[...document.querySelectorAll('[role="status"],[aria-live]')].map(text).filter(Boolean).slice(0,6),
+    focus:active?(active.id?'#'+active.id:active.tagName.toLowerCase())+(text(active)?' "'+text(active).slice(0,40)+'"':''):''
+  });`;
+
 // One headless Chrome with a fresh, temporary profile, and one page in it.
 export async function startBrowser(){
   const profile=fs.mkdtempSync(path.join(os.tmpdir(),'public-desk-chrome-'));
@@ -93,9 +104,15 @@ export async function startBrowser(){
   const page=(method,params)=>send(method,params,sessionId);
   // Uncaught errors and unhandled promise rejections in the page are collected; a test fails on any of them.
   const errors=[];
+  // The page's recent console errors and warnings, reported when a wait times out.
+  const consoleLines=[];
   listeners.push(message=>{
     if(message.sessionId===sessionId&&message.method==='Runtime.exceptionThrown'){
       const details=message.params.exceptionDetails;errors.push(details.exception?.description||details.text);
+    }
+    if(message.sessionId===sessionId&&message.method==='Runtime.consoleAPICalled'&&['error','warning','warn'].includes(message.params.type)){
+      consoleLines.push(`${message.params.type}: ${message.params.args.map(arg=>arg.value??arg.description??'').join(' ')}`.slice(0,300));
+      if(consoleLines.length>10)consoleLines.shift();
     }
   });
   await page('Page.enable');await page('Runtime.enable');
@@ -113,10 +130,13 @@ export async function startBrowser(){
       await this.waitFor("return document.readyState==='complete'&&!!document.querySelector('[data-view]')");
       await wait(400);
     },
+    // On a timeout the error also describes the page, so a failure on CI says what the page showed instead of
+    // only what never appeared: open dialogs, the latest message, live announcements, focus and console errors.
     async waitFor(condition,{timeout=8000,label=condition}={}){
       const end=Date.now()+timeout;
       while(Date.now()<end){if(await evaluate(condition).catch(()=>false))return;await wait(80);}
-      throw new Error(`Timed out waiting for: ${label}`);
+      const snapshot=await evaluate(PAGE_SNAPSHOT).catch(error=>`(could not read the page: ${error.message})`);
+      throw new Error(`Timed out waiting for: ${label}\n  Page: ${snapshot}${consoleLines.length?`\n  Console: ${consoleLines.join(' | ')}`:''}${errors.length?`\n  Page errors: ${errors.join(' | ')}`:''}`);
     },
     setSize:(width,height)=>page('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<768}),
     // A real key press, so focus moves exactly as it does for a person using the keyboard.
