@@ -81,6 +81,11 @@ function matchScore(terms,text,name){
 
 // Scores every connected tool for a search. Each entry is either selected or carries the reason it was not,
 // so the search and its diagnostics come from the same decision.
+// Public sources that refuse most requests without a key. The NVD allows about 5 per 30 seconds, and get_nvd_cves,
+// omega_cve and omega_cvssrank all ask it for the same record, so a search uses only the best-ranked of them: the
+// others would repeat the lookup and be refused. If that tool's server is offline, the next one takes its place.
+const RATE_LIMITED_SOURCES=new Map([['get_nvd_cves','NVD'],['omega_cve','NVD'],['omega_cvssrank','NVD']]);
+
 export function explainSearchPlan({query,intentId,preferredNames=[],tools,maxTools=6}){
   const {text,target}=splitTarget(query);
   const queryTerms=[...new Set([...words(text),...(TARGET_TERMS[target?.type]||[])])];const intentTerms=INTENT_TERMS[intentId]||INTENT_TERMS.entity;const preferred=new Set(preferredNames);
@@ -102,13 +107,16 @@ export function explainSearchPlan({query,intentId,preferredNames=[],tools,maxToo
     return{tool,score,matched,status:'candidate',reason};
   });
   const ranked=entries.filter(entry=>entry.status==='candidate').sort((a,b)=>b.score-a.score||String(a.tool.name).localeCompare(String(b.tool.name)));
-  const names=new Set();const serverCounts=new Map();let selectedCount=0;
+  const names=new Set();const serverCounts=new Map();const sources=new Map();let selectedCount=0;
   for(const entry of ranked){
     if(selectedCount>=maxTools){entry.status='skipped';entry.reason=`Lower score than the ${maxTools} selected tools`;continue;}
     if(names.has(entry.tool.name)){entry.status='skipped';entry.reason='Same tool name already selected';continue;}
+    const source=RATE_LIMITED_SOURCES.get(entry.tool.name);
+    if(source&&sources.has(source)){entry.status='skipped';entry.reason=`Same source as ${sources.get(source)}: the ${source} allows few requests`;continue;}
     const count=serverCounts.get(entry.tool.serverId)||0;
     if(count>=4&&!preferred.has(entry.tool.name)){entry.status='skipped';entry.reason='Server already has 4 selected tools';continue;}
     entry.status='selected';names.add(entry.tool.name);serverCounts.set(entry.tool.serverId,count+1);selectedCount++;
+    if(source)sources.set(source,entry.tool.name);
   }
   const order=new Map(ranked.map((entry,index)=>[entry,index]));
   const selected=ranked.filter(entry=>entry.status==='selected');

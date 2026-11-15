@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {isPassiveSearchTool,planSearchTools} from '../public/search-planner.js';
+import {explainSearchPlan,isPassiveSearchTool,planSearchTools} from '../public/search-planner.js';
+import {searchIntent} from '../public/search-query.js';
 
 const tool=(name,description,serverName='Open OSINT')=>({name,description,serverName,serverId:serverName,inputSchema:{properties:{query:{type:'string'}}}});
 
@@ -98,4 +99,44 @@ test('the main search never picks an unreviewed or non-passive tool',()=>{
   assert.equal(isPassiveSearchTool(custom),false);
   assert.equal(isPassiveSearchTool(lookalike),false);
   assert.deepEqual(planSearchTools({query:'Rosneft company sanctions',intentId:'sanctions',preferredNames:[],tools:[custom],maxTools:6}),[]);
+});
+
+// The NVD allows about 5 requests per 30 seconds without a key, and three tools ask it for the same CVE record. A CVE
+// search used to run all three, so the later ones were refused (and omega_cve's refusal read as "nothing found").
+const CVE_TOOLS=[
+  tool('get_nvd_cves','CVE details from the NIST National Vulnerability Database (NVD)'),
+  tool('get_cisa_kev','CISA Known Exploited Vulnerabilities catalog'),
+  tool('get_epss','EPSS exploit prediction scores for a CVE'),
+  tool('omega_cve','CVE lookup — search NVD for vulnerabilities by keyword or CVE ID.','Omega MCP'),
+  tool('omega_cvssrank','CVSS ranking — scores and prioritizes vulnerabilities by severity.','Omega MCP')
+];
+const NVD_TOOLS=new Set(['get_nvd_cves','omega_cve','omega_cvssrank']);
+const cvePlan=tools=>{
+  const intent=searchIntent('CVE-2021-44228');
+  return explainSearchPlan({query:'CVE-2021-44228',intentId:intent.id,preferredNames:intent.tools,tools});
+};
+
+test('a CVE search asks the NVD once, and still covers exploit likelihood and known exploitation',()=>{
+  const plan=cvePlan(CVE_TOOLS);
+  const selected=plan.selected.map(entry=>entry.tool.name);
+  assert.deepEqual(selected.filter(name=>NVD_TOOLS.has(name)),['get_nvd_cves'],'one NVD lookup');
+  for(const name of ['get_cisa_kev','get_epss'])assert.ok(selected.includes(name),name);
+  for(const name of ['omega_cve','omega_cvssrank']){
+    const entry=plan.entries.find(item=>item.tool.name===name);
+    assert.equal(entry.status,'skipped',name);
+    assert.equal(entry.reason,'Same source as get_nvd_cves: the NVD allows few requests',name);
+  }
+});
+
+test('with Open OSINT offline, an Omega tool takes the NVD lookup instead of losing it',()=>{
+  const plan=cvePlan(CVE_TOOLS.filter(item=>item.serverName==='Omega MCP'));
+  const nvd=plan.selected.map(entry=>entry.tool.name).filter(name=>NVD_TOOLS.has(name));
+  assert.equal(nvd.length,1,'still exactly one');
+  assert.equal(nvd[0],'omega_cvssrank','the preferred fallback, which also brings EPSS and KEV');
+});
+
+test('tools on other sources are never limited by the NVD rule',()=>{
+  const tools=[tool('get_whois','WHOIS registration for a domain'),tool('omega_whois','WHOIS lookup for a domain','Omega MCP')];
+  const plan=explainSearchPlan({query:'example.com',intentId:'domain',preferredNames:['get_whois','omega_whois'],tools});
+  assert.deepEqual(plan.selected.map(entry=>entry.tool.name).sort(),['get_whois','omega_whois']);
 });
