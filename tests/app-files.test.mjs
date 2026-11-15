@@ -27,6 +27,6 @@ test('every name a page file imports is exported by the file it comes from',()=>
 test('the startup file holds no page logic',()=>{
   const app=fs.readFileSync(new URL('../public/app.js',import.meta.url),'utf8');
   const functions=[...app.matchAll(/^(?:async\s+)?function\s+([\w$]+)/gm)].map(match=>match[1]).sort();
-  assert.deepEqual(functions,['announceServerProblem','applyTheme','clearServerFormErrors']);
+  assert.deepEqual(functions,['announceServerProblem','clearServerFormErrors']);
   assert.ok(readAppSource().includes(compactJs(app)));
 });

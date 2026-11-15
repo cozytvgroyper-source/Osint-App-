@@ -151,8 +151,8 @@ test('the app starts and works when the browser blocks site storage',options,()=
   assert.equal(await browser.evaluate("try{localStorage;return 'readable';}catch(error){return error.name;}"),'SecurityError');
   await browser.evaluate(show('deep'));
   await browser.waitFor("return document.querySelectorAll('[data-open-deep]').length===2",{label:'server calls still work'});
-  await browser.evaluate("document.getElementById('themeToggle').click();");
   assert.equal(await browser.evaluate('return document.documentElement.dataset.theme'),'dark');
+  assert.equal(await browser.evaluate("return document.getElementById('themeToggle')"),null);
 },{beforeLoad:BLOCK_STORAGE}));
 
 test('on a phone, both search boxes show and the history table scrolls inside its box',options,()=>inApp(async browser=>{
@@ -307,6 +307,15 @@ test('a saved result stays saved through live updates',options,()=>inApp(async b
   assert.equal(await browser.evaluate('return window.__evidencePosts'),1,'a second press sends nothing');
   assert.equal((await browser.evaluate(caseFindings)).length,1);
 },{stub:{answers:NAME_ANSWERS,delays:{get_offshore_leaks:3000}}}));
+
+test('closing a running search keeps it closed after moving to Evidence',options,()=>inApp(async browser=>{
+  await connectOpenOsint(browser);
+  await search(browser,'Owner Example');
+  await browser.waitFor("return document.getElementById('resultDialog').open&&/still working/.test(document.querySelector('#resultBody .search-details')?.textContent||'')",{label:'running results shown'});
+  await browser.evaluate("document.querySelector('[data-close-result]').click();document.querySelector('[data-view=\"evidence\"]').click();");
+  await browser.waitFor("return [...document.querySelectorAll('#history .history-item')].some(item=>item.textContent.includes('Owner Example'))",{label:'background search finished',timeout:10000});
+  assert.deepEqual(await browser.evaluate("return {dialog:document.getElementById('resultDialog').open,page:document.querySelector('[data-view=\"evidence\"]').getAttribute('aria-current')}"),{dialog:false,page:'page'});
+},{stub:{answers:NAME_ANSWERS,delays:{get_offshore_leaks:2500}}}));
 
 test('a pivot on a website goes to Deep Search',options,()=>inApp(async browser=>{
   await connectOpenOsint(browser);

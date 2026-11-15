@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {readAppSource} from './helpers/app-source.mjs';
 
-// Page structure for screen-reader and keyboard users: dialogs announce their title and give focus back, every button
-// and form control has a name, and the theme switch says which theme is on.
+// Page structure for screen-reader and keyboard users: dialogs announce their title and give focus back, and every
+// button and form control has a name.
 const read=file=>fs.readFileSync(new URL(`../public/${file}`,import.meta.url),'utf8');
 const html=read('index.html'),app=readAppSource();
 
@@ -53,9 +53,10 @@ test('dialogs open through openDialog, which returns focus',()=>{
   assert.doesNotMatch(app.replace(/function openDialog[\s\S]*?\n\}/,''),/\.showModal\(\)/);
 });
 
-test('the theme switch says which theme is on',()=>{
-  assert.match(app,/setAttribute\('aria-pressed'/);
-  assert.match(html,/id="themeToggle"[^>]*>\s*<span aria-hidden="true">/);
+test('dark mode is permanent and has no theme switch',()=>{
+  assert.match(html,/<html lang="en" data-theme="dark">/);
+  assert.doesNotMatch(html,/themeToggle|theme-label/);
+  assert.doesNotMatch(app,/signaldesk\.theme|applyTheme/);
 });
 
 test('labelled containers have a role that allows a label',()=>{
@@ -67,12 +68,6 @@ test('labelled containers have a role that allows a label',()=>{
 test('closing a dialog never steals focus that already moved on',()=>{
   const body=app.match(/function openDialog[\s\S]*?\n\}/)[0];
   assert.match(body,/document\.activeElement===document\.body\|\|dialog\.contains\(document\.activeElement\)/);
-});
-
-// The theme switch shows its name next to the icon (it was icon-only), and the name matches its accessible name.
-test('the theme switch has a visible label',()=>{
-  assert.match(html,/id="themeToggle"[\s\S]{0,200}<span class="theme-label">Dark theme<\/span>/);
-  assert.doesNotMatch(app,/toggle\.title=/,'no changing tooltip; aria-pressed says whether it is on');
 });
 
 // A click on the dialog's own padding hits the <dialog> element too, so only a click outside its box cancels; and a
@@ -103,19 +98,9 @@ test('the Pivot button is named by the word it shows',()=>{
   assert.match(fn,/aria-label="\$\{escapeHtml\(`Pivot: \$\{pivot\.label\[0\]\.toLowerCase\(\)\}\$\{pivot\.label\.slice\(1\)\} \$\{pivot\.target\}`\)\}"/);
 });
 
-// Review follow-ups: the theme switch stays readable on hover and keeps a tooltip when it shows only its icon; the
-// self-check is its own section, not part of the server list.
-test('the theme switch is readable on hover and has a tooltip',()=>{
-  assert.match(html,/id="themeToggle" title="Dark theme"/);
-  assert.match(read('ui.css'),/#themeToggle:hover\{background:rgba\(255,255,255,\.11\);color:#fff\}/);
-});
 test('the tool self-check has its own section heading',()=>{
   assert.match(html,/<h2>Tool self-check: test that each search tool still works<\/h2>/);
 });
-test('the collapsed sidebar keeps the status dot and theme icon on one line',()=>{
-  assert.match(read('ui.css'),/@media\(max-width:1050px\)\{#themeToggle\{[^}]*\}#themeToggle \.theme-label\{display:none\}\.rail-foot\{gap:0;flex-wrap:nowrap\}\}/);
-});
-
 test('Deep Search status changes are announced only when the words change',()=>{
   assert.match(app,/deepStatus\.textContent!==status\.message/);
 });
