@@ -12,7 +12,8 @@ APP_DIR="${0:A:h:h}"
 # and compares it with this checkout's to update itself after a pull. The control script is not included: the app
 # runs it from this folder, so changes to it apply without a rebuild.
 source_hash() {
-  cat "$APP_DIR"/macos/PublicDeskController/*.swift "$APP_DIR/scripts/build-menu-bar-app.zsh" | /usr/bin/shasum -a 256 | cut -d' ' -f1
+  cat "$APP_DIR"/macos/PublicDeskController/*.swift "$APP_DIR"/macos/Icon/*.swift "$APP_DIR/scripts/build-menu-bar-app.zsh" \
+    | /usr/bin/shasum -a 256 | cut -d' ' -f1
 }
 if [[ "${1:-}" == "--source-hash" ]]; then
   source_hash
@@ -64,6 +65,19 @@ plutil -insert NSAppleEventsUsageDescription \
 plutil -insert PublicDeskRoot -string "$APP_DIR" "$PLIST"
 plutil -insert PublicDeskPath -string "$PATH" "$PLIST"
 plutil -insert PublicDeskSourceHash -string "$(source_hash)" "$PLIST"
+
+# The icon is drawn by macos/Icon/DrawIcon.swift, then scaled to every size macOS uses and packed into AppIcon.icns
+# with sips and iconutil, which come with macOS.
+ICONSET="$STAGE_DIR/AppIcon.iconset"
+mkdir -p "$ICONSET"
+swiftc -O -o "$STAGE_DIR/draw-icon" "$APP_DIR/macos/Icon/DrawIcon.swift"
+"$STAGE_DIR/draw-icon" "$STAGE_DIR/AppIcon-1024.png"
+for size in 16 32 128 256 512; do
+  /usr/bin/sips -z $size $size "$STAGE_DIR/AppIcon-1024.png" --out "$ICONSET/icon_${size}x${size}.png" >/dev/null
+  /usr/bin/sips -z $((size * 2)) $((size * 2)) "$STAGE_DIR/AppIcon-1024.png" --out "$ICONSET/icon_${size}x${size}@2x.png" >/dev/null
+done
+/usr/bin/iconutil -c icns "$ICONSET" -o "$BUNDLE/Contents/Resources/AppIcon.icns"
+plutil -insert CFBundleIconFile -string AppIcon "$PLIST"
 
 /usr/bin/xattr -cr "$BUNDLE"
 codesign --force --sign - --identifier "$BUNDLE_ID" "$BUNDLE"

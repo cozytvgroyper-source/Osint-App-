@@ -70,6 +70,14 @@ test('the build script produces a signed bundle that remembers this folder', { s
   assert.equal(info.LSMultipleInstancesProhibited, undefined);
   const hash = spawnSync('/bin/zsh', [join(root, 'scripts/build-menu-bar-app.zsh'), '--source-hash'], { encoding: 'utf8' }).stdout.trim();
   assert.equal(info.PublicDeskSourceHash, hash, 'the app records the source it was built from');
+  // The icon: every size macOS uses, packed into the bundle and named in Info.plist.
+  assert.equal(info.CFBundleIconFile, 'AppIcon');
+  const iconset = join(mkdtempSync(join(tmpdir(), 'pd-iconset-')), 'AppIcon.iconset');
+  try {
+    assert.equal(spawnSync('/usr/bin/iconutil', ['-c', 'iconset', join(bundle, 'Contents/Resources/AppIcon.icns'), '-o', iconset]).status, 0);
+    const sizes = [16, 32, 128, 256, 512].flatMap(size => [`icon_${size}x${size}.png`, `icon_${size}x${size}@2x.png`]);
+    for (const file of sizes) assert.ok(existsSync(join(iconset, file)), file);
+  } finally { rmSync(join(iconset, '..'), { recursive: true, force: true }); }
   // The build checks the signature strictly before copying; macOS may then tag the copy with a provenance
   // attribute, which strict mode calls detritus but which leaves the signature itself intact.
   const verify = spawnSync('/usr/bin/codesign', ['--verify', '--deep', bundle], { encoding: 'utf8' });
@@ -97,7 +105,10 @@ test('the source fingerprint changes with the app\'s code but not with the contr
     const second = hash();
     assert.notEqual(second, first);
     appendFileSync(join(dir, 'scripts/build-menu-bar-app.zsh'), '\n# changed\n');
-    assert.notEqual(hash(), second, 'a changed build recipe rebuilds too');
+    const third = hash();
+    assert.notEqual(third, second, 'a changed build recipe rebuilds too');
+    appendFileSync(join(dir, 'macos/Icon/DrawIcon.swift'), '\n// changed\n');
+    assert.notEqual(hash(), third, 'so does a changed icon');
     assert.equal(existsSync(join(dir, 'work')), false, '--source-hash builds nothing');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
@@ -113,4 +124,22 @@ test('the app checks for updates only when installed by the build script, and ne
   const build = readFileSync(join(root, 'scripts/build-menu-bar-app.zsh'), 'utf8');
   assert.match(build, /if \(\( LAUNCH \)\) && \/usr\/bin\/pgrep -xq "\$NAME"; then/);
   assert.match(app, /private func relaunch\(\) -> Bool \{\s*lock\.release\(\)[\s\S]*?"-n"[\s\S]*?NSApp\.terminate/);
+});
+
+test('the icon is drawn at 1024 × 1024 without image files or SF Symbols', { skip: noSwift, timeout: 300_000 }, () => {
+  const source = readFileSync(join(root, 'macos/Icon/DrawIcon.swift'), 'utf8');
+  assert.doesNotMatch(source, /systemSymbolName|NSImage\(named|import AppKit/, 'drawn with Core Graphics, not SF Symbols or files');
+  const dir = mkdtempSync(join(tmpdir(), 'pd-icon-'));
+  try {
+    const binary = join(dir, 'draw-icon');
+    const build = spawnSync('/usr/bin/xcrun', ['swiftc', '-O', '-o', binary, join(root, 'macos/Icon/DrawIcon.swift')], { encoding: 'utf8' });
+    assert.equal(build.status, 0, build.stderr);
+    const png = join(dir, 'AppIcon.png');
+    assert.equal(spawnSync(binary, [png]).status, 0);
+    const info = spawnSync('/usr/bin/sips', ['-g', 'pixelWidth', '-g', 'pixelHeight', '-g', 'hasAlpha', png], { encoding: 'utf8' }).stdout;
+    assert.match(info, /pixelWidth: 1024/);
+    assert.match(info, /pixelHeight: 1024/);
+    assert.match(info, /hasAlpha: yes/, 'transparent around the rounded tile');
+    assert.notEqual(spawnSync(binary, []).status, 0, 'a missing output path is refused');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });

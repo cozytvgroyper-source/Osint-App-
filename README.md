@@ -21,7 +21,8 @@ no Apple developer account):
 npm run menu-bar
 ```
 
-This puts **Public Desk.app** in `~/Applications` and opens it. A magnifying-glass icon appears in the menu bar:
+This puts **Public Desk.app** in `~/Applications` and opens it. Its icon is drawn from code in `macos/Icon/DrawIcon.swift`
+when the app is built, so changing the icon means editing that file. A magnifying-glass icon appears in the menu bar:
 
 | Icon | Meaning |
 |---|---|
