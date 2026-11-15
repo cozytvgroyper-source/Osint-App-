@@ -90,6 +90,13 @@ func makeController(_ runner: FakeRunner, scheduler: Scheduling = ImmediateSched
     return (controller, { notices })
 }
 
+/// Records the controller's requests to show or close the Public Desk window.
+func windowEvents(_ controller: Controller) -> () -> [WindowEvent] {
+    var events: [WindowEvent] = []
+    controller.onWindow = { events.append($0) }
+    return { events }
+}
+
 func temporaryFolder() -> URL {
     let url = FileManager.default.temporaryDirectory.appendingPathComponent("pd-controller-\(UUID().uuidString)")
     try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
@@ -156,23 +163,30 @@ test("each menu action runs the matching control-script command") {
     let (controller, _) = makeController(runner)
     controller.refresh()
     controller.choose(.open)
+    controller.choose(.openInBrowser)
     controller.choose(.start)
     controller.choose(.restart)
     runner.status = allReady
     controller.refresh()
+    controller.choose(.openInBrowser)
     controller.choose(.stop)
     controller.choose(.status)
     controller.choose(.diagnostics)
-    expectEqual(runner.actionCalls, [["start", "--open"], ["start"], ["restart"], ["stop"], ["status"], ["diagnostics", "--open"]])
+    expectEqual(runner.actionCalls, [["start"], ["start", "--open"], ["start"], ["restart"], ["open"], ["stop"], ["status"],
+                                     ["diagnostics", "--open"]])
 }
 
-test("Open only opens the browser when every service is ready") {
+test("Open shows the window at once when every service is ready, without running anything") {
     let runner = FakeRunner()
     runner.status = allReady
-    let (controller, _) = makeController(runner)
+    let (controller, notices) = makeController(runner)
+    let events = windowEvents(controller)
     controller.refresh()
     controller.choose(.open)
-    expectEqual(runner.actionCalls, [["open"]])
+    expectEqual(runner.actionCalls, [])
+    expectEqual(events(), [.show])
+    expectEqual(notices(), [], "the window itself shows Public Desk is ready")
+    expect(!controller.state.isBusy, "nothing is left running")
 }
 
 test("Quit Controller never stops services") {
@@ -580,21 +594,38 @@ test("status checks and fingerprint checks are kept out of the log") {
 
 // MARK: Opening the app
 
-test("opening the app starts anything missing and opens Public Desk") {
+test("opening the app starts anything missing, then shows the window") {
     let runner = FakeRunner()
-    let (controller, _) = makeController(runner)
-    controller.refresh()
+    let scheduler = DeferredScheduling()
+    let (controller, _) = makeController(runner, scheduler: scheduler)
+    let events = windowEvents(controller)
     controller.requestOpen()
-    expectEqual(runner.actionCalls, [["start", "--open"]])
+    expectEqual(events(), [], "no window before the services are up")
+    runner.status = allReady
+    scheduler.drain()
+    expectEqual(runner.actionCalls, [["start"]])
+    expectEqual(events(), [.show])
 }
 
-test("opening the app when everything is ready only brings Public Desk forward") {
+test("a failed start shows no window") {
+    let runner = FakeRunner()
+    runner.actionResult = CommandResult(exitCode: 1, output: "Omega tools did not become ready.")
+    let (controller, notices) = makeController(runner)
+    let events = windowEvents(controller)
+    controller.requestOpen()
+    expectEqual(events(), [])
+    expectEqual(notices().first?.title, "Public Desk could not start")
+}
+
+test("opening the app when everything is ready only brings the window forward") {
     let runner = FakeRunner()
     runner.status = allReady
     let (controller, _) = makeController(runner)
+    let events = windowEvents(controller)
     controller.refresh()
     controller.requestOpen()
-    expectEqual(runner.actionCalls, [["open"]])
+    expectEqual(runner.actionCalls, [])
+    expectEqual(events(), [.show])
 }
 
 test("opening the app during a start opens Public Desk once the start finishes") {
@@ -605,23 +636,142 @@ test("opening the app during a start opens Public Desk once the start finishes")
     controller.requestOpen()
     controller.requestOpen()
     expectEqual(scheduler.pending.count, 1, "nothing runs beside the start")
+    let events = windowEvents(controller)
     runner.status = allReady
     scheduler.drain()
-    expectEqual(runner.actionCalls, [["start"], ["open"]], "opened once, after the start")
+    expectEqual(runner.actionCalls, [["start"]], "nothing else needs to run")
+    expectEqual(events(), [.show], "the window opens once, after the start")
 }
 
 test("opening the app while a Finder launcher is starting Public Desk waits for it") {
     let runner = FakeRunner()
     runner.status = statusJSON(["ready", "starting", "stopped", "stopped", "stopped"], action: "start")
     let (controller, _) = makeController(runner)
+    let events = windowEvents(controller)
     controller.refresh()
     controller.requestOpen()
-    expectEqual(runner.actionCalls, [], "waits while the other launcher works")
+    expectEqual(events(), [], "waits while the other launcher works")
     runner.status = allReady
     controller.refresh()
-    expectEqual(runner.actionCalls, [["open"]])
+    expectEqual(events(), [.show])
     controller.refresh()
-    expectEqual(runner.actionCalls, [["open"]], "and only once")
+    expectEqual(events(), [.show], "and only once")
+    expectEqual(runner.actionCalls, [])
+}
+
+// MARK: The window
+
+test("closing the window stops Public Desk and closes it") {
+    let runner = FakeRunner()
+    runner.status = allReady
+    let (controller, _) = makeController(runner)
+    let events = windowEvents(controller)
+    controller.refresh()
+    controller.requestStop()
+    expectEqual(runner.actionCalls, [["stop"]])
+    expectEqual(events(), [.close])
+}
+
+test("closing the window during a start stops Public Desk once the start finishes") {
+    let runner = FakeRunner()
+    let scheduler = DeferredScheduling()
+    let (controller, _) = makeController(runner, scheduler: scheduler)
+    let events = windowEvents(controller)
+    controller.requestOpen()
+    controller.requestStop()
+    runner.status = allReady
+    scheduler.drain()
+    expectEqual(runner.actionCalls, [["start"], ["stop"]], "the stop waits for the start, and replaces the pending open")
+    expectEqual(events().last, .close)
+}
+
+test("stopping from the menu or a Finder launcher closes the window") {
+    let runner = FakeRunner()
+    runner.status = allReady
+    let (controller, _) = makeController(runner)
+    let events = windowEvents(controller)
+    controller.refresh()
+    runner.status = allStopped
+    controller.refresh()
+    expectEqual(events(), [.close])
+    controller.refresh()
+    expectEqual(events(), [.close], "only on the change to stopped")
+}
+
+test("a window shown just after starting is not closed by an older stopped status") {
+    let runner = FakeRunner()
+    let (controller, _) = makeController(runner)
+    let events = windowEvents(controller)
+    controller.refresh() // stopped
+    runner.status = allReady
+    controller.requestOpen()
+    expectEqual(events(), [.show])
+}
+
+test("a restart, here or from a launcher, never closes the window when everything is briefly stopped") {
+    let runner = FakeRunner()
+    runner.status = allReady
+    let (controller, _) = makeController(runner)
+    let events = windowEvents(controller)
+    controller.refresh()
+    runner.status = statusJSON(Array(repeating: "stopped", count: 5), action: "restart") // a launcher mid-restart
+    controller.refresh()
+    runner.status = allReady
+    controller.refresh()
+    expectEqual(events(), [], "the window stays through a restart from Terminal")
+
+    let scheduler = DeferredScheduling()
+    let (own, _) = makeController(runner, scheduler: scheduler)
+    let ownEvents = windowEvents(own)
+    own.refresh(); scheduler.drain()
+    expect(own.perform(.restart))
+    runner.status = allStopped // a status check lands between the stop and the start
+    own.refresh()
+    scheduler.pending.removeLast()() // that check answers first
+    expectEqual(ownEvents(), [], "and through its own restart")
+}
+
+test("a failed stop leaves the window open") {
+    let runner = FakeRunner()
+    runner.status = allReady
+    runner.actionResult = CommandResult(exitCode: 1, output: "Could not stop omega.")
+    let (controller, _) = makeController(runner)
+    let events = windowEvents(controller)
+    controller.refresh()
+    controller.requestStop()
+    expectEqual(events(), [])
+}
+
+test("Open in Browser keeps using a browser tab") {
+    var stopped = ControllerState()
+    _ = stopped.apply(status: ok(allStopped))
+    expectEqual(stopped.arguments(for: .openInBrowser), ["start", "--open"])
+    var ready = ControllerState()
+    _ = ready.apply(status: ok(allReady))
+    expectEqual(ready.arguments(for: .openInBrowser), ["open"])
+    expectEqual(ready.arguments(for: .open), [], "the window needs nothing run")
+    expectEqual(stopped.arguments(for: .open), ["start"], "and never opens a tab")
+}
+
+test("links: new-tab links leave the window, the page's own navigation stays, anything else is blocked") {
+    let url = { (text: String) in URL(string: text) }
+    expectEqual(LinkPolicy.decide(url("https://news.example/story"), newWindow: true), .external, "a ↗ link")
+    expectEqual(LinkPolicy.decide(url("http://127.0.0.1:4173/"), newWindow: false), .inWindow, "the app itself")
+    expectEqual(LinkPolicy.decide(url("https://consensus.app/oauth/authorize?x=1"), newWindow: false), .inWindow,
+                "the page's own sign-in navigation")
+    expectEqual(LinkPolicy.decide(url("about:blank"), newWindow: false), .inWindow)
+    expectEqual(LinkPolicy.decide(url("blob:http://127.0.0.1:4173/abc"), newWindow: false), .inWindow, "report downloads")
+    expectEqual(LinkPolicy.decide(url("mailto:someone@example.com"), newWindow: false), .external)
+    expectEqual(LinkPolicy.decide(url("file:///etc/passwd"), newWindow: false), .block)
+    expectEqual(LinkPolicy.decide(url("javascript:alert(1)"), newWindow: false), .block)
+    expectEqual(LinkPolicy.decide(url("file:///etc/passwd"), newWindow: true), .block, "never opened outside either")
+    expectEqual(LinkPolicy.decide(nil, newWindow: false), .block)
+}
+
+test("closing asks first only while a Deep Search runs") {
+    expect(WindowClose.confirmation(busyMarker: "deep-search")?.contains("Deep Search is still running") == true)
+    expectEqual(WindowClose.confirmation(busyMarker: ""), nil)
+    expectEqual(WindowClose.confirmation(busyMarker: "something-else"), nil)
 }
 
 test("a launch opens Public Desk except at login or when reopened quietly") {

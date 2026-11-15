@@ -4,6 +4,7 @@
 import AppKit
 import ServiceManagement
 import UserNotifications
+import WebKit
 
 // Sent by a second copy of the app to the running one: open Public Desk, as clicking the app's icon should.
 let openPublicDeskNotification = Notification.Name("local.public-desk.controller.open-public-desk")
@@ -41,6 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     private var timer: Timer?
     private var lastRefresh = Date.distantPast
     private var updater: SelfUpdater?
+    private var publicDeskWindow: PublicDeskWindow?
     /// False when macOS has notifications for Public Desk turned off; the menu then offers to open their settings.
     private var notificationsAllowed = true
     private var lastUpdateCheck = Date.distantPast
@@ -77,6 +79,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
             controller.onChange = { [weak self] in self?.render() }
             controller.onNotice = { [weak self] notice in self?.post(notice) }
             controller.onText = { [weak self] title, text in self?.showText(title, text) }
+            let window = PublicDeskWindow(root: runner.script.deletingLastPathComponent().deletingLastPathComponent())
+            window.onCloseRequested = { [weak controller] in controller?.requestStop() }
+            controller.onWindow = { [weak window] event in
+                switch event {
+                case .show: window?.show()
+                case .close: window?.close()
+                }
+            }
+            publicDeskWindow = window
+            NSApp.mainMenu = makeMainMenu()
             self.controller = controller
             controller.refresh()
             // Opening the app opens Public Desk; this comes before the update check so an update waits for it.
@@ -155,7 +167,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
                                   quietCommands: ["--source-hash"])
         let updater = SelfUpdater(runner: runner, scheduler: DispatchScheduling(), installedHash: installed,
                                   destination: Bundle.main.bundleURL.deletingLastPathComponent().path,
-                                  isBusy: { [weak controller] in controller?.state.isBusy ?? true })
+                                  // An update quits this copy, so it also waits while the window is open.
+                                  isBusy: { [weak self, weak controller] in
+                                      (controller?.state.isBusy ?? true) || (self?.publicDeskWindow?.isOpen ?? false)
+                                  })
         updater.onChange = { [weak self] in self?.render() }
         updater.onNotice = { [weak self] notice in self?.post(notice) }
         updater.onInstalled = { [weak self] in self?.relaunch() ?? false }
@@ -163,6 +178,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     }
 
     private func tick() {
+        // A restart writes the new token before the services are back; reloading earlier would fail and leave the
+        // old page (with the old token) in the window, so wait until everything is ready again.
+        if let state = controller?.state, state.snapshot?.overall == "ready", !state.isBusy {
+            publicDeskWindow?.reloadIfTokenChanged()
+        }
         // Looks for a newer controller in this folder (after a git pull, say) every 15 minutes.
         if let updater, Date().timeIntervalSince(lastUpdateCheck) >= 15 * 60 {
             lastUpdateCheck = Date()
@@ -269,6 +289,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
             menu.addItem(entry)
         }
         add(.open, key: "o")
+        add(.openInBrowser)
         menu.addItem(.separator())
         add(.start)
         add(.stop)
@@ -340,6 +361,69 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         NSApp.terminate(nil)
         return true
     }
+
+    // MARK: The window's menus
+
+    /// The menus macOS shows while the Public Desk window is open. Quit and Close both stop Public Desk (asking first
+    /// during a Deep Search); the menu-bar icon stays. Edit's items make copy, paste and undo work in the page.
+    private func makeMainMenu() -> NSMenu {
+        let main = NSMenu()
+        func submenu(_ title: String, _ items: [NSMenuItem]) {
+            let holder = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            let menu = NSMenu(title: title)
+            items.forEach(menu.addItem)
+            holder.submenu = menu
+            main.addItem(holder)
+        }
+        func entry(_ title: String, _ action: Selector?, _ key: String, _ modifiers: NSEvent.ModifierFlags = .command,
+                   target: AnyObject? = nil) -> NSMenuItem {
+            let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
+            item.keyEquivalentModifierMask = modifiers
+            item.target = target
+            return item
+        }
+        submenu("Public Desk", [
+            entry("About Public Desk", #selector(NSApplication.orderFrontStandardAboutPanel(_:)), ""),
+            .separator(),
+            entry("Hide Public Desk", #selector(NSApplication.hide(_:)), "h"),
+            entry("Hide Others", #selector(NSApplication.hideOtherApplications(_:)), "h", [.command, .option]),
+            entry("Show All", #selector(NSApplication.unhideAllApplications(_:)), ""),
+            .separator(),
+            entry("Quit Public Desk", #selector(closeWindowAndStop), "q", target: self)
+        ])
+        submenu("File", [
+            entry("Close Window", #selector(closeWindowAndStop), "w", target: self),
+            .separator(),
+            entry("Print…", #selector(printWindow), "p", target: self)
+        ])
+        submenu("Edit", [
+            entry("Undo", Selector(("undo:")), "z"),
+            entry("Redo", Selector(("redo:")), "z", [.command, .shift]),
+            .separator(),
+            entry("Cut", #selector(NSText.cut(_:)), "x"),
+            entry("Copy", #selector(NSText.copy(_:)), "c"),
+            entry("Paste", #selector(NSText.paste(_:)), "v"),
+            entry("Select All", #selector(NSText.selectAll(_:)), "a")
+        ])
+        submenu("View", [
+            entry("Public Desk Home", #selector(goHome), "h", [.command, .shift], target: self),
+            entry("Reload Page", #selector(WKWebView.reload(_:)), "r"),
+            .separator(),
+            entry("Enter Full Screen", #selector(NSWindow.toggleFullScreen(_:)), "f", [.command, .control])
+        ])
+        let window = NSMenuItem(title: "Window", action: nil, keyEquivalent: "")
+        let windowMenu = NSMenu(title: "Window")
+        windowMenu.addItem(entry("Minimize", #selector(NSWindow.performMiniaturize(_:)), "m"))
+        windowMenu.addItem(entry("Zoom", #selector(NSWindow.performZoom(_:)), ""))
+        window.submenu = windowMenu
+        main.addItem(window)
+        NSApp.windowsMenu = windowMenu
+        return main
+    }
+
+    @objc private func closeWindowAndStop() { publicDeskWindow?.requestClose() }
+    @objc private func printWindow() { publicDeskWindow?.printPage() }
+    @objc private func goHome() { publicDeskWindow?.goHome() }
 
     @objc private func retryUpdate() {
         lastUpdateCheck = Date()

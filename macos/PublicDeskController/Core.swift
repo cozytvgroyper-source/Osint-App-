@@ -30,11 +30,12 @@ struct StatusSnapshot: Decodable, Equatable {
 // MARK: - Commands
 
 enum Action: String, Equatable {
-    case open, start, stop, restart
+    /// open shows Public Desk in its own window (starting the services first if needed); openInBrowser uses a tab.
+    case open, openInBrowser, start, stop, restart
 
     var progressTitle: String {
         switch self {
-        case .open, .start: return "Starting…"
+        case .open, .openInBrowser, .start: return "Starting…"
         case .stop: return "Stopping…"
         case .restart: return "Restarting…"
         }
@@ -141,6 +142,7 @@ struct Notice: Equatable {
 
 enum MenuCommand: String, CaseIterable {
     case open = "Open Public Desk"
+    case openInBrowser = "Open in Browser"
     case start = "Start"
     case stop = "Stop"
     case restart = "Restart"
@@ -171,15 +173,15 @@ struct ControllerState: Equatable {
         runningAction = nil
         if result.succeeded {
             switch action {
-            case .open, .start, .restart:
+            case .start, .restart:
                 return [Notice(title: "Public Desk is ready", body: "All five services are running.")]
-            case .stop:
-                return []
+            case .open, .openInBrowser, .stop:
+                return [] // Public Desk appears on screen, or was asked to stop: nothing to announce
             }
         }
         let reason = result.lastLine.isEmpty ? "The control script exited with code \(result.exitCode)." : result.lastLine
         switch action {
-        case .open, .start, .restart:
+        case .open, .openInBrowser, .start, .restart:
             failure = "Start failed"
             return [Notice(title: "Public Desk could not start", body: reason)]
         case .stop:
@@ -246,7 +248,7 @@ struct ControllerState: Equatable {
     /// whether this controller or a Finder launcher began it.
     func isEnabled(_ command: MenuCommand) -> Bool {
         switch command {
-        case .open, .start, .restart: return !isBusy
+        case .open, .openInBrowser, .start, .restart: return !isBusy
         case .stop: return !isBusy && snapshot?.overall != "stopped"
         case .status, .diagnostics, .quit: return true
         }
@@ -255,7 +257,9 @@ struct ControllerState: Equatable {
     /// The control-script arguments for an action; Open starts any missing services first.
     func arguments(for action: Action) -> [String] {
         switch action {
-        case .open: return snapshot?.overall == "ready" ? ["open"] : ["start", "--open"]
+        // The window needs only running services (nothing to run when they are); the browser path also opens a tab.
+        case .open: return snapshot?.overall == "ready" ? [] : ["start"]
+        case .openInBrowser: return snapshot?.overall == "ready" ? ["open"] : ["start", "--open"]
         case .start: return ["start"]
         case .stop: return ["stop"]
         case .restart: return ["restart"]
@@ -295,12 +299,16 @@ final class Controller {
 
     private(set) var state = ControllerState()
     private var refreshing = false
-    private var openWhenIdle = false
+    /// An open or stop asked for while a start or stop is running; it runs once that finishes. A later request
+    /// replaces an earlier one, so closing the window during a start stops Public Desk instead of opening it.
+    private var pending: Action?
     private let runner: CommandRunning
     private let scheduler: Scheduling
     var onChange: () -> Void = {}
     var onNotice: (Notice) -> Void = { _ in }
     var onText: (String, String) -> Void = { _, _ in }
+    /// Show the window once Public Desk is ready; close it once Public Desk has stopped, however it was stopped.
+    var onWindow: (WindowEvent) -> Void = { _ in }
 
     init(runner: CommandRunning, scheduler: Scheduling) {
         self.runner = runner
@@ -315,10 +323,16 @@ final class Controller {
             let result = runner.run(["status", "--json"], timeout: Controller.statusTimeout)
             self.scheduler.main {
                 self.refreshing = false
+                let before = self.state.snapshot?.overall
                 let notices = self.state.apply(status: result)
                 notices.forEach(self.onNotice)
+                // Stopped from somewhere else (the menu, Stop Public Desk.command, Terminal): the window goes too.
+                // Not mid-restart or mid-start, here or from a launcher, when everything is briefly stopped too.
+                if let before, before != "stopped", self.state.snapshot?.overall == "stopped", !self.state.isBusy {
+                    self.onWindow(.close)
+                }
                 self.onChange()
-                self.openIfRequested()
+                self.runPending()
             }
         }
     }
@@ -326,15 +340,21 @@ final class Controller {
     /// Opening the app's icon opens Public Desk, like Open Public Desk in the menu: it starts anything missing, then
     /// opens or brings forward the browser tab. If a start or stop is running (from here or a Finder launcher), it
     /// opens once that finishes, so the click is never lost and never runs beside it. Repeated requests open once.
-    func requestOpen() {
-        openWhenIdle = true
-        openIfRequested()
+    func requestOpen(_ action: Action = .open) {
+        pending = action
+        runPending()
     }
 
-    private func openIfRequested() {
-        guard openWhenIdle, !state.isBusy else { return }
-        openWhenIdle = false
-        perform(.open)
+    /// Closing the window stops Public Desk; during a start it waits for the start to finish, then stops.
+    func requestStop() {
+        pending = .stop
+        runPending()
+    }
+
+    private func runPending() {
+        guard let action = pending, !state.isBusy else { return }
+        pending = nil
+        perform(action)
     }
 
     @discardableResult
@@ -342,11 +362,19 @@ final class Controller {
         let arguments = state.arguments(for: action)
         guard state.begin(action) else { return false }
         onChange()
+        if arguments.isEmpty { // the window over services that are already running: nothing to run
+            _ = state.finish(action, CommandResult(exitCode: 0, output: ""))
+            onWindow(.show)
+            onChange()
+            return true
+        }
         scheduler.background { [runner] in
             let result = runner.run(arguments, timeout: Controller.actionTimeout)
             self.scheduler.main {
                 let notices = self.state.finish(action, result)
                 notices.forEach(self.onNotice)
+                if result.succeeded && action == .open { self.onWindow(.show) }
+                if result.succeeded && action == .stop { self.onWindow(.close) }
                 self.onChange()
                 self.refresh()
             }
@@ -358,6 +386,7 @@ final class Controller {
         guard state.isEnabled(command) else { return }
         switch command {
         case .open: perform(.open)
+        case .openInBrowser: perform(.openInBrowser)
         case .start: perform(.start)
         case .stop: perform(.stop)
         case .restart: perform(.restart)
@@ -373,6 +402,41 @@ final class Controller {
             self.scheduler.main { self.onText(title, result.output.trimmingCharacters(in: .whitespacesAndNewlines)) }
         }
         refresh()
+    }
+}
+
+// MARK: - Window
+
+enum WindowEvent: Equatable {
+    case show, close
+}
+
+/// What the Public Desk window does with a navigation. Links meant for a new tab (every "↗" link) and new-window
+/// requests open in the default browser; the page's own navigation stays in the window, so a sign-in comes back to
+/// it; anything else (file:, javascript:, unknown schemes) is blocked.
+enum LinkDecision: Equatable {
+    case inWindow, external, block
+}
+
+enum LinkPolicy {
+    static func decide(_ url: URL?, newWindow: Bool) -> LinkDecision {
+        guard let scheme = url?.scheme?.lowercased() else { return .block }
+        if newWindow { return ["http", "https", "mailto"].contains(scheme) ? .external : .block }
+        switch scheme {
+        case "http", "https", "about", "blob": return .inWindow
+        case "mailto": return .external
+        default: return .block
+        }
+    }
+}
+
+/// Closing the window stops Public Desk. The page marks itself busy while a Deep Search runs (data-busy on <html>,
+/// where a browser tab would warn before leaving); the window then asks first.
+enum WindowClose {
+    static func confirmation(busyMarker: String) -> String? {
+        busyMarker == "deep-search"
+            ? "A Deep Search is still running. Closing Public Desk stops it and keeps only what was found so far."
+            : nil
     }
 }
 

@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('..', import.meta.url));
 const swiftc = spawnSync('/usr/bin/xcrun', ['--find', 'swiftc'], { encoding: 'utf8' });
 const noSwift = process.platform !== 'darwin' || swiftc.status !== 0;
-const sources = ['macos/PublicDeskController/Core.swift', 'macos/PublicDeskController/App.swift'].map(file => join(root, file));
+const sources = ['macos/PublicDeskController/Core.swift', 'macos/PublicDeskController/App.swift', 'macos/PublicDeskController/Window.swift'].map(file => join(root, file));
 
 test('the controller logic passes its Swift tests', { skip: noSwift, timeout: 300_000 }, () => {
   const dir = mkdtempSync(join(tmpdir(), 'pd-swift-'));
@@ -34,7 +34,7 @@ test('the menu-bar app compiles', { skip: noSwift, timeout: 300_000 }, () => {
 test('the controller offers exactly the requested menu actions and drives only the shared control script', () => {
   const core = readFileSync(sources[0], 'utf8');
   const app = readFileSync(sources[1], 'utf8');
-  for (const title of ['Open Public Desk', 'Start', 'Stop', 'Restart', 'Status', 'Diagnostics', 'Quit Controller']) {
+  for (const title of ['Open Public Desk', 'Open in Browser', 'Start', 'Stop', 'Restart', 'Status', 'Diagnostics', 'Quit Controller']) {
     assert.match(core, new RegExp(`= "${title}"`), title);
   }
   assert.match(app, /scripts\/public-desk-control\.zsh/);
@@ -120,7 +120,7 @@ test('the source fingerprint changes with the app\'s code but not with the contr
 test('the app checks for updates only when installed by the build script, and never while Public Desk is busy', () => {
   const app = readFileSync(sources[1], 'utf8');
   assert.match(app, /PublicDeskSourceHash/);
-  assert.match(app, /isBusy: \{ \[weak controller\] in controller\?\.state\.isBusy \?\? true \}/);
+  assert.match(app, /isBusy: \{ \[weak self, weak controller\] in\s+\(controller\?\.state\.isBusy \?\? true\) \|\| \(self\?\.publicDeskWindow\?\.isOpen \?\? false\)/, 'and never while the window is open');
   assert.match(app, /15 \* 60/);
   assert.match(app, /Retry Controller Update/);
   // macOS ends an app's child processes with it, so a self-update must not stop the controller from the build script:
@@ -176,4 +176,32 @@ test('the controller records whether notifications are allowed and offers to tur
   assert.match(app, /if !notificationsAllowed \{\s+let notifications = item\("Turn On Notifications…", #selector\(openNotificationSettings\)/);
   assert.match(app, /x-apple\.systempreferences:com\.apple\.Notifications-Settings\.extension/);
   assert.match(app, /func menuWillOpen\(_ menu: NSMenu\) \{\s+UNUserNotificationCenter\.current\(\)\.getNotificationSettings/, 're-checked whenever the menu opens');
+});
+
+// Public Desk in its own window. The decisions (links, closing) are tested in Swift; these check the wiring.
+test('the window is wired to stop Public Desk on close, ask during a Deep Search, and avoid permission prompts', () => {
+  const window = readFileSync(sources[2], 'utf8');
+  const app = readFileSync(sources[1], 'utf8');
+  const deep = readFileSync(join(root, 'public/app/deep.js'), 'utf8');
+  // Closing (and Quit) stops Public Desk; the page marks a running Deep Search where the window can read it.
+  assert.match(app, /window\.onCloseRequested = \{ \[weak controller\] in controller\?\.requestStop\(\) \}/);
+  assert.match(app, /entry\("Quit Public Desk", #selector\(closeWindowAndStop\), "q"/);
+  assert.doesNotMatch(app.match(/private func makeMainMenu[\s\S]*?\n {4}\}/)[0], /NSApplication\.terminate/, 'Quit in the window never quits the controller');
+  assert.match(window, /evaluateJavaScript\("document\.documentElement\.dataset\.busy \|\| ''"\)/);
+  assert.match(deep, /document\.documentElement\.dataset\.busy = 'deep-search';\s+window\.addEventListener\('beforeunload', warnDeepUnload\);/);
+  assert.match(deep, /removeEventListener\('beforeunload', warnDeepUnload\);\s+delete document\.documentElement\.dataset\.busy;/);
+  // Downloads go through the Save panel (no Downloads-folder permission to lose on every update); uploads through
+  // the Open panel; the page's prompt() (naming a case) gets a real dialog.
+  assert.match(window, /func download\(_ download: WKDownload, decideDestinationUsing[\s\S]*?NSSavePanel\(\)/);
+  assert.doesNotMatch(window, /downloadsDirectory[^\n]*appendingPathComponent/, 'never writes into Downloads directly');
+  assert.match(window, /runOpenPanelWith[\s\S]*?NSOpenPanel\(\)/);
+  assert.match(window, /runJavaScriptTextInputPanelWithPrompt/);
+  // The token is read from the owner-only file and passed in the fragment; links follow LinkPolicy.
+  assert.match(window, /work\/runtime\/public-desk-token/);
+  assert.match(window, /http:\/\/127\.0\.0\.1:4173\/#access=/);
+  assert.match(window, /LinkPolicy\.decide\(action\.request\.url, newWindow: newWindow\)/);
+  // A restart from anywhere gives a new token; the open window reloads with it once the services are ready again
+  // (reloading earlier failed and left the old page, with the old token, in the window).
+  assert.match(app, /private func tick\(\) \{[\s\S]*?state\.snapshot\?\.overall == "ready", !state\.isBusy \{\s+publicDeskWindow\?\.reloadIfTokenChanged\(\)/);
+  assert.match(window, /didFailProvisionalNavigation[\s\S]*?loadedToken = ""/, 'a failed reload is tried again');
 });
