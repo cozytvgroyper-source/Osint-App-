@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
-import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -16,10 +16,15 @@ function copy() {
   mkdirSync(join(dir, 'scripts'));
   for (const file of ['public-desk-control.zsh', 'service-ownership.zsh']) cpSync(join(root, 'scripts', file), join(dir, 'scripts', file));
   mkdirSync(join(dir, 'work', 'runtime'), { recursive: true });
-  return { dir, script: join(dir, 'scripts', 'public-desk-control.zsh'), runtime: join(dir, 'work', 'runtime'), lock: join(dir, 'work', 'runtime', 'control.lock') };
+  // A stand-in lsof that sees no listening services. A Public Desk running on this Mac holds the same ports, and a
+  // copy rightly refuses to touch it, so without this the tests would depend on what this machine is running.
+  mkdirSync(join(dir, 'no-listeners'));
+  writeFileSync(join(dir, 'no-listeners', 'lsof'), '#!/bin/zsh\nexit 0\n');
+  chmodSync(join(dir, 'no-listeners', 'lsof'), 0o755);
+  return { lsof: join(dir, 'no-listeners', 'lsof'), dir, script: join(dir, 'scripts', 'public-desk-control.zsh'), runtime: join(dir, 'work', 'runtime'), lock: join(dir, 'work', 'runtime', 'control.lock') };
 }
 
-const control = (app, args, env = {}) => spawnSync('/bin/zsh', [app.script, ...args], { encoding: 'utf8', env: { ...process.env, PUBLIC_DESK_STOP_TIMEOUT: '1', ...env }, timeout: 60_000 });
+const control = (app, args, env = {}) => spawnSync('/bin/zsh', [app.script, ...args], { encoding: 'utf8', env: { ...process.env, PUBLIC_DESK_STOP_TIMEOUT: '1', PUBLIC_DESK_LSOF: app.lsof, ...env }, timeout: 60_000 });
 const status = app => JSON.parse(control(app, ['status', '--json']).stdout.trim().split('\n').at(-1));
 const startedAt = pid => spawnSync('/bin/ps', ['-o', 'lstart=', '-p', String(pid)], { encoding: 'utf8' }).stdout.trim().split(/\s+/).join(' ');
 
@@ -96,7 +101,7 @@ test('a second stop waits for the running one instead of running beside it', { s
   const child = holder();
   try {
     writeLock(app, { pid: child.pid, started: startedAt(child.pid), action: 'start' });
-    const second = spawn('/bin/zsh', [app.script, 'stop'], { env: { ...process.env, PUBLIC_DESK_STOP_TIMEOUT: '1' } });
+    const second = spawn('/bin/zsh', [app.script, 'stop'], { env: { ...process.env, PUBLIC_DESK_STOP_TIMEOUT: '1', PUBLIC_DESK_LSOF: app.lsof } });
     let output = '';
     second.stdout.on('data', chunk => { output += chunk; });
     await new Promise(resolve => setTimeout(resolve, 1500));
@@ -292,11 +297,6 @@ test('Stop closes the open Public Desk tabs, and Restart keeps them', { skip, ti
   const app = copy();
   try {
     const browser = fakeBrowser(app, { running: ['Safari'], answer: '1' });
-    // A stand-in lsof that sees no services: a Public Desk running on this Mac holds the same ports, and this copy
-    // would rightly refuse to stop it, fail, and keep the tabs, which made the test depend on the machine's state.
-    writeFileSync(join(app.dir, 'bin', 'lsof'), '#!/bin/zsh\nexit 0\n');
-    chmodSync(join(app.dir, 'bin', 'lsof'), 0o755);
-    browser.env.PUBLIC_DESK_LSOF = join(app.dir, 'bin', 'lsof');
     const stop = control(app, ['stop'], browser.env);
     assert.equal(stop.status, 0, stop.stderr);
     assert.match(stop.stdout, /Public Desk services are stopped\.\nClosed 1 Public Desk tab\./);
@@ -312,6 +312,55 @@ test('a stop that leaves something running keeps the tabs open', () => {
   const controller = readFileSync(join(root, 'scripts/public-desk-control.zsh'), 'utf8');
   assert.match(controller, /stop\) LOCK_ACTION=stop stop_all && close_open_tabs ;;/);
   assert.doesNotMatch(controller.match(/restart\)[\s\S]*?;;/)[0], /close_open_tabs/);
+});
+
+// The process-ownership guard: a program that is not this Public Desk's, listening on one of its ports, is never
+// stopped, and Stop says so plainly instead of reporting success.
+test('Stop never stops another program on a Public Desk port, and says which one it left running', { skip, timeout: 60_000 }, async () => {
+  const app = copy();
+  const foreign = spawn('/bin/sleep', ['60'], { stdio: 'ignore' });
+  try {
+    // A stand-in lsof: the foreign program listens on Omega's port 8894 and runs from an unrelated folder.
+    mkdirSync(join(app.dir, 'foreign-lsof'));
+    writeFileSync(join(app.dir, 'foreign-lsof', 'lsof'), `#!/bin/zsh
+if [[ "$*" == *"-tiTCP:8894"* ]]; then print -r -- ${foreign.pid}; exit 0; fi
+if [[ "$*" == *"-p ${foreign.pid} -d cwd"* ]]; then print -r -- n/private/tmp; exit 0; fi
+exit 0
+`);
+    chmodSync(join(app.dir, 'foreign-lsof', 'lsof'), 0o755);
+    const browser = fakeBrowser(app, { running: ['Safari'], answer: '1' });
+    const stop = control(app, ['stop'], { ...browser.env, PUBLIC_DESK_LSOF: join(app.dir, 'foreign-lsof', 'lsof') });
+    assert.equal(stop.status, 1);
+    assert.match(stop.stderr, new RegExp(`Left port 8894 running: it belongs to another program \\(PID ${foreign.pid}\\), not this Public Desk folder\\.`));
+    assert.match(stop.stderr, /This Public Desk's services are stopped, but something above was left running\./);
+    assert.doesNotMatch(stop.stdout, /^Public Desk services are stopped\.$/m, 'no plain success message');
+    assert.equal(foreign.exitCode, null, 'the foreign program is still running');
+    assert.doesNotThrow(() => process.kill(foreign.pid, 0));
+    assert.doesNotMatch(calls(browser.log), /close t/, 'the tabs stay open after a stop that did not fully succeed');
+  } finally { foreign.kill('SIGKILL'); rmSync(app.dir, { recursive: true, force: true }); }
+});
+
+// server.mjs keeps data-source keys in PUBLIC_DESK_WORK_DIR when it is set (resolved from the Public Desk folder, its
+// working directory when the controller starts it); Open OSINT must read that same file.
+test('Open OSINT reads the same API-key file as the server, wherever PUBLIC_DESK_WORK_DIR points', { skip }, async () => {
+  const app = copy();
+  const { resolve } = await import('node:path');
+  try {
+    const keysFor = (workDir, cwd = tmpdir()) => {
+      const env = { ...process.env }; delete env.PUBLIC_DESK_WORK_DIR;
+      if (workDir !== undefined) env.PUBLIC_DESK_WORK_DIR = workDir;
+      return spawnSync('/bin/zsh', ['-c', `source ${JSON.stringify(app.script)}; api_keys_file; print -r -- "$REPLY"`], { encoding: 'utf8', env, cwd }).stdout.trim();
+    };
+    // What the server uses: join(resolve(PUBLIC_DESK_WORK_DIR), 'api-keys.env'), with the Public Desk folder as cwd.
+    // The controller starts the server from the folder's real path (macOS's temporary folder is a link to /private).
+    const folder = realpathSync(app.dir);
+    const serverKeys = workDir => join(workDir ? resolve(folder, workDir) : join(folder, 'work'), 'api-keys.env');
+    assert.equal(keysFor(undefined), serverKeys(undefined), 'default: work/ in the Public Desk folder');
+    assert.equal(keysFor('/private/tmp/pd-elsewhere'), serverKeys('/private/tmp/pd-elsewhere'), 'an absolute folder');
+    assert.equal(keysFor('other-work'), serverKeys('other-work'), 'a relative folder, resolved from the Public Desk folder');
+    assert.equal(keysFor('./data/../other-work/'), serverKeys('./data/../other-work/'), 'tidied the same way');
+    assert.equal(keysFor('other-work', '/'), serverKeys('other-work'), 'not from wherever the controller was run');
+  } finally { rmSync(app.dir, { recursive: true, force: true }); }
 });
 
 test('the page reloads with a new token handed to an already-open tab', () => {
