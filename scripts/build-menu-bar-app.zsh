@@ -7,7 +7,26 @@ set -eu
 # ran with, so it can find node and uv when opened from Finder.
 
 APP_DIR="${0:A:h:h}"
-DEST="${1:-$HOME/Applications}"
+
+# A fingerprint of everything compiled into the app (and of this recipe). The app stores the one it was built from
+# and compares it with this checkout's to update itself after a pull. The control script is not included: the app
+# runs it from this folder, so changes to it apply without a rebuild.
+source_hash() {
+  cat "$APP_DIR"/macos/PublicDeskController/*.swift "$APP_DIR/scripts/build-menu-bar-app.zsh" | /usr/bin/shasum -a 256 | cut -d' ' -f1
+}
+if [[ "${1:-}" == "--source-hash" ]]; then
+  source_hash
+  exit 0
+fi
+
+DEST="$HOME/Applications"
+LAUNCH=1
+for arg in "$@"; do
+  case "$arg" in
+    --no-launch) LAUNCH=0 ;; # used by the controller to update itself; it then reopens the new copy on its own
+    *) DEST="$arg" ;;
+  esac
+done
 NAME="Public Desk"
 BUNDLE_ID="local.public-desk.controller"
 OUTPUT_DIR="$APP_DIR/work/build/menu-bar"
@@ -37,13 +56,14 @@ plutil -insert CFBundlePackageType -string APPL "$PLIST"
 plutil -insert CFBundleShortVersionString -string 1.0 "$PLIST"
 plutil -insert CFBundleVersion -string 1 "$PLIST"
 plutil -insert LSMinimumSystemVersion -string 13.0 "$PLIST"
-# A menu-bar app: no Dock icon, and macOS reuses a running copy instead of opening another.
+# A menu-bar app: no Dock icon. Single-instance is enforced by the app's own lock, not LSMultipleInstancesProhibited:
+# that key would also stop the app from opening its own updated copy while it hands over.
 plutil -insert LSUIElement -bool YES "$PLIST"
-plutil -insert LSMultipleInstancesProhibited -bool YES "$PLIST"
 plutil -insert NSAppleEventsUsageDescription \
   -string "Public Desk brings its open browser tab to the front instead of opening another one." "$PLIST"
 plutil -insert PublicDeskRoot -string "$APP_DIR" "$PLIST"
 plutil -insert PublicDeskPath -string "$PATH" "$PLIST"
+plutil -insert PublicDeskSourceHash -string "$(source_hash)" "$PLIST"
 
 /usr/bin/xattr -cr "$BUNDLE"
 codesign --force --sign - --identifier "$BUNDLE_ID" "$BUNDLE"
@@ -57,8 +77,11 @@ if [[ "$DEST" == "--build-only" ]]; then
   exit 0
 fi
 
-# Replace a running copy: it releases its single-instance lock on exit, and services keep running.
-if /usr/bin/pgrep -xq "$NAME"; then
+# When the controller updates itself it must not be stopped from here: macOS ends an app's child processes with it,
+# so this script would die halfway through installing. Replacing the files under a running app is safe (it keeps
+# running from the copy already in memory); the controller then opens the new copy and quits.
+if (( LAUNCH )) && /usr/bin/pgrep -xq "$NAME"; then
+  # Replace a running copy: it releases its single-instance lock on exit, and services keep running.
   /usr/bin/pkill -x "$NAME" || true
   for _ in {1..25}; do /usr/bin/pgrep -xq "$NAME" || break; sleep 0.2; done
 fi
@@ -66,5 +89,7 @@ mkdir -p "$DEST"
 rm -rf "$DEST/$NAME.app"
 /usr/bin/ditto --noextattr --noqtn "$BUNDLE" "$DEST/$NAME.app"
 print -r -- "Installed $DEST/$NAME.app"
-/usr/bin/open "$DEST/$NAME.app"
-print -r -- "Public Desk is in the menu bar. Choose Open Public Desk to start it."
+if (( LAUNCH )); then
+  /usr/bin/open "$DEST/$NAME.app"
+  print -r -- "Public Desk is in the menu bar. Choose Open Public Desk to start it."
+fi

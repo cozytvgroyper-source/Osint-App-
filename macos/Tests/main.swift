@@ -32,9 +32,9 @@ func expect(_ condition: Bool, _ message: @autoclosure () -> String = "", line: 
     if !condition { fail(message(), line: line) }
 }
 
-func expectEqual<T: Equatable>(_ actual: T, _ expected: T, line: Int = #line) {
+func expectEqual<T: Equatable>(_ actual: T, _ expected: T, _ message: String = "", line: Int = #line) {
     checks += 1
-    if actual != expected { fail("expected \(expected), got \(actual)", line: line) }
+    if actual != expected { fail("\(message.isEmpty ? "" : message + ": ")expected \(expected), got \(actual)", line: line) }
 }
 
 // MARK: Fixtures
@@ -440,6 +440,142 @@ test("services going down during a start, stop or Finder launcher action are not
     // A full stop (e.g. Stop Public Desk.command between two checks) is not a crash.
     expectEqual(stopped.apply(status: ok(allStopped)), [])
     expectEqual(stopped.headline, "Stopped")
+}
+
+// MARK: Self-update
+
+let oldHash = String(repeating: "a", count: 64)
+let newHash = String(repeating: "b", count: 64)
+
+final class FakeBuild: CommandRunning {
+    var calls: [[String]] = []
+    var hash = newHash
+    var build = CommandResult(exitCode: 0, output: "Installed")
+    func run(_ arguments: [String], timeout: TimeInterval) -> CommandResult {
+        calls.append(arguments)
+        return arguments == ["--source-hash"] ? ok(hash + "\n") : build
+    }
+    var builds: [[String]] { calls.filter { $0 != ["--source-hash"] } }
+}
+
+func makeUpdater(_ build: FakeBuild, busy: Bool = false, scheduler: Scheduling = ImmediateScheduling()) -> (SelfUpdater, () -> [Notice]) {
+    let updater = SelfUpdater(runner: build, scheduler: scheduler, installedHash: oldHash,
+                              destination: "/Users/test/Applications", isBusy: { busy })
+    var notices: [Notice] = []
+    updater.onNotice = { notices.append($0) }
+    updater.onInstalled = { true }
+    return (updater, { notices })
+}
+
+test("an up-to-date controller does not rebuild") {
+    let build = FakeBuild()
+    build.hash = oldHash
+    let (updater, notices) = makeUpdater(build)
+    updater.check()
+    updater.check()
+    expectEqual(build.builds, [])
+    expectEqual(updater.status, .upToDate)
+    expectEqual(notices(), [])
+}
+
+test("a changed source rebuilds into the folder the app is installed in") {
+    let build = FakeBuild()
+    let (updater, notices) = makeUpdater(build)
+    var handedOver = 0
+    updater.onInstalled = { handedOver += 1; return true }
+    updater.check()
+    expectEqual(build.builds, [["/Users/test/Applications", "--no-launch"]], "the build never stops this copy itself")
+    expectEqual(handedOver, 1, "the app opens the new copy once it is installed")
+    expectEqual(notices().map(\.title), ["Updating the Public Desk controller"])
+}
+
+test("if the new copy cannot be opened, the controller keeps running and reports it") {
+    let build = FakeBuild()
+    let (updater, notices) = makeUpdater(build)
+    updater.onInstalled = { false }
+    updater.check()
+    expectEqual(updater.status, .failed("The new controller was installed but did not open."))
+    expectEqual(notices().last?.title, "The Public Desk controller could not update")
+    updater.check()
+    expectEqual(build.builds.count, 1, "not retried in a loop")
+}
+
+test("no update runs while Public Desk is starting or stopping") {
+    let build = FakeBuild()
+    let (updater, _) = makeUpdater(build, busy: true)
+    updater.check()
+    expectEqual(build.calls, [])
+}
+
+test("a failed update is reported once and not retried until the source changes or the user retries") {
+    let build = FakeBuild()
+    build.build = CommandResult(exitCode: 1, output: "Building Public Desk.app…\nerror: expected '}' in App.swift\n")
+    let (updater, notices) = makeUpdater(build)
+    updater.check()
+    expectEqual(updater.status, .failed("error: expected '}' in App.swift"))
+    expectEqual(notices().last, Notice(title: "The Public Desk controller could not update", body: "error: expected '}' in App.swift"))
+    updater.check()
+    updater.check()
+    expectEqual(build.builds.count, 1)
+
+    updater.check(force: true)
+    expectEqual(build.builds.count, 2, "Retry Controller Update rebuilds")
+
+    build.hash = String(repeating: "c", count: 64)
+    build.build = ok("Installed")
+    var handedOver = false
+    updater.onInstalled = { handedOver = true; return true }
+    updater.check()
+    expectEqual(build.builds.count, 3, "a further change is tried")
+    expect(handedOver, "and installed")
+}
+
+test("a source that matches the installed copy again clears a failure") {
+    let build = FakeBuild()
+    build.build = CommandResult(exitCode: 1, output: "broken")
+    let (updater, _) = makeUpdater(build)
+    updater.check()
+    build.hash = oldHash
+    updater.check()
+    expectEqual(updater.status, .upToDate)
+}
+
+test("unreadable fingerprints never trigger a build") {
+    for output in ["", "cat: App.swift: No such file", String(repeating: "Z", count: 64)] {
+        let build = FakeBuild()
+        build.hash = output
+        let (updater, _) = makeUpdater(build)
+        updater.check()
+        expectEqual(build.builds, [])
+    }
+}
+
+test("checks do not overlap, and an update in progress is not started twice") {
+    let build = FakeBuild()
+    let scheduler = DeferredScheduling()
+    let (updater, _) = makeUpdater(build, scheduler: scheduler)
+    updater.check()
+    updater.check()
+    expectEqual(scheduler.pending.count, 1)
+    scheduler.pending.removeFirst()() // the fingerprint arrives; the build is queued
+    expectEqual(updater.status, .updating)
+    updater.check(force: true)
+    expectEqual(scheduler.pending.count, 1, "no second build")
+    scheduler.drain()
+    expectEqual(build.builds.count, 1)
+}
+
+test("status checks and fingerprint checks are kept out of the log") {
+    let root = temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: root) }
+    let script = root.appendingPathComponent("build.zsh")
+    try "print -r -- ran $*".write(to: script, atomically: true, encoding: .utf8)
+    let log = root.appendingPathComponent("menu-bar.log")
+    let runner = ScriptRunner(script: script, searchPath: "/usr/bin:/bin", logFile: log, quietCommands: ["--source-hash"])
+    _ = runner.run(["--source-hash"], timeout: 10)
+    expect(!FileManager.default.fileExists(atPath: log.path), "fingerprint checks are not logged")
+    _ = runner.run(["/Applications"], timeout: 10)
+    expect(((try? String(contentsOf: log, encoding: .utf8)) ?? "").contains("/Applications → exit 0"), "builds are logged")
 }
 
 print(failures == 0 ? "ok - \(checks) checks passed" : "\(failures) of \(checks) checks failed")
