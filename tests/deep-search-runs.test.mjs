@@ -62,3 +62,27 @@ test('removeAll treats a file that vanishes mid-delete as already gone',async()=
   assert.ok(counts.every(count=>Number.isInteger(count)&&count>=0));
   assert.deepEqual(await readdir(dir),[]);
 });
+
+// Delete all from another tab (or the app window) can arrive while a finished search is still being saved. It used to
+// delete the save's temporary file mid-write, so the save failed and its results were lost. Changes to the results
+// folder now run one at a time: the save finishes, then Delete all removes it.
+test('Delete all waits for a save in progress instead of breaking it',async()=>{
+  const root=await mkdtemp(join(tmpdir(),'pd-deep-runs-'));const dir=join(root,'runs');const store=new DeepRunStore(dir);
+  for(let attempt=0;attempt<5;attempt++){
+    const big={...sample('run-racing01'),raw:{x:'y'.repeat(5_000_000)}};
+    const saving=store.save(big);
+    await new Promise(resolve=>setTimeout(resolve,2));
+    const [saved,removed]=await Promise.all([saving,new DeepRunStore(dir).removeAll()]);
+    assert.deepEqual(saved,{id:'run-racing01'});
+    assert.equal(removed,1,'Delete all removed the finished save');
+    assert.deepEqual(await readdir(dir),[]);
+  }
+});
+
+test('a save queued behind a delete of the same run still saves',async()=>{
+  const root=await mkdtemp(join(tmpdir(),'pd-deep-runs-'));const store=new DeepRunStore(join(root,'runs'));
+  await store.save(sample('run-requeue1'));
+  const [removed,saved]=await Promise.all([store.remove('run-requeue1'),store.save(sample('run-requeue1'))]);
+  assert.equal(removed,true);assert.deepEqual(saved,{id:'run-requeue1'});
+  assert.equal((await store.read('run-requeue1')).id,'run-requeue1');
+});

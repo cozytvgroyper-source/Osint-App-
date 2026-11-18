@@ -7,6 +7,17 @@ const RUN_ID=/^[a-z0-9-]{8,64}$/;
 const fail=(code,message)=>Object.assign(new Error(message),{code});
 const bytes=value=>Buffer.byteLength(JSON.stringify(value));
 
+// Every change to one results folder (save, delete, delete all) runs one at a time, in the order asked, whichever store
+// object asked. Delete all from another tab used to remove a save's temporary file mid-write, so the save failed and
+// that search's results were lost; now the save finishes first and Delete all then removes it.
+const folderQueues=new Map();
+async function queued(dir,work){
+  const previous=folderQueues.get(dir)||Promise.resolve();
+  const current=previous.then(work,work);
+  folderQueues.set(dir,current);
+  try{return await current;}finally{if(folderQueues.get(dir)===current)folderQueues.delete(dir);}
+}
+
 function validId(value){
   const id=String(value||'');
   if(!RUN_ID.test(id))throw fail('DEEP_RUN_INPUT','Deep Search run id is invalid.');
@@ -20,12 +31,20 @@ export class DeepRunStore{
   async save(run){
     const id=validId(run?.id);
     if(bytes(run)>this.maxBytes)throw fail('DEEP_RUN_TOO_LARGE','Deep Search result is too large to keep.');
-    await this.ensureDir();
-    const temporary=join(this.dir,`.${id}.${randomBytes(6).toString('hex')}.tmp`);
-    await writeFile(temporary,JSON.stringify(run),{mode:0o600});
-    await chmod(temporary,0o600);
-    await rename(temporary,this.file(id));
-    return{id};
+    return queued(this.dir,async()=>{
+      await this.ensureDir();
+      const temporary=join(this.dir,`.${id}.${randomBytes(6).toString('hex')}.tmp`);
+      try{
+        await writeFile(temporary,JSON.stringify(run),{mode:0o600});
+        await chmod(temporary,0o600);
+        await rename(temporary,this.file(id));
+      }catch(error){
+        // A temporary file holds a full copy of the results; never leave one behind.
+        await unlink(temporary).catch(()=>{});
+        throw error;
+      }
+      return{id};
+    });
   }
   async read(id){
     let raw;
@@ -35,18 +54,22 @@ export class DeepRunStore{
   }
   // Deletes one run's results. Returns false when there was nothing to delete (older runs may have no file).
   async remove(id){
-    try{await unlink(this.file(id));return true;}
-    catch(error){if(error.code==='ENOENT')return false;throw error;}
+    const file=this.file(id);
+    return queued(this.dir,async()=>{
+      try{await unlink(file);return true;}
+      catch(error){if(error.code==='ENOENT')return false;throw error;}
+    });
   }
   // Deletes every saved, temporary or orphaned results file. Returns how many files were removed.
-  async removeAll(){
+  async removeAll(){return queued(this.dir,()=>this.removeAllNow());}
+  async removeAllNow(){
     let names;
     try{names=await readdir(this.dir);}catch(error){if(error.code==='ENOENT')return 0;throw error;}
     let removed=0;
     for(const name of names){
       if(!/\.(?:json|tmp)$/.test(name))continue;
       const path=join(this.dir,name);
-      // A file can vanish between readdir and here (another Delete all, or a save renaming its temp file):
+      // A file can vanish between readdir and here (removed by hand, or by another copy of the server):
       // that is "already gone", not a failure.
       try{
         if(!(await lstat(path)).isFile())continue;
