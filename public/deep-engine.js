@@ -69,10 +69,13 @@ export async function runDeepSearch(options={}){
   const recordTask=async(task,grantToken=null,allowRenew=true)=>{
     if(signal?.aborted)return;
     const started=now();onEvent({type:'tool-start',tool:task.tool,identifier:task.identifier});
-    let response;
+    let response;let grantRefused=false;
     try{response=await callTool(task.tool,task.args,{grant:grantToken,deepSearch:true,timeoutMs:task.timeoutMs,signal});}
-    catch(error){response={error:{message:error?.message||String(error)}};}
-    if(response?.error&&grantToken&&allowRenew&&/grant|permission|expired|confirmed/i.test(String(response.error.message||''))&&typeof requestGrant==='function'&&!signal?.aborted){
+    catch(error){grantRefused=error?.code==='RUN_GRANT';response={error:{message:error?.message||String(error)}};}
+    // Renew only when Public Desk refused the grant itself (it does that before running anything). A tool's own error
+    // can mention permission too, and that tool already ran: renewing would run it again on the same confirmation.
+    // An error a tool returns can't claim the code, since only a thrown refusal from the server sets grantRefused.
+    if(grantRefused&&grantToken&&allowRenew&&typeof requestGrant==='function'&&!signal?.aborted){
       // A refused renewal keeps the tool's own error below; it never ends the whole run.
       let renewed=null;
       try{renewed=await requestGrant({target:task.identifier.value,level:task.risk.level,runId:id,ttlMs:30*60_000,tools:[{tool:task.tool,args:task.args}],confirmation:task.confirmation});}catch{}

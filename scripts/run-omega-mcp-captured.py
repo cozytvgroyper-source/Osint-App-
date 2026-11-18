@@ -79,8 +79,9 @@ _FAILURE = re.compile(
     r"\b(?:error|errors|rate[- ]limit(?:ed)?|failed|failure|timed out|timeout|unauthori[sz]ed|forbidden|"
     r"access denied|unavailable|exceeded)\b", re.IGNORECASE)
 # omega-cli's advice to run one of its own commands (such as "omega config set nvd_api_key KEY"), which does not
-# apply here: Public Desk runs the MCP tools, which do not read omega-cli's settings.
-_CLI_ADVICE = re.compile(r"\s+[—–-]\s+.*\bomega config\b.*$")
+# apply here: Public Desk runs the MCP tools, which do not read omega-cli's settings. It follows a dash ("NVD rate
+# limit — add API key with: omega config ...") or "Set:" ("HIBP requires API key.  Set: omega config ...").
+_CLI_ADVICE = re.compile(r"(?:\s+[—–-]\s+|\s+Set:\s+).*\bomega config\b.*$")
 
 
 # Omega modules that need a key from the data-sources page: the run() argument that takes it, the key's name in
@@ -97,6 +98,12 @@ _KEY_LINE = re.compile(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=(.*)$")
 # key", "Shodan API key required").
 _KEY_REFUSED = re.compile(r"\b(?:requires?|required|invalid|missing)\b[^.\n]{0,30}\bAPI key\b|"
                           r"\bAPI key\b[^.\n]{0,20}\b(?:required|invalid|missing)\b", re.IGNORECASE)
+# A service that gave no usable answer at all (a rate limit, a server error, a network failure), which the module
+# then reports as "nothing found". breachcheck prints this line when HIBP did not answer, then says the address is in
+# no known breach.
+NO_ANSWER = {
+    "omega_cli.modules.breachcheck": (re.compile(r"\bTrying without API key\b", re.IGNORECASE), "hibp"),
+}
 
 
 def key_file(app_dir):
@@ -169,6 +176,14 @@ def capture_module_output(run_module, read_keys=dict):
         refused = [line.strip() for line in output.splitlines() if _KEY_REFUSED.search(line)]
         if refused and isinstance(result, dict) and result.get("status") == "ok":
             reason = "Not checked: " + _CLI_ADVICE.sub("", refused[0]).strip().rstrip(".") + "."
+            if not _has_findings(result.get("result")):
+                return {"status": "error", "error": reason}
+            not_checked.append(reason)
+        no_answer = NO_ANSWER.get(module_path)
+        if (not refused and no_answer and no_answer[0].search(output)
+                and isinstance(result, dict) and result.get("status") == "ok"):
+            reason = (f"Not checked: {SOURCE_NAMES[no_answer[1]]} did not answer (often a rate limit). "
+                      "Try again in a minute.")
             if not _has_findings(result.get("result")):
                 return {"status": "error", "error": reason}
             not_checked.append(reason)

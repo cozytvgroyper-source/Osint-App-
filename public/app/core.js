@@ -296,7 +296,8 @@ async function api(path, payload, options = {}) {
     signal: options.signal
   });
   const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'Request failed');
+  // The code (for example RUN_GRANT, a refused run grant) lets callers tell the server's refusals from tool errors.
+  if (!response.ok) throw Object.assign(new Error(data.error || 'Request failed'), data.code ? { code: data.code } : {});
   return data;
 }
 

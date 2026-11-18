@@ -626,10 +626,16 @@ const server = http.createServer(async (req, res) => {
     });
     res.end(data);
   } catch (error) {
-    const status = errorStatus(error);
-    json(res, status, { error: ['ENOENT', 'EISDIR'].includes(error?.code) ? 'Not found' : error.message || 'Request failed' });
+    json(res, errorStatus(error), errorBody(error));
   }
 });
+
+// A refused run grant also says so by code: Deep Search asks for a new grant only then, never because a tool's own
+// error mentions permission (that tool already ran, and running it again would contact the target twice).
+function errorBody(error) {
+  const message = ['ENOENT', 'EISDIR'].includes(error?.code) ? 'Not found' : error?.message || 'Request failed';
+  return error?.code === 'RUN_GRANT' ? { error: message, code: 'RUN_GRANT' } : { error: message };
+}
 
 // A refused MCP address is a bad request (400); a missing file is 404; anything else is an upstream failure (502).
 function errorStatus(error) {
@@ -664,4 +670,4 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   });
 }
 
-export { validatedEndpoint, fetchValidated, parseMcpResponse, readLimitedResponse, cleanupStaleUploads, restoreFreshUploads, trackUpload, trackedUploadBytes, deleteTrackedUpload, loadConsensusAuth, saveConsensusAuth, clearConsensusAuth, SECURITY_HEADERS, requestGuard, validAccessToken, prunePendingSignIns, dataSourcesAction, errorStatus, oneAtATime };
+export { validatedEndpoint, fetchValidated, parseMcpResponse, readLimitedResponse, cleanupStaleUploads, restoreFreshUploads, trackUpload, trackedUploadBytes, deleteTrackedUpload, loadConsensusAuth, saveConsensusAuth, clearConsensusAuth, SECURITY_HEADERS, requestGuard, validAccessToken, prunePendingSignIns, dataSourcesAction, errorStatus, errorBody, oneAtATime };

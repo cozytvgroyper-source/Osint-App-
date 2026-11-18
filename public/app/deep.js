@@ -3,7 +3,7 @@
 import { emptyState, escapeHtml } from '../ui.js?v=7';
 import { TIERS } from '../tool-tiers.js?v=1';
 import { deepRunBlocked, deepToolsFor, detectDeepTarget, isPersonType } from '../deep-search.js?v=5';
-import { runDeepSearch as runDeepEngine } from '../deep-engine.js?v=2';
+import { runDeepSearch as runDeepEngine } from '../deep-engine.js?v=3';
 import { deepStatusLine, initialProgress, reduceProgress, renderProgress } from '../deep-progress.js?v=1';
 import { renderDeepResults } from '../deep-results-view.js?v=2';
 import { adaptToolResult } from '../deep-adapters.js?v=2';

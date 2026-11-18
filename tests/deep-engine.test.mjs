@@ -7,6 +7,8 @@ const tool=(name,serverName,input='target')=>({name,serverName,inputSchema:schem
 const toolbox=(name,input)=>tool(name,'OSINT Toolbox',input);
 const omega=name=>tool(name,'Omega MCP','target');
 const textResult=text=>({content:[{type:'text',text}],isError:false});
+// What the tool caller throws when Public Desk refused the call's grant (server.mjs answers RUN_GRANT before running it).
+const grantRefusal=message=>Object.assign(new Error(message),{code:'RUN_GRANT'});
 
 test('a person search follows linked leads and never exceeds three rounds',async()=>{
   const seen=[];
@@ -61,9 +63,28 @@ test('an expired grant is renewed once with the same confirmation',async()=>{
   const tools=[omega('omega_headers')];let grants=0,calls=0;
   await runDeepSearch({id:'renew',target:{type:'domain',value:'example.com'},level:1,tools,excluded:new Set(),confirmation:{acknowledged:true},
     requestGrant:async()=>({token:`g${++grants}`,expiresAt:Date.now()+1e6}),
-    callTool:async()=>{calls++;return calls===1?{error:{message:'current confirmed run grant expired'}}:{result:textResult('{}')}}});
+    callTool:async()=>{calls++;if(calls===1)throw grantRefusal('This risky tool requires a current confirmed run grant');return{result:textResult('{}')}}});
   assert.equal(grants,2);
   assert.equal(calls,2);
+});
+
+// A tool's own error can mention permission (a scan that needs root, a site that refuses access). Only Public Desk's
+// refusal of the grant itself (code RUN_GRANT, which comes before anything runs) may get a new grant; anything else
+// already ran, and running it again would contact the target twice on one confirmation.
+test('a tool error that mentions permission is never renewed or run again',async()=>{
+  for(const fail of [
+    ()=>({error:{message:'socket: Operation not permitted (permission denied)'}}),
+    ()=>({error:{message:'Run grant expired',code:'RUN_GRANT'}}),
+    ()=>{throw new Error('MCP server returned 403: permission denied, grant required');}
+  ]){
+    const tools=[omega('omega_ports')];let grants=0,calls=0;
+    const run=await runDeepSearch({id:'no-renew',target:{type:'domain',value:'example.com'},level:2,tools,excluded:new Set(),confirmation:{acknowledged:true,authorization:true},
+      requestGrant:async()=>({token:`g${++grants}`,expiresAt:Date.now()+1e6}),
+      callTool:async()=>{calls++;return fail();}});
+    assert.equal(calls,1,'the tool ran once');
+    assert.equal(grants,1,'no second grant was asked for');
+    assert.equal(run.calls[0].outcome,'error');
+  }
 });
 
 test('a lead loop ends without repeating calls',async()=>{
@@ -165,7 +186,7 @@ test('a person search keeps round-one findings when a later permission is refuse
 test('a failed permission renewal records the tool error instead of ending the run',async()=>{
   const tools=[omega('omega_headers'),omega('omega_ssl')];let grants=0;
   const run=await runDeepSearch({id:'renew-fail',target:{type:'domain',value:'example.com'},level:2,tools,excluded:new Set(),confirmation:{acknowledged:true,authorization:true},
-    callTool:async()=>({error:{message:'Run grant expired'}}),
+    callTool:async()=>{throw grantRefusal('Run grant expired');},
     requestGrant:async()=>{grants+=1;if(grants>1)throw new Error('refused on renewal');return{token:'g1',expiresAt:Date.now()+1e6};}});
   assert.equal(run.outcome,'completed');
   assert.equal(run.calls.length,2);
