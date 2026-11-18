@@ -21,8 +21,8 @@ tool that has no other source says "Not checked" instead of running, and omega_l
 beside its other findings. A key the service refuses is reported the same way. Key values never appear in results.
 
 omega-cli also saves a report for most lookups under the home folder (~/.omega/reports, ~/omega-reports and
-~/.config/omega-cli). Those name investigation targets, so the wrapper points HOME at work/omega-home (owner-only,
-git-ignored with the rest of work/) for this process alone; uvx, which keeps its package cache under HOME, is
+~/.config/omega-cli). Those name investigation targets, so the wrapper points HOME at omega-home in Public Desk's data
+folder (work/omega-home unless the data folder was moved; owner-only, git-ignored with the rest of work/) for this process alone; uvx, which keeps its package cache under HOME, is
 unaffected because it started before this script.
 
 Usage (see config/omega-mcp.json): uvx --from <omega-mcp-server> --with <omega-cli> ... python run-omega-mcp-captured.py
@@ -112,13 +112,29 @@ NO_ANSWER = {
 }
 
 
-def key_file(app_dir):
-    """work/api-keys.env, or its place under PUBLIC_DESK_WORK_DIR, resolved from the Public Desk folder as server.mjs does."""
+def data_dir(app_dir):
+    """Public Desk's private data folder: PUBLIC_DESK_WORK_DIR (resolved from the Public Desk folder, as server.mjs
+    does), else the folder the launcher noted in work/runtime/data-dir, else work/.
+
+    FastMCP starts this process with only a few safe environment variables (HOME, PATH, ...), so PUBLIC_DESK_WORK_DIR
+    does not reach it from the launcher. The launcher writes the folder it resolved into work/runtime/data-dir instead
+    (public-desk-control.zsh, record_data_dir); a note that is not an absolute path is ignored."""
     work = os.environ.get("PUBLIC_DESK_WORK_DIR")
-    folder = pathlib.Path(work) if work else pathlib.Path(app_dir) / "work"
-    if not folder.is_absolute():
-        folder = pathlib.Path(app_dir) / folder
-    return folder / "api-keys.env"
+    if work:
+        folder = pathlib.Path(work)
+        return folder if folder.is_absolute() else pathlib.Path(app_dir) / folder
+    try:
+        noted = (pathlib.Path(app_dir) / "work" / "runtime" / "data-dir").read_text(encoding="utf-8").strip()
+    except OSError:
+        noted = ""
+    if noted and pathlib.Path(noted).is_absolute():
+        return pathlib.Path(noted)
+    return pathlib.Path(app_dir) / "work"
+
+
+def key_file(app_dir):
+    """api-keys.env in the data folder, where the Data sources panel saves it."""
+    return data_dir(app_dir) / "api-keys.env"
 
 
 def connected_keys(path):
@@ -211,7 +227,7 @@ def capture_module_output(run_module, read_keys=dict):
 
 
 def use_private_home(app_dir):
-    home = pathlib.Path(app_dir) / "work" / "omega-home"
+    home = data_dir(app_dir) / "omega-home"
     home.mkdir(parents=True, exist_ok=True)
     home.chmod(0o700)
     os.environ["HOME"] = str(home)

@@ -56,14 +56,21 @@ export async function startServer(){
   }
   fs.writeFileSync(path.join(work,'deep-search-audit.jsonl'),audit.join('\n')+'\n');
   const port=await freePort();const token=randomBytes(24).toString('hex');
-  const child=spawn(process.execPath,['server.mjs'],{cwd:ROOT,env:{...process.env,PORT:String(port),PUBLIC_DESK_TOKEN:token,PUBLIC_DESK_WORK_DIR:work},stdio:'ignore'});
+  const openCodes=path.join(work,'open-code');
+  const child=spawn(process.execPath,['server.mjs'],{cwd:ROOT,env:{...process.env,PORT:String(port),PUBLIC_DESK_TOKEN:token,PUBLIC_DESK_WORK_DIR:work,PUBLIC_DESK_OPEN_CODE_FILE:openCodes},stdio:'ignore'});
   const base=`http://127.0.0.1:${port}`;
   for(let attempt=0;;attempt++){
     try{if((await fetch(`${base}/`)).ok)break;}catch{}
     if(attempt>100)throw new Error('The test server did not start');
     await wait(50);
   }
-  return {url:`${base}/#access=${token}`,base,work,
+  return {url:`${base}/#access=${token}`,base,work,token,
+    // A link like the launcher opens in a browser: a fresh open code (as public-desk-control.zsh writes it), not the token.
+    openLink({ageSeconds=0}={}){
+      const code=randomBytes(32).toString('base64url');
+      fs.appendFileSync(openCodes,`${code} ${Math.floor(Date.now()/1000)-ageSeconds}\n`,{mode:0o600});
+      return `${base}/#open=${code}`;
+    },
     async stop(){if(child.exitCode===null){child.kill('SIGTERM');await new Promise(resolve=>child.once('exit',resolve));}fs.rmSync(work,{recursive:true,force:true});}};
 }
 

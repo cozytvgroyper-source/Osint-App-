@@ -131,7 +131,7 @@ For a terminal launch of the interface only:
 npm start
 ```
 
-Use the private access address printed by `npm start`. The Mac launcher opens this address automatically. The access token remains in the URL fragment only long enough for the page to move it into tab-scoped session storage; it is never sent in a URL request or saved in localStorage.
+Use the private access address printed by `npm start`. The access token remains in the URL fragment only long enough for the page to move it into tab-scoped session storage; it is never sent in a URL request or saved in localStorage. The Mac launcher's browser links carry a one-time code instead of the token, because a link is kept in the browser's history: the page trades the code for the token as it opens, and the code stops working two minutes after it was made.
 
 To see why the main search chose each tool, open <http://127.0.0.1:4173/?diagnostics>. Each search then adds a
 **Planner Diagnostics** section: the detected target, the words matched, the selected tools with scores, the
@@ -202,7 +202,7 @@ re-check a fingerprint. To make a PDF, open the HTML report and choose File > Pr
 
 - The UI is served only on `127.0.0.1` by default.
 - The launcher creates an owner-only access token and requires it on every app API and bundled local-service request.
-- Temporary uploads are limited to eight active files, 200 MB in aggregate, and two simultaneous requests. Deep Search audit history rotates at 1 MB; saved results of searches that are no longer in it are removed (when Public Desk starts and after each new history line), so they do not stay on disk or in backups.
+- Temporary uploads are limited to eight active files, 200 MB in aggregate, and two simultaneous requests; each file is streamed straight to disk rather than held in memory. Deep Search audit history rotates at 1 MB; saved results of searches that are no longer in it are removed (when Public Desk starts and after each new history line), so they do not stay on disk or in backups.
 - Embedded URL credentials and common cloud metadata endpoints are blocked.
 - Remote endpoints receive only requests explicitly initiated through the app.
 - Review source terms and legal constraints before collecting or retaining OSINT data.

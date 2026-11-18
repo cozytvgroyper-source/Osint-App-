@@ -40,17 +40,29 @@ export function isPrivateAddress(address) {
     return a === 0 || a === 10 || a === 127 || a >= 224 ||
       (a === 100 && b >= 64 && b <= 127) || (a === 169 && b === 254) ||
       (a === 172 && b >= 16 && b <= 31) || (a === 192 && (b === 0 || b === 168)) ||
-      (a === 198 && (b === 18 || b === 19));
+      (a === 198 && (b === 18 || b === 19)) ||
+      // Documentation ranges and the retired 6to4 relay: never a real MCP server.
+      (a === 198 && b === 51 && ipv4Bytes(address)[2] === 100) || (a === 203 && b === 0 && ipv4Bytes(address)[2] === 113) ||
+      (a === 192 && b === 88 && ipv4Bytes(address)[2] === 99);
   }
   if (isIP(address) !== 6) return true;
   const bytes = ipv6Bytes(address);
   if (!bytes) return true;
-  const allZero = bytes.every(byte => byte === 0);
-  const loopback = bytes.slice(0, 15).every(byte => byte === 0) && bytes[15] === 1;
-  const mapped = bytes.slice(0, 10).every(byte => byte === 0) && bytes[10] === 255 && bytes[11] === 255;
-  if (mapped) return isPrivateAddress(bytes.slice(12).join('.'));
-  return allZero || loopback || (bytes[0] & 0xfe) === 0xfc ||
-    (bytes[0] === 0xfe && (bytes[1] & 0xc0) === 0x80) || bytes[0] === 0xff;
+  const zeros = (from, to) => bytes.slice(from, to).every(byte => byte === 0);
+  const embedded = offset => bytes.slice(offset, offset + 4).join('.');
+  const allZero = zeros(0, 16);
+  const loopback = zeros(0, 15) && bytes[15] === 1;
+  if (allZero || loopback) return true;
+  // Forms that carry an IPv4 address reach that address, so they are as private as it is: IPv4-mapped (::ffff:a.b.c.d),
+  // IPv4-compatible (::a.b.c.d), NAT64 (64:ff9b::a.b.c.d) and 6to4 (2002:aabb:ccdd::).
+  if (zeros(0, 10) && bytes[10] === 255 && bytes[11] === 255) return isPrivateAddress(embedded(12));
+  if (zeros(0, 12)) return isPrivateAddress(embedded(12));
+  if (bytes[0] === 0x00 && bytes[1] === 0x64 && bytes[2] === 0xff && bytes[3] === 0x9b && zeros(4, 12)) return isPrivateAddress(embedded(12));
+  if (bytes[0] === 0x20 && bytes[1] === 0x02) return isPrivateAddress(embedded(2));
+  // Local-use NAT64 (64:ff9b:1::/48), Teredo (2001::/32) and documentation (2001:db8::/32) are never a public server.
+  if (bytes[0] === 0x00 && bytes[1] === 0x64 && bytes[2] === 0xff && bytes[3] === 0x9b && bytes[4] === 0x00 && bytes[5] === 0x01) return true;
+  if (bytes[0] === 0x20 && bytes[1] === 0x01 && ((bytes[2] === 0 && bytes[3] === 0) || (bytes[2] === 0x0d && bytes[3] === 0xb8))) return true;
+  return (bytes[0] & 0xfe) === 0xfc || (bytes[0] === 0xfe && (bytes[1] & 0xc0) === 0x80) || bytes[0] === 0xff;
 }
 
 // A refused address is the caller's mistake, not an upstream failure; the server answers it with HTTP 400.

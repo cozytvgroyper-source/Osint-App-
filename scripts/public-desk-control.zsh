@@ -10,6 +10,9 @@ OSINT_ROOT="${PUBLIC_DESK_OSINT_ROOT:-$MANAGED_OSINT_ROOT}"
 RUNTIME_DIR="$APP_DIR/work/runtime"
 LOG_DIR="$APP_DIR/work/logs"
 TOKEN_FILE="$RUNTIME_DIR/public-desk-token"
+# Short-lived codes for browser links (see open_link); Public Desk trades one for the token.
+OPEN_CODE_FILE="$RUNTIME_DIR/open-code"
+OPEN_CODE_TTL=120
 LOCK_DIR="$RUNTIME_DIR/control.lock"
 START_TIMEOUT="${PUBLIC_DESK_START_TIMEOUT:-180}"
 STOP_TIMEOUT="${PUBLIC_DESK_STOP_TIMEOUT:-8}"
@@ -248,6 +251,15 @@ data_dir() {
   REPLY="${work:a}"
 }
 
+# Omega's bridge starts it with only a few safe environment variables, so PUBLIC_DESK_WORK_DIR never reaches it. The
+# data folder is noted here instead, where its wrapper (run-omega-mcp-captured.py, data_dir) looks for it, so Omega
+# reads the API keys the Data sources panel saved and keeps its reports with the rest of the private data.
+record_data_dir() {
+  data_dir
+  (umask 077; print -r -- "$REPLY" > "$RUNTIME_DIR/data-dir")
+  chmod 600 "$RUNTIME_DIR/data-dir"
+}
+
 # Backups of what cannot be recreated: cases, saved Deep Searches, the search history log and data-source API keys
 # (not the Consensus sign-in, which signing in again restores). Each backup is one owner-only .tar.gz in
 # <data>/backups; the newest BACKUP_KEEP are kept. --if-due makes one only if the newest is a day old or more, which
@@ -378,7 +390,7 @@ start_signaldesk() {
     rotate_log "$LOG_DIR/signaldesk.log"
     (
       cd "$APP_DIR"
-      /usr/bin/nohup node server.mjs >"$LOG_DIR/signaldesk.log" 2>&1 </dev/null &!
+      PUBLIC_DESK_OPEN_CODE_FILE="$OPEN_CODE_FILE" /usr/bin/nohup node server.mjs >"$LOG_DIR/signaldesk.log" 2>&1 </dev/null &!
       echo $! >"$RUNTIME_DIR/signaldesk.pid"
     )
   fi
@@ -512,13 +524,34 @@ focus_existing_tab() {
   run_in_browsers "$1" focus
 }
 
+# A link for a browser. It lands in the browser's history, so it carries a fresh code that Public Desk trades for the
+# token, not the token: the code is useless two minutes later. Codes made in the last two minutes stay usable beside
+# it, since several browsers may each be given a link. The file is owner-only, like the token's.
+open_link() {
+  zmodload zsh/datetime
+  local code line kept="" parts
+  code="$(/bin/dd if=/dev/urandom bs=32 count=1 2>/dev/null | /usr/bin/base64 | /usr/bin/tr '+/' '-_' | /usr/bin/tr -d '=\n')"
+  [[ ${#code} == 43 ]] || { print -u2 -- "Could not make a link for the browser."; return 1; }
+  if [[ -f "$OPEN_CODE_FILE" ]]; then
+    while IFS= read -r line; do
+      parts=(${=line})
+      [[ ${#parts} == 2 && ${#parts[1]} == 43 && "$parts[1]" != *[^A-Za-z0-9_-]* && "$parts[2]" == <-> ]] || continue
+      (( EPOCHSECONDS - parts[2] <= OPEN_CODE_TTL )) && kept+="$line"$'\n'
+    done < "$OPEN_CODE_FILE"
+  fi
+  (umask 077; print -rn -- "$kept$code $EPOCHSECONDS"$'\n' > "$OPEN_CODE_FILE")
+  chmod 600 "$OPEN_CODE_FILE"
+  REPLY="$PUBLIC_DESK_ORIGIN/#open=$code"
+}
+
 # After a start or restart: reconnect tabs that still hold an older token. Nothing happens if they already have it.
 refresh_open_tabs() {
   [[ "${PUBLIC_DESK_REUSE_TAB:-1}" == 1 && -n "${PUBLIC_DESK_TOKEN:-}" ]] || return 0
   token_fingerprint; local fingerprint="$REPLY" mark="" answer total=0
   [[ -f "$BROWSER_MARK_FILE" ]] && mark="$(<"$BROWSER_MARK_FILE")"
   [[ "$mark" == "$fingerprint" ]] && return 0
-  run_in_browsers "$PUBLIC_DESK_ORIGIN/#access=$PUBLIC_DESK_TOKEN" refresh
+  open_link || return 0
+  run_in_browsers "$REPLY" refresh
   for answer in $reply; do [[ "$answer" == <-> ]] && (( total += answer )); done
   (( total > 0 )) || return 0
   (umask 077; print -rn -- "$fingerprint" > "$BROWSER_MARK_FILE")
@@ -539,7 +572,8 @@ close_open_tabs() {
 open_public_desk() {
   [[ -n "${PUBLIC_DESK_TOKEN:-}" ]] || load_token
   [[ -n "${PUBLIC_DESK_TOKEN:-}" ]] || { print -u2 -- "Public Desk does not have an access token. Restart it."; return 1; }
-  local url="$PUBLIC_DESK_ORIGIN/#access=$PUBLIC_DESK_TOKEN" mark=""
+  open_link || return 1
+  local url="$REPLY" mark=""
   local reload_url="$url"
   token_fingerprint; local fingerprint="$REPLY"
   [[ -f "$BROWSER_MARK_FILE" ]] && mark="$(<"$BROWSER_MARK_FILE")"
@@ -561,6 +595,7 @@ start_all() {
     stop_all_unlocked || return 1
   fi
   [[ -n "$PUBLIC_DESK_TOKEN" ]] || new_token
+  record_data_dir
 
   if all_services_ready; then
     print -r -- "Public Desk is already ready."
@@ -645,7 +680,7 @@ stop_all_unlocked() {
     print -u2 -- "Some Public Desk services are still running. The access token was kept."
     return 1
   fi
-  rm -f "$TOKEN_FILE" "$BROWSER_MARK_FILE"
+  rm -f "$TOKEN_FILE" "$BROWSER_MARK_FILE" "$OPEN_CODE_FILE"
   if (( failed )); then
     print -u2 -- "This Public Desk's services are stopped, but something above was left running."
   else

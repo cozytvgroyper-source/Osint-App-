@@ -1,5 +1,5 @@
 import http from 'node:http';
-import { chmod, lstat, mkdir, readFile, readdir, rename, unlink, writeFile } from 'node:fs/promises';
+import { chmod, lstat, mkdir, open, readFile, readdir, rename, unlink, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { extname, join, normalize, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -25,10 +25,14 @@ const PORT = Number(process.env.PORT || 4173);
 const MAX_MCP_RESPONSE_BYTES = 5_000_000;
 const MAX_MCP_SSE_EVENTS = 1_000;
 const MAX_MCP_SSE_EVENT_BYTES = 1_000_000;
+const MAX_MCP_SESSIONS = 200;
 const UPLOAD_TTL_MS = 30 * 60_000;
 const MAX_ACTIVE_UPLOADS = 8;
 const MAX_UPLOAD_BYTES = 200_000_000;
 const MAX_CONCURRENT_UPLOADS = 2;
+const MAX_UPLOAD_FILE_BYTES = 50_000_000;
+const UPLOAD_PATH = '/api/upload';
+const UPLOAD_EXTENSIONS = new Set(['.jpg','.jpeg','.png','.gif','.webp','.heic','.heif','.tif','.tiff','.bmp','.mp4','.mov','.m4v','.avi','.mkv','.webm','.pdf','.doc','.docx','.txt','.csv','.json','.rtf']);
 const UPLOAD_NAME_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}-/i;
 const sessions = new Map();
 const uploads = new Map();
@@ -42,6 +46,12 @@ const CONSENSUS_ISSUER = 'https://consensus.app';
 const CONSENSUS_REDIRECT = `http://127.0.0.1:${PORT}/api/oauth/consensus/callback`;
 const CONFIGURED_PUBLIC_DESK_TOKEN = process.env.PUBLIC_DESK_TOKEN || '';
 const PUBLIC_DESK_TOKEN = CONFIGURED_PUBLIC_DESK_TOKEN || randomBytes(32).toString('base64url');
+// Browser links from the launcher carry a short-lived code, not the token, because a link lands in the browser's
+// history. The launcher writes the codes here (scripts/public-desk-control.zsh, open_link); the page trades one for
+// the token at /api/open.
+const OPEN_CODE_FILE = process.env.PUBLIC_DESK_OPEN_CODE_FILE || '';
+const OPEN_CODE_TTL_MS = 120_000;
+const OPEN_PATH = '/api/open';
 const LOCAL_MCP_ENDPOINTS = new Set(['http://127.0.0.1:8892/mcp','http://127.0.0.1:8893/mcp','http://127.0.0.1:8894/mcp']);
 // Keeps the Consensus sign-in across restarts. work/ is git-ignored; the file is readable only by this user.
 const CONSENSUS_AUTH_FILE = join(WORK_DIR, 'consensus-auth.json');
@@ -180,11 +190,33 @@ function requestGuard({ method, url, headers }, expectedToken = PUBLIC_DESK_TOKE
   if (fetchSite === 'cross-site' || fetchSite === 'same-site') return { status: 403, error: 'Cross-site requests are not allowed' };
   const origin = headers.origin;
   if (origin !== undefined && !OWN_ORIGINS.has(origin)) return { status: 403, error: 'Requests from other origins are not allowed' };
-  if (method === 'POST' && !/^application\/json(?:;|$)/i.test(String(headers['content-type'] || ''))) {
+  // Uploads are the file's own bytes; every other post is JSON. Browsers send neither cross-site without a CORS
+  // preflight, which this server never approves.
+  const contentType = String(headers['content-type'] || '');
+  if (method === 'POST' && url.pathname === UPLOAD_PATH) {
+    if (!/^application\/octet-stream(?:;|$)/i.test(contentType)) return { status: 415, error: 'Uploads must send the file itself (application/octet-stream)' };
+  } else if (method === 'POST' && !/^application\/json(?:;|$)/i.test(contentType)) {
     return { status: 415, error: 'API requests must be JSON' };
   }
+  // The page has no token yet when it trades an open code for one; every check above still applies.
+  if (method === 'POST' && url.pathname === OPEN_PATH) return null;
   if (!validAccessToken(headers['x-public-desk-token'], expectedToken)) return { status: 401, error: 'This tab is not connected to the running Public Desk. Choose Open Public Desk from the menu-bar icon or the launcher to reconnect it' };
   return null;
+}
+
+// Whether a code the launcher wrote is still fresh. Codes are "<code> <unix seconds>" lines; any fresh one is accepted
+// (several browsers may be given the same link), and each is useless two minutes after it was made.
+export async function redeemOpenCode(code, file = OPEN_CODE_FILE, { now = Date.now(), ttlMs = OPEN_CODE_TTL_MS } = {}) {
+  if (!file || typeof code !== 'string' || code.length < 32) return false;
+  let text;
+  try { text = await readFile(file, 'utf8'); } catch { return false; }
+  const supplied = Buffer.from(code);
+  return text.split('\n').some(line => {
+    const [stored = '', made = ''] = line.trim().split(' ');
+    const age = now - Number(made) * 1000;
+    const wanted = Buffer.from(stored);
+    return /^\d+$/.test(made) && age >= -5_000 && age <= ttlMs && wanted.length === supplied.length && timingSafeEqual(wanted, supplied);
+  });
 }
 
 async function readLimitedResponse(response, limit = MAX_MCP_RESPONSE_BYTES) {
@@ -243,6 +275,24 @@ function parseMcpResponse(text, contentType, { id, maxSseEvents = MAX_MCP_SSE_EV
 
 // MCP sessions (Streamable HTTP): the server issues an mcp-session-id on initialize and answers 404 to a session it no
 // longer knows, for example after its bridge restarts. initialize must start a fresh session, so it never sends one.
+// A session belongs to one server address: a custom server whose address is edited must never be sent the old
+// server's session id. The browser's key alone is not enough, so the address is part of it.
+export function mcpSessionKey({ endpoint, sessionKey } = {}) {
+  return sessionKey ? `${String(endpoint || '')}\n${sessionKey}` : '';
+}
+
+// Each tab adds its own sessions, so only the most recently used are kept; a forgotten one is simply started again.
+export function rememberSession(store, key, sessionId, limit = MAX_MCP_SESSIONS) {
+  store.delete(key);
+  store.set(key, sessionId);
+  while (store.size > limit) store.delete(store.keys().next().value);
+}
+
+// Disconnect names only the browser's key, so its session on every address is forgotten.
+export function forgetSessions(store, sessionKey) {
+  for (const key of [...store.keys()]) if (key.endsWith(`\n${sessionKey}`)) store.delete(key);
+}
+
 export function sessionHeader(store, sessionKey, method) {
   return method !== 'initialize' && sessionKey && store.has(sessionKey) ? { 'mcp-session-id': store.get(sessionKey) } : {};
 }
@@ -259,7 +309,7 @@ export async function withSessionRecovery(payload, run, reinitialize, store = se
     return await run();
   } catch (error) {
     if (error?.code !== 'MCP_SESSION_EXPIRED' || !payload.sessionKey) throw error;
-    store.delete(payload.sessionKey);
+    store.delete(mcpSessionKey(payload));
     await reinitialize();
     return run();
   }
@@ -276,14 +326,15 @@ async function mcpRequest({ endpoint, token, method, params = {}, sessionKey }, 
   };
   const effectiveToken = LOCAL_MCP_ENDPOINTS.has(endpoint) ? PUBLIC_DESK_TOKEN : endpoint === CONSENSUS_ENDPOINT ? await consensusAccessToken() : token;
   if (effectiveToken) headers.authorization = `Bearer ${effectiveToken}`;
-  Object.assign(headers, sessionHeader(sessions, sessionKey, method));
+  const storeKey = mcpSessionKey({ endpoint, sessionKey });
+  Object.assign(headers, sessionHeader(sessions, storeKey, method));
   const response = await fetchValidated(url, {
     method: 'POST', headers,
     body: JSON.stringify({ jsonrpc: '2.0', ...(id ? { id } : {}), method, params }),
     signal: AbortSignal.any([AbortSignal.timeout(timeoutMs),...(signal?[signal]:[])])
   });
   const sessionId = response.headers.get('mcp-session-id');
-  if (sessionId && sessionKey) sessions.set(sessionKey, sessionId);
+  if (sessionId && storeKey) rememberSession(sessions, storeKey, sessionId);
   const text = await readLimitedResponse(response);
   if (!response.ok) throw mcpHttpError(response.status, text, 'mcp-session-id' in headers);
   if (isNotification && !text) return { accepted: true };
@@ -485,6 +536,11 @@ const server = http.createServer(async (req, res) => {
       req.resume();
       return json(res, blocked.status, { error: blocked.error });
     }
+    if (req.method === 'POST' && url.pathname === OPEN_PATH) {
+      const payload = await body(req, 10_000);
+      if (!(await redeemOpenCode(payload.code))) return json(res, 401, { error: 'This link has expired. Choose Open Public Desk from the menu-bar icon or the launcher again' });
+      return json(res, 200, { token: PUBLIC_DESK_TOKEN });
+    }
     if (req.method === 'POST' && url.pathname === '/api/oauth/consensus/start') {
       const client = await consensusClient();
       const state = base64url(randomBytes(24));
@@ -568,37 +624,52 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && deepRunRoute) {
       return json(res,200,await deepRuns.read(deepRunRoute[1]));
     }
-    if (req.method === 'POST' && url.pathname === '/api/upload') {
-      if (uploadRequests >= MAX_CONCURRENT_UPLOADS) return json(res, 429, { error: 'Too many uploads are already in progress' });
-      if (uploads.size + reservedUploadSlots >= MAX_ACTIVE_UPLOADS) return json(res, 429, { error: 'Temporary upload limit reached; wait for an existing analysis to finish' });
+    if (req.method === 'POST' && url.pathname === UPLOAD_PATH) {
+      const refuse = (status, error) => { req.resume(); return json(res, status, { error }); };
+      if (uploadRequests >= MAX_CONCURRENT_UPLOADS) return refuse(429, 'Too many uploads are already in progress');
+      if (uploads.size + reservedUploadSlots >= MAX_ACTIVE_UPLOADS) return refuse(429, 'Temporary upload limit reached; wait for an existing analysis to finish');
+      // The size is known before any of the file is read, so every limit is checked first and the file goes straight
+      // to disk as it arrives, never held in memory.
       const declared = Number(req.headers['content-length']);
-      if (Number.isFinite(declared) && declared > 75_000_000) return json(res, 413, { error: 'Request too large' });
+      if (!Number.isInteger(declared) || declared < 1) return refuse(400, 'File must be between 1 byte and 50 MB');
+      if (declared > MAX_UPLOAD_FILE_BYTES) return refuse(413, 'File must be between 1 byte and 50 MB');
+      let rawName = '';
+      try { rawName = decodeURIComponent(String(req.headers['x-upload-name'] || '')); } catch { rawName = ''; }
+      const name = rawName.replace(/[^a-zA-Z0-9._ -]/g, '_').slice(0, 180);
+      if (!name || !UPLOAD_EXTENSIONS.has(extname(name).toLowerCase())) return refuse(400, 'Unsupported file type');
+      if (trackedUploadBytes() + reservedUploadBytes + declared > MAX_UPLOAD_BYTES) return refuse(507, 'Temporary upload storage limit reached');
       uploadRequests += 1;
       reservedUploadSlots += 1;
-      let reservedBytes = 0;
+      reservedUploadBytes += declared;
+      const id = crypto.randomUUID();
+      const path = join(UPLOAD_ROOT, `${id}-${name}`);
+      let handle = null;
       try {
-        const payload = await body(req, 75_000_000);
-        const name = String(payload.name || '').replace(/[^a-zA-Z0-9._ -]/g, '_').slice(0, 180);
-        const extension = extname(name).toLowerCase();
-        const allowed = new Set(['.jpg','.jpeg','.png','.gif','.webp','.heic','.heif','.tif','.tiff','.bmp','.mp4','.mov','.m4v','.avi','.mkv','.webm','.pdf','.doc','.docx','.txt','.csv','.json','.rtf']);
-        if (!name || !allowed.has(extension)) return json(res, 400, { error: 'Unsupported file type' });
-        const encoded = String(payload.data || '').replace(/^data:[^;]+;base64,/, '');
-        const data = Buffer.from(encoded, 'base64');
-        if (!data.length || data.length > 50_000_000) return json(res, 400, { error: 'File must be between 1 byte and 50 MB' });
-        if (trackedUploadBytes() + reservedUploadBytes + data.length > MAX_UPLOAD_BYTES) return json(res, 507, { error: 'Temporary upload storage limit reached' });
-        reservedUploadBytes += data.length;
-        reservedBytes = data.length;
-        const id = crypto.randomUUID();
         await mkdir(UPLOAD_ROOT, { recursive: true, mode: 0o700 });
         await chmod(UPLOAD_ROOT, 0o700);
-        const path = join(UPLOAD_ROOT, `${id}-${name}`);
-        await writeFile(path, data, { flag: 'wx', mode: 0o600 });
-        trackUpload(id, path, uploads, UPLOAD_TTL_MS, data.length);
-        return json(res, 200, { id, path, name, size: data.length, type: String(payload.type || 'application/octet-stream') });
+        handle = await open(path, 'wx', 0o600);
+        let size = 0;
+        for await (const chunk of req) {
+          size += chunk.length;
+          if (size > declared) throw Object.assign(new Error('The file is larger than its stated size'), { code: 'REQUEST_TOO_LARGE' });
+          await handle.write(chunk);
+        }
+        if (size !== declared) throw Object.assign(new Error('The upload ended before the whole file arrived'), { code: 'REQUEST_JSON' });
+        await handle.close();
+        handle = null;
+        trackUpload(id, path, uploads, UPLOAD_TTL_MS, size);
+        let type = 'application/octet-stream';
+        try { type = decodeURIComponent(String(req.headers['x-upload-type'] || '')).slice(0, 200) || type; } catch {}
+        return json(res, 200, { id, path, name, size, type });
+      } catch (error) {
+        // A refused or broken upload never leaves part of a file behind.
+        await handle?.close().catch(() => {});
+        await unlink(path).catch(() => {});
+        throw error;
       } finally {
         uploadRequests -= 1;
         reservedUploadSlots -= 1;
-        reservedUploadBytes -= reservedBytes;
+        reservedUploadBytes -= declared;
       }
     }
     if (req.method === 'POST' && url.pathname === '/api/upload/delete') {
@@ -609,21 +680,13 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/mcp/disconnect') {
       const payload = await body(req);
       if (!payload.sessionKey) return json(res, 400, { error: 'sessionKey is required' });
-      sessions.delete(payload.sessionKey);
+      forgetSessions(sessions, payload.sessionKey);
       return json(res, 200, { disconnected: true });
     }
     const dataSourcesRoute = url.pathname.match(/^\/api\/data-sources(?:\/(connect|disconnect|remove))?$/);
     if (req.method === 'POST' && dataSourcesRoute) {
       const result = await dataSourcesAction(dataSourcesRoute[1] || 'list', await body(req, 10_000));
       return json(res, result.status, result.body);
-    }
-    if (req.method === 'POST' && url.pathname === '/api/health') {
-      const payload = await body(req);
-      const endpoint = await validatedEndpoint(payload.endpoint);
-      const healthUrl = new URL('/health', endpoint);
-      const headers = LOCAL_MCP_ENDPOINTS.has(payload.endpoint) ? { authorization: `Bearer ${PUBLIC_DESK_TOKEN}` } : payload.token ? { authorization: `Bearer ${payload.token}` } : {};
-      const response = await fetchValidated(healthUrl, { headers, signal: AbortSignal.timeout(8_000) });
-      return json(res, 200, { ok: response.ok, status: response.status });
     }
     if (req.method !== 'GET') return json(res, 405, { error: 'Method not allowed' });
     const requestPath = url.pathname === '/' ? '/index.html' : url.pathname;

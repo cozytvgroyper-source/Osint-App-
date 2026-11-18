@@ -4,7 +4,7 @@ import { emptyState, escapeHtml } from '../ui.js?v=7';
 import { classifyToolResult, hasUsefulData, parseToolResult } from '../result-classifier.js';
 import { passiveQuery, passiveSources, addCompanySources } from '../passive-search.js';
 import { buildPassiveResults } from '../passive-results.js';
-import { $, state, toast, iconFor, api, renderAll } from './core.js';
+import { $, state, toast, iconFor, api, accessHeaders, renderAll } from './core.js';
 import { noteToolHealth } from './servers.js';
 import { allTools, callTool } from './tools.js';
 import { recordHistory } from './evidence.js';
@@ -29,13 +29,21 @@ function formatBytes(bytes) {
   if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
 }
-function fileAsDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => reject(new Error('Could not read the selected file'));
-    reader.readAsDataURL(file);
+// Sends the file's own bytes, which the server streams straight to disk; the name and type travel in headers.
+async function uploadFile(file) {
+  const response = await fetch('/api/upload', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/octet-stream',
+      'x-upload-name': encodeURIComponent(file.name),
+      'x-upload-type': encodeURIComponent(file.type || ''),
+      ...accessHeaders()
+    },
+    body: file
   });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Upload failed');
+  return data;
 }
 function clearSelectedFile() {
   state.pendingFile = null;
@@ -50,12 +58,7 @@ async function analyzeSelectedFile(file, note = '') {
   const tool = allTools().find(candidate => candidate.name === 'exiftool_metadata');
   if (!tool) throw new Error('Connect OSINT Toolbox to analyze files, pictures, and videos');
   toast(`Analyzing ${file.name} locally…`);
-  const upload = await api('/api/upload', {
-    name: file.name,
-    type: file.type,
-    size: file.size,
-    data: await fileAsDataUrl(file)
-  });
+  const upload = await uploadFile(file);
   try {
     const response = await callTool(tool, tool.serverId, { file_path: upload.path });
     if (response.error) throw new Error(response.error.message || 'File analysis failed');
@@ -195,7 +198,7 @@ export {
   latestSearchId,
   renderRecentSearches,
   formatBytes,
-  fileAsDataUrl,
+  uploadFile,
   clearSelectedFile,
   analyzeSelectedFile,
   smartInvestigate

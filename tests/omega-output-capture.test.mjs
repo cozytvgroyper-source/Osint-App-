@@ -204,3 +204,36 @@ test('omega_leaked notes HIBP as not checked only for an email address', () => {
     assert.deepEqual(other.result, { status: 'ok', result: { target, pastes: [] } }, target);
   }
 });
+
+// FastMCP starts Omega with only a few safe environment variables (HOME, PATH, ...), so PUBLIC_DESK_WORK_DIR never
+// reached it: with a custom data folder, the Data sources panel saved keys in one place and Omega read another. The
+// launcher now records the data folder in work/runtime/data-dir, and the wrapper uses it for keys and its home.
+test('Omega finds the data folder from its setting, else from the launcher\'s note, else work/', () => {
+  const script = `
+import importlib.util, json, os, pathlib, tempfile
+spec = importlib.util.spec_from_file_location('captured', ${JSON.stringify(wrapper)})
+captured = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(captured)
+os.environ.pop('PUBLIC_DESK_WORK_DIR', None)
+app = pathlib.Path(tempfile.mkdtemp())
+plain = str(captured.data_dir(app))
+custom = pathlib.Path(tempfile.mkdtemp()) / 'data'
+(app / 'work' / 'runtime').mkdir(parents=True)
+(app / 'work' / 'runtime' / 'data-dir').write_text(str(custom) + '\\n')
+noted = str(captured.data_dir(app))
+keys = str(captured.key_file(app))
+home = str(captured.use_private_home(app))
+(app / 'work' / 'runtime' / 'data-dir').write_text('relative/not/allowed\\n')
+relative = str(captured.data_dir(app))
+os.environ['PUBLIC_DESK_WORK_DIR'] = str(app / 'from-env')
+env = str(captured.data_dir(app))
+print(json.dumps({'app': str(app), 'custom': str(custom), 'plain': plain, 'noted': noted, 'keys': keys, 'home': home, 'relative': relative, 'env': env}))
+`;
+  const out = JSON.parse(execFileSync('python3', ['-c', script], { encoding: 'utf8' }));
+  assert.equal(out.plain, `${out.app}/work`);
+  assert.equal(out.noted, out.custom);
+  assert.equal(out.keys, `${out.custom}/api-keys.env`, 'keys come from the folder the Data sources panel writes');
+  assert.equal(out.home, `${out.custom}/omega-home`, 'reports stay with the rest of the private data');
+  assert.equal(out.relative, `${out.app}/work`, 'a note that is not an absolute path is ignored');
+  assert.equal(out.env, `${out.app}/from-env`, 'the setting itself wins when it does reach the wrapper');
+});

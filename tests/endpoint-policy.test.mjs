@@ -87,3 +87,18 @@ test('a pinned request reaches the pinned address and keeps the URL host',async(
     assert.deepEqual(await response.json(),{ok:true});
   }finally{server.close();}
 });
+
+// IPv6 forms that carry an IPv4 address inside them reach that IPv4 address: NAT64 (64:ff9b::/96), the old
+// IPv4-compatible form (::a.b.c.d) and 6to4 (2002::/16). A private address inside one is private. Local-use NAT64,
+// Teredo and documentation ranges are never a public MCP server.
+test('IPv6 forms that wrap an IPv4 address are judged by that address', async () => {
+  const { isPrivateAddress } = await import('../scripts/endpoint-policy.mjs');
+  for (const address of ['64:ff9b::7f00:1', '64:ff9b::a00:1', '64:ff9b::c0a8:101', '::7f00:1', '::a00:1', '::127.0.0.1',
+    '2002:7f00:1::1', '2002:a9fe:a9fe::1', '64:ff9b:1::1', '2001:0:4136:e378::1', '2001:db8::1',
+    '198.51.100.7', '203.0.113.9', '192.88.99.1']) {
+    assert.equal(isPrivateAddress(address), true, address);
+  }
+  for (const address of ['64:ff9b::808:808', '::808:808', '2002:808:808::1', '2606:4700:4700::1111', '8.8.8.8', '1.1.1.1']) {
+    assert.equal(isPrivateAddress(address), false, address);
+  }
+});
