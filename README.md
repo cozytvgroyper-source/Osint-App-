@@ -202,7 +202,7 @@ re-check a fingerprint. To make a PDF, open the HTML report and choose File > Pr
 
 - The UI is served only on `127.0.0.1` by default.
 - The launcher creates an owner-only access token and requires it on every app API and bundled local-service request.
-- Temporary uploads are limited to eight active files, 200 MB in aggregate, and two simultaneous requests. Deep Search audit history rotates at 1 MB.
+- Temporary uploads are limited to eight active files, 200 MB in aggregate, and two simultaneous requests. Deep Search audit history rotates at 1 MB; saved results of searches that are no longer in it are removed (when Public Desk starts and after each new history line), so they do not stay on disk or in backups.
 - Embedded URL credentials and common cloud metadata endpoints are blocked.
 - Remote endpoints receive only requests explicitly initiated through the app.
 - Review source terms and legal constraints before collecting or retaining OSINT data.

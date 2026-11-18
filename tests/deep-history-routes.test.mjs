@@ -5,7 +5,8 @@ import {mkdtemp,readFile,readdir,writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {DeepRunStore} from '../scripts/deep-search-runs.mjs';
-import {handleDeepHistoryRequest} from '../scripts/deep-history-routes.mjs';
+import {handleDeepHistoryRequest,pruneUnlistedDeepRuns} from '../scripts/deep-history-routes.mjs';
+import {appendDeepSearchAudit} from '../scripts/deep-search-audit.mjs';
 
 const lineFor=fields=>JSON.stringify({time:'2026-11-13T10:00:00.000Z',target:'owner@example.com',level:0,tools:['holehe_email_search'],toolCount:1,outcome:'completed',...fields});
 const run=id=>({id,target:{type:'email',value:'owner@example.com'},level:0,outcome:'completed',findings:[]});
@@ -74,8 +75,48 @@ test('ignores paths and methods it does not own',async()=>{
 
 test('server wires the history routes behind the guard',()=>{
   const server=fs.readFileSync(new URL('../server.mjs',import.meta.url),'utf8');
-  assert.match(server,/import \{handleDeepHistoryRequest\} from '\.\/scripts\/deep-history-routes\.mjs';/);
+  assert.match(server,/import \{handleDeepHistoryRequest(?:,[A-Za-z]+)*\} from '\.\/scripts\/deep-history-routes\.mjs';/);
   const guard=server.indexOf('requestGuard({ method: req.method');
   const wired=server.indexOf('handleDeepHistoryRequest({runs:deepRuns,auditFile:DEEP_SEARCH_AUDIT_FILE}');
   assert.ok(guard>0&&wired>guard,'history routes are handled after the request guard');
+});
+
+// Results whose history lines are gone (the log keeps its newest 1 MB) had no row to delete them from, so they stayed
+// on disk, and in every backup, until Delete all. Results that no history line mentions are now removed; anything the
+// history still mentions stays, damaged lines included.
+test('prunes results that no history line mentions, keeping every listed run',async()=>{
+  const ctx=await setup([lineFor({runId:'run-listed01',outcome:'started'}),lineFor({runId:'run-listed02'}),'{"runId":"run-damaged1","outco']);
+  for(const id of ['run-listed01','run-listed02','run-damaged1','run-orphan01','run-orphan02'])await ctx.runs.save(run(id));
+  await writeFile(join(ctx.runs.dir,'.run-orphan03.abcdef.tmp'),'{}');
+  await writeFile(join(ctx.runs.dir,'notes.txt'),'not a result');
+  assert.equal(await pruneUnlistedDeepRuns(ctx),3);
+  assert.deepEqual((await readdir(ctx.runs.dir)).sort(),['notes.txt','run-damaged1.json','run-listed01.json','run-listed02.json']);
+});
+
+test('never prunes when the history log is missing or unreadable',async()=>{
+  const ctx=await setup();
+  await ctx.runs.save(run('run-kept0001'));
+  fs.rmSync(ctx.auditFile);
+  assert.equal(await pruneUnlistedDeepRuns(ctx),0);
+  fs.mkdirSync(ctx.auditFile);
+  await assert.rejects(pruneUnlistedDeepRuns(ctx));
+  assert.deepEqual(await readdir(ctx.runs.dir),['run-kept0001.json']);
+});
+
+test('results drop out when the history log rotates their lines away',async()=>{
+  const ctx=await setup();
+  const entry=runId=>({target:'owner@example.com',level:0,tools:['holehe_email_search'],outcome:'completed',runId});
+  await appendDeepSearchAudit(ctx.auditFile,entry('run-oldest01'));await ctx.runs.save(run('run-oldest01'));
+  for(let index=0;index<12;index++)await appendDeepSearchAudit(ctx.auditFile,entry(`run-newer${String(index).padStart(3,'0')}`),{maxBytes:1_000});
+  await ctx.runs.save(run('run-newer011'));
+  assert.equal(await pruneUnlistedDeepRuns(ctx),1);
+  assert.deepEqual(await readdir(ctx.runs.dir),['run-newer011.json']);
+});
+
+test('server prunes at startup and after each history line it writes',()=>{
+  const server=fs.readFileSync(new URL('../server.mjs',import.meta.url),'utf8');
+  assert.match(server,/pruneDeepRuns\(\)/);
+  const append=server.indexOf("url.pathname === '/api/deep-search/audit'",server.indexOf("req.method === 'POST' && url.pathname === '/api/deep-search/audit'"));
+  assert.ok(server.indexOf('pruneDeepRuns',append)>append,'pruned after a history line is written');
+  assert.ok(server.lastIndexOf('pruneDeepRuns')>server.indexOf('server.listen(PORT'),'pruned at startup');
 });

@@ -60,6 +60,28 @@ export class DeepRunStore{
       catch(error){if(error.code==='ENOENT')return false;throw error;}
     });
   }
+  // Deletes the results files whose run listedIds() does not name, and temporary copies left by a crash. listedIds runs
+  // inside this folder's queue, after every save asked for before it, so a run saved just now is already listed.
+  // Nothing is deleted when it gives null (nothing known about which runs are listed). Returns how many were removed.
+  async removeUnlisted(listedIds){
+    return queued(this.dir,async()=>{
+      const listed=await listedIds();
+      if(!listed)return 0;
+      let names;
+      try{names=await readdir(this.dir);}catch(error){if(error.code==='ENOENT')return 0;throw error;}
+      let removed=0;
+      for(const name of names){
+        const result=name.match(/^([a-z0-9-]{8,64})\.json$/);
+        if(!(result&&!listed.has(result[1]))&&!/^\..*\.tmp$/.test(name))continue;
+        const path=join(this.dir,name);
+        try{
+          if(!(await lstat(path)).isFile())continue;
+          await unlink(path);removed++;
+        }catch(error){if(error.code!=='ENOENT')throw error;}
+      }
+      return removed;
+    });
+  }
   // Deletes every saved, temporary or orphaned results file. Returns how many files were removed.
   async removeAll(){return queued(this.dir,()=>this.removeAllNow());}
   async removeAllNow(){

@@ -12,7 +12,7 @@ import {deepCallTimeout} from './scripts/deep-call-timeout.mjs';
 import {appendDeepSearchAudit,readDeepSearchAudit} from './scripts/deep-search-audit.mjs';
 import {CaseStore,MAX_EVIDENCE_BYTES,handleCaseRequest} from './scripts/cases.mjs';
 import {DeepRunStore,MAX_DEEP_RUN_BYTES} from './scripts/deep-search-runs.mjs';
-import {handleDeepHistoryRequest} from './scripts/deep-history-routes.mjs';
+import {handleDeepHistoryRequest,pruneUnlistedDeepRuns} from './scripts/deep-history-routes.mjs';
 
 const ROOT = fileURLToPath(new URL('./public/', import.meta.url));
 // Private working data (cases, uploads, runs, keys). PUBLIC_DESK_WORK_DIR points it elsewhere, so tests never touch the real work/.
@@ -546,7 +546,10 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, await readDeepSearchAudit(DEEP_SEARCH_AUDIT_FILE));
     }
     if (req.method === 'POST' && url.pathname === '/api/deep-search/audit') {
-      return json(res, 200, await appendDeepSearchAudit(DEEP_SEARCH_AUDIT_FILE,await body(req,100_000)));
+      const entry = await appendDeepSearchAudit(DEEP_SEARCH_AUDIT_FILE,await body(req,100_000));
+      // A new line can rotate the oldest ones out of the log; their results go with them.
+      await pruneDeepRuns();
+      return json(res, 200, entry);
     }
     if (req.method === 'POST' && url.pathname === '/api/deep-search/runs') {
       return json(res,200,await deepRuns.save(await body(req,MAX_DEEP_RUN_BYTES+100_000)));
@@ -637,6 +640,16 @@ function errorBody(error) {
   return error?.code === 'RUN_GRANT' ? { error: message, code: 'RUN_GRANT' } : { error: message };
 }
 
+// Removing results nobody can reach never fails the request that prompted it; the next history write tries again.
+async function pruneDeepRuns() {
+  try {
+    return await pruneUnlistedDeepRuns({ runs: deepRuns, auditFile: DEEP_SEARCH_AUDIT_FILE });
+  } catch (error) {
+    console.warn(`Could not remove Deep Search results that are no longer in the history: ${error.message}`);
+    return 0;
+  }
+}
+
 // A refused MCP address is a bad request (400); a missing file is 404; anything else is an upstream failure (502).
 function errorStatus(error) {
   if (error?.code === 'REQUEST_TOO_LARGE') return 413;
@@ -667,6 +680,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     if (restored) console.log('Restored the saved Consensus sign-in.');
     if (removedUploads) console.log(`Removed ${removedUploads} expired temporary upload${removedUploads === 1 ? '' : 's'}.`);
     if (restoredUploads) console.log(`Restored ${restoredUploads} temporary upload lease${restoredUploads === 1 ? '' : 's'}.`);
+    void pruneDeepRuns().then(pruned => {
+      if (pruned) console.log(`Removed ${pruned} Deep Search result file${pruned === 1 ? '' : 's'} no longer in the history.`);
+    });
   });
 }
 
