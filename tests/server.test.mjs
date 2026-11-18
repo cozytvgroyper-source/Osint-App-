@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validatedEndpoint, parseMcpResponse, readLimitedResponse, oneAtATime, errorStatus, errorBody } from '../server.mjs';
+import { validatedEndpoint, parseMcpResponse, readLimitedResponse, oneAtATime, errorStatus, errorBody, consensusSignInRevoked } from '../server.mjs';
 
 test('accepts only explicitly bundled HTTP MCP endpoints',async()=>{
   assert.equal((await validatedEndpoint('http://127.0.0.1:8892/mcp')).pathname,'/mcp');
@@ -128,4 +128,17 @@ test('a refused run grant answers with its code; other errors carry none', async
   assert.deepEqual(errorBody(new RunGrantError('This risky tool requires a current confirmed run grant')), { error: 'This risky tool requires a current confirmed run grant', code: 'RUN_GRANT' });
   assert.deepEqual(errorBody(new Error('permission denied')), { error: 'permission denied' });
   assert.deepEqual(errorBody(Object.assign(new Error('x'), { code: 'ENOENT' })), { error: 'Not found' });
+});
+
+// A refused refresh used to forget the Consensus sign-in on any HTTP 400 or 401, so a passing problem (a malformed
+// request, a rate limit sent as 400) signed the user out. Only Consensus saying the sign-in itself is no longer valid
+// (OAuth's invalid_grant or invalid_client) forgets it now.
+test('the Consensus sign-in is forgotten only when Consensus revoked it', () => {
+  const refused = (status, oauthError) => Object.assign(new Error('refused'), { status, oauthError });
+  assert.equal(consensusSignInRevoked(refused(400, 'invalid_grant')), true);
+  assert.equal(consensusSignInRevoked(refused(401, 'invalid_client')), true);
+  assert.equal(consensusSignInRevoked(refused(400, 'invalid_request')), false);
+  assert.equal(consensusSignInRevoked(refused(400, undefined)), false);
+  assert.equal(consensusSignInRevoked(refused(429, 'invalid_grant')), false);
+  assert.equal(consensusSignInRevoked(new Error('fetch failed')), false);
 });

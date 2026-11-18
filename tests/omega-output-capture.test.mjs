@@ -8,7 +8,7 @@ const wrapper = fileURLToPath(new URL('../scripts/run-omega-mcp-captured.py', im
 
 // Loads the wrapper without running it (omega-cli is not installed in CI), wraps a fake module runner,
 // and prints what the wrapped runner returns plus anything that still reached the real stdout.
-function runCaptured(fakeBody, { module = 'omega_cli.modules.x', keys = null } = {}) {
+function runCaptured(fakeBody, { module = 'omega_cli.modules.x', keys = null, target = 'owner@example.com' } = {}) {
   const script = `
 import importlib.util, io, json, sys, contextlib
 spec = importlib.util.spec_from_file_location('captured', ${JSON.stringify(wrapper)})
@@ -19,7 +19,7 @@ ${fakeBody}
 leak = io.StringIO()
 with contextlib.redirect_stdout(leak):
     runner = captured.capture_module_output(fake) if ${keys === null ? 'True' : 'False'} else captured.capture_module_output(fake, read_keys=lambda: json.loads(${JSON.stringify(JSON.stringify(keys))}))
-    result = runner(${JSON.stringify(module)}, 'run', 'owner@example.com')
+    result = runner(${JSON.stringify(module)}, 'run', ${JSON.stringify(target)})
 sys.stdout.write(json.dumps({'result': result, 'leaked': leak.getvalue()}))
 `;
   return JSON.parse(execFileSync('python3', ['-c', script], { encoding: 'utf8' }));
@@ -192,4 +192,15 @@ test('a key HIBP refuses is reported as not checked', () => {
     print('  Trying without API key...')
     return {'status': 'ok', 'result': {'target': args[0], 'breaches': []}}`, { module: BREACH, keys: HIBP_KEY });
   assert.deepEqual(result, { status: 'error', error: 'Not checked: HIBP requires API key.' });
+});
+
+// omega_leaked asks Have I Been Pwned only about email addresses, so "HIBP not checked" belongs only on those.
+test('omega_leaked notes HIBP as not checked only for an email address', () => {
+  const body = `    return {'status': 'ok', 'result': {'target': args[0], 'pastes': []}}`;
+  const email = runCaptured(body, { module: 'omega_cli.modules.leaked', keys: {} });
+  assert.match(email.result.result.not_checked[0], /^Not checked: Have I Been Pwned needs an API key/);
+  for (const target of ['someuser', '8.8.8.8', '44d88612fea8a8f36de82e1278abb02f']) {
+    const other = runCaptured(body, { module: 'omega_cli.modules.leaked', keys: {}, target });
+    assert.deepEqual(other.result, { status: 'ok', result: { target, pastes: [] } }, target);
+  }
 });

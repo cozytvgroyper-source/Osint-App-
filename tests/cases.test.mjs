@@ -160,3 +160,30 @@ test('a finding can be saved with its note',async()=>{
   const plain=await store.addEvidence(id,{title:'plain',result:2});
   assert.equal(plain.note,'');
 });
+
+// The case list needs only each case's name, dates and counts, but read and parsed every whole case file (up to
+// 50 MB each) every time. Each case's summary is now kept until its file changes.
+test('the case list reads a case file again only when it changed',async()=>{
+  const {dir,store:creator}=tempStore();
+  const first=await creator.create({name:'First'}),second=await creator.create({name:'Second'});
+  // A store that has not seen these files yet (Public Desk just started) reads each one once.
+  const store=new CaseStore(dir);
+  const reads=[];const read=store.read.bind(store);store.read=id=>{reads.push(id);return read(id);};
+  await store.list();
+  assert.equal(reads.length,2);
+  reads.length=0;
+  assert.deepEqual((await store.list()).map(item=>item.name).sort(),['First','Second']);
+  assert.equal(reads.length,0,'nothing changed, so nothing was read');
+  await store.rename(first.id,{name:'First, renamed'});reads.length=0;
+  const listed=await store.list();
+  assert.deepEqual(reads,[],'a change made through the store updates its summary as it writes');
+  assert.ok(listed.some(item=>item.name==='First, renamed'));
+  // A file changed outside the store (a restored backup) is read again.
+  const file=store.file(second.id);const record=JSON.parse(fs.readFileSync(file,'utf8'));
+  fs.writeFileSync(file,JSON.stringify({...record,name:'Restored, with a longer name'}));
+  reads.length=0;
+  assert.ok((await store.list()).some(item=>item.name==='Restored, with a longer name'));
+  assert.deepEqual(reads,[second.id]);
+  await store.remove(second.id);
+  assert.deepEqual((await store.list()).map(item=>item.id),[first.id]);
+});

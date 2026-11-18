@@ -84,13 +84,19 @@ _FAILURE = re.compile(
 _CLI_ADVICE = re.compile(r"(?:\s+[—–-]\s+|\s+Set:\s+).*\bomega config\b.*$")
 
 
+def _is_email(target):
+    """leaked.py's own test for an email address: it asks Have I Been Pwned only about those."""
+    return "@" in str(target)
+
+
 # Omega modules that need a key from the data-sources page: the run() argument that takes it, the key's name in
-# work/api-keys.env, its data source id (PUBLIC_DESK_DISABLED lists disconnected ones), and whether the module has
-# other sources to fall back on. Keep in step with scripts/api-keys.mjs (a test checks).
+# work/api-keys.env, its data source id (PUBLIC_DESK_DISABLED lists disconnected ones), whether the module has
+# other sources to fall back on, and which targets the key is used for (None: every target). Keep in step with
+# scripts/api-keys.mjs (a test checks).
 KEYED_MODULES = {
-    "omega_cli.modules.breachcheck": [("hibp_key", "HIBP_API_KEY", "hibp", False)],
-    "omega_cli.modules.leaked": [("hibp_key", "HIBP_API_KEY", "hibp", True)],
-    "omega_cli.modules.shodan_lookup": [("api_key", "SHODAN_API_KEY", "shodan", False)],
+    "omega_cli.modules.breachcheck": [("hibp_key", "HIBP_API_KEY", "hibp", False, None)],
+    "omega_cli.modules.leaked": [("hibp_key", "HIBP_API_KEY", "hibp", True, _is_email)],
+    "omega_cli.modules.shodan_lookup": [("api_key", "SHODAN_API_KEY", "shodan", False, None)],
 }
 SOURCE_NAMES = {"hibp": "Have I Been Pwned", "shodan": "Shodan"}
 _KEY_LINE = re.compile(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=(.*)$")
@@ -117,7 +123,7 @@ def key_file(app_dir):
 
 def connected_keys(path):
     """The keys this wrapper uses that are saved and not disconnected, read like scripts/api-keys.mjs reads them."""
-    names = {env: source for entries in KEYED_MODULES.values() for _, env, source, _ in entries}
+    names = {env: source for entries in KEYED_MODULES.values() for _, env, source, *_ in entries}
     values, disabled = {}, set()
     try:
         text = pathlib.Path(path).read_text(encoding="utf-8")
@@ -162,7 +168,10 @@ def capture_module_output(run_module, read_keys=dict):
     def run_captured(module_path, func_name, *args, **kwargs):
         keys = read_keys()
         not_checked = []
-        for argument, env, source, has_other_sources in KEYED_MODULES.get(module_path, []):
+        target = args[0] if args else kwargs.get("target", "")
+        for argument, env, source, has_other_sources, used_for in KEYED_MODULES.get(module_path, []):
+            if used_for and not used_for(target):
+                continue  # this target never needs the key, so nothing goes unchecked without it
             if keys.get(env):
                 kwargs.setdefault(argument, keys[env])
             elif has_other_sources:

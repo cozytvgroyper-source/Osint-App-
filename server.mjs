@@ -411,6 +411,7 @@ async function consensusToken(form) {
   if (!response.ok) {
     const error = new Error(data.error_description || `Consensus token request failed (${response.status})`);
     error.status = response.status;
+    error.oauthError = data.error;
     throw error;
   }
   consensusOAuth.accessToken = data.access_token;
@@ -421,6 +422,13 @@ async function consensusToken(form) {
       .catch(error => console.error(`Could not save the Consensus sign-in: ${error.message}`));
   }
   return data.access_token;
+}
+
+// Consensus says a sign-in is no longer valid with OAuth's invalid_grant (the refresh token was revoked or expired) or
+// invalid_client (the app registration is gone). Other refusals, such as a malformed request or a rate limit sent as
+// HTTP 400, pass, so they must not sign the user out.
+function consensusSignInRevoked(error) {
+  return (error?.status === 400 || error?.status === 401) && ['invalid_grant', 'invalid_client'].includes(error?.oauthError);
 }
 
 // Callers that arrive while a run is in flight share its result instead of starting their own.
@@ -445,8 +453,8 @@ const refreshConsensusAccessToken = oneAtATime(async () => {
       client_id: consensusOAuth.client.client_id
     });
   } catch (error) {
-    // A rejected refresh token means the sign-in is gone; forget it so the app asks to sign in again.
-    if (error.status === 400 || error.status === 401) {
+    // A revoked sign-in is gone; forget it so the app asks to sign in again. Any other refusal keeps it for next time.
+    if (consensusSignInRevoked(error)) {
       consensusOAuth.refreshToken = '';
       await clearConsensusAuth(CONSENSUS_AUTH_FILE).catch(() => {});
       return '';
@@ -686,4 +694,4 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   });
 }
 
-export { validatedEndpoint, fetchValidated, parseMcpResponse, readLimitedResponse, cleanupStaleUploads, restoreFreshUploads, trackUpload, trackedUploadBytes, deleteTrackedUpload, loadConsensusAuth, saveConsensusAuth, clearConsensusAuth, SECURITY_HEADERS, requestGuard, validAccessToken, prunePendingSignIns, dataSourcesAction, errorStatus, errorBody, oneAtATime };
+export { validatedEndpoint, fetchValidated, parseMcpResponse, readLimitedResponse, cleanupStaleUploads, restoreFreshUploads, trackUpload, trackedUploadBytes, deleteTrackedUpload, loadConsensusAuth, saveConsensusAuth, clearConsensusAuth, SECURITY_HEADERS, requestGuard, validAccessToken, prunePendingSignIns, dataSourcesAction, errorStatus, errorBody, oneAtATime, consensusSignInRevoked };
