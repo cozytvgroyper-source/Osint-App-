@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
-import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -180,7 +180,7 @@ test('opening Public Desk again brings its existing tab forward instead of openi
     assert.equal(openDesk(app, browser.env, 'token-one').status, 0);
     const first = calls(browser.log);
     assert.match(first, /tell application "Safari"/);
-    assert.match(first, /set URL of t to "http:\/\/127\.0\.0\.1:4173\/#access=token-one"/, 'an unknown tab is given the current token');
+    assert.match(first, /set URL of t to "http:\/\/127\.0\.0\.1:4173\/#open=[A-Za-z0-9_-]{43}"/, 'an unknown tab is given the current token');
     assert.doesNotMatch(first, /^open /m, 'no new tab');
     assert.match(first, /osascript args: -$/m, 'the token goes to osascript on standard input, never its arguments');
 
@@ -192,7 +192,7 @@ test('opening Public Desk again brings its existing tab forward instead of openi
 
     writeFileSync(browser.log, '');
     openDesk(app, browser.env, 'token-two');
-    assert.match(calls(browser.log), /set URL of t to "http:\/\/127\.0\.0\.1:4173\/#access=token-two"/, 'after a restart the tab reloads with the new token');
+    assert.match(calls(browser.log), /set URL of t to "http:\/\/127\.0\.0\.1:4173\/#open=[A-Za-z0-9_-]{43}"/, 'after a restart the tab reloads with the new token');
   } finally { rmSync(app.dir, { recursive: true, force: true }); }
 });
 
@@ -204,7 +204,7 @@ test('Chromium browsers are asked too, and a new tab opens only when no tab is f
     const log = calls(browser.log);
     assert.doesNotMatch(log, /"Safari"/, 'browsers that are not running are never launched');
     assert.match(log, /tell application "Google Chrome"[\s\S]*set active tab index of w to i/);
-    assert.match(log, /^open http:\/\/127\.0\.0\.1:4173\/#access=token-one$/m);
+    assert.match(log, /^open http:\/\/127\.0\.0\.1:4173\/#open=[A-Za-z0-9_-]{43}$/m);
   } finally { rmSync(app.dir, { recursive: true, force: true }); }
 });
 
@@ -213,7 +213,7 @@ test('with no browser running, Public Desk opens in the default browser', { skip
   try {
     const browser = fakeBrowser(app, { running: [] });
     openDesk(app, browser.env, 'token-one');
-    assert.equal(calls(browser.log).trim(), 'open http://127.0.0.1:4173/#access=token-one');
+    assert.match(calls(browser.log).trim(), /^open http:\/\/127\.0\.0\.1:4173\/#open=[A-Za-z0-9_-]{43}$/);
     assert.equal(readFileSync(join(app.runtime, 'browser-tab'), 'utf8').length, 64, 'the token fingerprint is remembered, not the token');
   } finally { rmSync(app.dir, { recursive: true, force: true }); }
 });
@@ -229,7 +229,7 @@ test('after a start or restart, open tabs are reconnected with the new token in 
     assert.equal(run.status, 0, run.stderr);
     assert.match(run.stdout, /Reconnected 2 open Public Desk tabs to this session/);
     const log = calls(browser.log);
-    assert.equal((log.match(/set URL of t to "http:\/\/127\.0\.0\.1:4173\/#access=token-two"/g) || []).length, 2, 'every running browser is asked');
+    assert.equal((log.match(/set URL of t to "http:\/\/127\.0\.0\.1:4173\/#open=[A-Za-z0-9_-]{43}"/g) || []).length, 2, 'every running browser is asked');
     assert.doesNotMatch(log, /activate|set index of w|set current tab|active tab index/, 'the browser is not brought forward');
     assert.doesNotMatch(log, /^open /m, 'no new tab is opened');
     assert.match(log, /osascript args: -$/m, 'the token goes on standard input');
@@ -273,7 +273,7 @@ test('closing Public Desk tabs asks every running browser and reports how many c
     assert.equal((log.match(/close t\n/g) || []).length, 2, 'Safari and Chrome are both asked');
     assert.match(log, /if \(URL of t as text\) starts with "http:\/\/127\.0\.0\.1:4173" then\s+close t/, 'only Public Desk tabs');
     assert.match(log, /repeat with windowIndex from \(count of windows\) to 1 by -1[\s\S]*repeat with tabIndex from \(count of tabs of w\) to 1 by -1/, 'walked backwards so closing does not skip tabs');
-    assert.doesNotMatch(log, /activate|set URL|#access=/, 'never brought forward, reloaded or given a token');
+    assert.doesNotMatch(log, /activate|set URL|#access=|#open=/, 'never brought forward, reloaded or given a token');
     assert.doesNotMatch(log, /^open /m);
   } finally { rmSync(app.dir, { recursive: true, force: true }); }
 });
@@ -398,4 +398,42 @@ test('Open OSINT reads the same API-key file as the server, wherever PUBLIC_DESK
 test('the page reloads with a new token handed to an already-open tab', () => {
   const core = readFileSync(join(root, 'public/app/core.js'), 'utf8');
   assert.match(core, /addEventListener\('hashchange'[\s\S]*?get\('access'\)[\s\S]*?setItem\('publicDesk\.access', access\)[\s\S]*?location\.reload\(\)/);
+});
+
+// A link lands in the browser's history, so it carries a code that expires in two minutes, never the access token.
+test('browser links carry a fresh open code that the code file holds, never the token', { skip }, () => {
+  const app = copy();
+  try {
+    const browser = fakeBrowser(app, { running: [] });
+    assert.equal(openDesk(app, browser.env, 'token-that-must-never-be-in-a-link').status, 0);
+    const log = calls(browser.log);
+    assert.doesNotMatch(log, /token-that-must-never-be-in-a-link/);
+    const code = log.match(/#open=([A-Za-z0-9_-]{43})$/m)[1];
+    const file = join(app.runtime, 'open-code');
+    const lines = readFileSync(file, 'utf8').trim().split('\n');
+    assert.match(lines.at(-1), new RegExp(`^${code} \\d{10}$`));
+    assert.equal(statSync(file).mode & 0o777, 0o600);
+    openDesk(app, browser.env, 'token-that-must-never-be-in-a-link');
+    assert.equal(readFileSync(file, 'utf8').trim().split('\n').length, 2, 'a recent code stays usable beside a newer one');
+    writeFileSync(file, `${'o'.repeat(43)} 1000000000\n`);
+    openDesk(app, browser.env, 'token-that-must-never-be-in-a-link');
+    assert.doesNotMatch(readFileSync(file, 'utf8'), /^o{43} /m, 'expired codes are dropped');
+    control(app, ['stop']);
+    assert.equal(existsSync(file), false, 'stopping forgets every open code');
+  } finally { rmSync(app.dir, { recursive: true, force: true }); }
+});
+
+// Omega's bridge passes it no PUBLIC_DESK_WORK_DIR, so the launcher notes the data folder where Omega's wrapper looks.
+test('the launcher notes the data folder for Omega, resolved like the server resolves it', { skip }, () => {
+  const app = copy();
+  try {
+    const note = (env = {}) => {
+      const run = spawnSync('/bin/zsh', ['-c', `source ${JSON.stringify(app.script)}; prepare_folders; record_data_dir`], { encoding: 'utf8', env: { ...process.env, PUBLIC_DESK_WORK_DIR: '', ...env } });
+      assert.equal(run.status, 0, run.stderr);
+      return readFileSync(join(app.runtime, 'data-dir'), 'utf8').trim();
+    };
+    assert.equal(note(), realpathSync(join(app.dir, 'work')));
+    assert.equal(note({ PUBLIC_DESK_WORK_DIR: 'elsewhere' }), join(realpathSync(app.dir), 'elsewhere'));
+    assert.equal(statSync(join(app.runtime, 'data-dir')).mode & 0o777, 0o600);
+  } finally { rmSync(app.dir, { recursive: true, force: true }); }
 });

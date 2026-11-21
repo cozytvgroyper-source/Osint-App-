@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validatedEndpoint, parseMcpResponse, readLimitedResponse, oneAtATime, errorStatus } from '../server.mjs';
+import { validatedEndpoint, parseMcpResponse, readLimitedResponse, oneAtATime, errorStatus, errorBody, consensusSignInRevoked, redeemOpenCode } from '../server.mjs';
 
 test('accepts only explicitly bundled HTTP MCP endpoints',async()=>{
   assert.equal((await validatedEndpoint('http://127.0.0.1:8892/mcp')).pathname,'/mcp');
@@ -119,4 +119,44 @@ test('a stream with no reply to the request is an error, never some other messag
   const reply=parseMcpResponse(sse,'text/event-stream',{id:'req-1'});
   assert.equal(reply.result,undefined);
   assert.match(reply.error.message,/without a reply/);
+});
+
+// Deep Search asks for a new grant only when the server refused the grant itself, so that refusal must say so by code,
+// not only in words (a tool's own error can mention permission too).
+test('a refused run grant answers with its code; other errors carry none', async () => {
+  const { RunGrantError } = await import('../scripts/run-grants.mjs');
+  assert.deepEqual(errorBody(new RunGrantError('This risky tool requires a current confirmed run grant')), { error: 'This risky tool requires a current confirmed run grant', code: 'RUN_GRANT' });
+  assert.deepEqual(errorBody(new Error('permission denied')), { error: 'permission denied' });
+  assert.deepEqual(errorBody(Object.assign(new Error('x'), { code: 'ENOENT' })), { error: 'Not found' });
+});
+
+// A refused refresh used to forget the Consensus sign-in on any HTTP 400 or 401, so a passing problem (a malformed
+// request, a rate limit sent as 400) signed the user out. Only Consensus saying the sign-in itself is no longer valid
+// (OAuth's invalid_grant or invalid_client) forgets it now.
+test('the Consensus sign-in is forgotten only when Consensus revoked it', () => {
+  const refused = (status, oauthError) => Object.assign(new Error('refused'), { status, oauthError });
+  assert.equal(consensusSignInRevoked(refused(400, 'invalid_grant')), true);
+  assert.equal(consensusSignInRevoked(refused(401, 'invalid_client')), true);
+  assert.equal(consensusSignInRevoked(refused(400, 'invalid_request')), false);
+  assert.equal(consensusSignInRevoked(refused(400, undefined)), false);
+  assert.equal(consensusSignInRevoked(refused(429, 'invalid_grant')), false);
+  assert.equal(consensusSignInRevoked(new Error('fetch failed')), false);
+});
+
+// Links the launcher opens in a browser carry a short-lived code, not the access token, because the link lands in the
+// browser's history. The page trades the code for the token. Codes are written by the launcher, one per line with the
+// time it was made, and any fresh one works (several browsers may be given the same link).
+test('an open code is traded for the token only while it is fresh', async () => {
+  const { mkdtemp, writeFile } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');const { join } = await import('node:path');
+  const file = join(await mkdtemp(join(tmpdir(), 'pd-open-')), 'open-code');
+  const code = 'c'.repeat(43), older = 'o'.repeat(43), now = Date.parse('2026-11-18T12:00:00Z'), at = seconds => Math.floor(now / 1000) - seconds;
+  await writeFile(file, `${older} ${at(500)}\n${code} ${at(30)}\n`);
+  assert.equal(await redeemOpenCode(code, file, { now }), true);
+  assert.equal(await redeemOpenCode(older, file, { now }), false, 'expired');
+  assert.equal(await redeemOpenCode('x'.repeat(43), file, { now }), false, 'unknown');
+  assert.equal(await redeemOpenCode(code.slice(0, 20), file, { now }), false, 'too short to be a code');
+  assert.equal(await redeemOpenCode(code, join(file, '..', 'missing'), { now }), false, 'no codes written');
+  assert.equal(await redeemOpenCode(code, '', { now }), false, 'no code file configured');
+  assert.equal(await redeemOpenCode(undefined, file, { now }), false);
 });

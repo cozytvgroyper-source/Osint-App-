@@ -226,3 +226,14 @@ export function deepEvidenceRecord(run){
   const saved={target:run?.target,level:run?.level,outcome:run?.outcome,findings:(run?.findings||[]).map(item=>({...item}))};
   return {title:`Deep Search: ${run?.target?.value||'results'}`,result:{content:[{type:'text',text:JSON.stringify(saved)}],isError:false},time:run?.finishedAt||new Date().toISOString(),server:'Deep Search'};
 }
+
+// What a Run history row says about its results. A search that never finished (the tab closed, Public Desk stopped)
+// has only its "started" line and no saved results, so it offers nothing to open; the search running in this tab
+// says so instead. Rows from before results were kept have no run id.
+export function historyRowResults(entry,{runningId=''}={}){
+  if(!entry?.runId)return{outcome:String(entry?.outcome||''),openRunId:'',note:"Results weren't kept for this run"};
+  if(entry.outcome!=='started')return{outcome:String(entry.outcome),openRunId:entry.runId,note:''};
+  return entry.runId===runningId
+    ?{outcome:'running',openRunId:'',note:'Still running'}
+    :{outcome:'did not finish',openRunId:'',note:'No results were saved'};
+}

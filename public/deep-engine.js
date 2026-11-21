@@ -9,19 +9,37 @@ export const PASSIVE_CONCURRENCY=4;
 export const MAX_RUN_RAW_BYTES=20_000_000;
 export const SKIPPED_PUBLIC_ONLY='Only covers public internet addresses.';
 
+// Servers that run one tool at a time. omega-mcp's tools are plain functions that FastMCP calls on its event loop, so
+// calls sent together wait in Omega's queue, where a call can time out here and then still run with nobody waiting
+// for it. Deep Search sends these servers one call at a time, so each call's timeout covers only its own run.
+export const ONE_AT_A_TIME_SERVERS=new Set(['Omega MCP']);
+
 const identifierKey=identifier=>`${identifier.type}:${identifier.value}`;
 const callKey=task=>`${task.tool.serverName}::${task.tool.name}::${identifierKey(task.identifier)}`;
 const sleepTick=()=>Promise.resolve();
+// Raw results are JSON text, and the saved run stores that text inside JSON again, which escapes it a second time.
+// They are counted as saved, so a run at the raw limit still fits what the results store accepts.
+const storedBytes=text=>new TextEncoder().encode(JSON.stringify(text)).byteLength;
 
+// Runs the work given to it one after another, in the order given.
+function oneAtATime(){
+  let tail=Promise.resolve();
+  return work=>{const result=tail.then(work);tail=result.catch(()=>{});return result;};
+}
+
+// At most PASSIVE_CONCURRENCY passive calls run at once. Tools of a one-at-a-time server get a lane of their own, so
+// they never hold the shared workers while they wait for that server.
 async function passivePool(tasks,worker,signal){
-  let index=0;
-  const run=async()=>{
-    while(index<tasks.length&&!signal?.aborted){
-      const task=tasks[index++];
-      await worker(task,null);
-    }
-  };
-  await Promise.all(Array.from({length:Math.min(PASSIVE_CONCURRENCY,tasks.length)},run));
+  const lanes=new Map();const shared=[];
+  for(const task of tasks){
+    const server=task.tool.serverName;
+    if(!ONE_AT_A_TIME_SERVERS.has(server)){shared.push(task);continue;}
+    if(!lanes.has(server))lanes.set(server,[]);
+    lanes.get(server).push(task);
+  }
+  const drain=async queue=>{while(queue.length&&!signal?.aborted)await worker(queue.shift(),null);};
+  const sharedWorkers=Math.min(shared.length,Math.max(1,PASSIVE_CONCURRENCY-lanes.size));
+  await Promise.all([...Array.from({length:sharedWorkers},()=>drain(shared)),...[...lanes.values()].map(drain)]);
 }
 
 function chunks(values,size=25){
@@ -66,13 +84,32 @@ export async function runDeepSearch(options={}){
     onEvent({type:'counts',linked,possible,done:calls.length,total});
   };
 
+  const serverLocks=new Map();
+  const lockFor=server=>{
+    if(!ONE_AT_A_TIME_SERVERS.has(server))return work=>work();
+    if(!serverLocks.has(server))serverLocks.set(server,oneAtATime());
+    return serverLocks.get(server);
+  };
+
   const recordTask=async(task,grantToken=null,allowRenew=true)=>{
     if(signal?.aborted)return;
-    const started=now();onEvent({type:'tool-start',tool:task.tool,identifier:task.identifier});
-    let response;
-    try{response=await callTool(task.tool,task.args,{grant:grantToken,deepSearch:true,timeoutMs:task.timeoutMs,signal});}
-    catch(error){response={error:{message:error?.message||String(error)}};}
-    if(response?.error&&grantToken&&allowRenew&&/grant|permission|expired|confirmed/i.test(String(response.error.message||''))&&typeof requestGrant==='function'&&!signal?.aborted){
+    let started=now();let stopped=false;
+    let response;let grantRefused=false;
+    try{
+      // A one-at-a-time server's call starts (and its timeout starts) only once the server is free.
+      response=await lockFor(task.tool.serverName)(()=>{
+        if(signal?.aborted){stopped=true;return null;}
+        started=now();onEvent({type:'tool-start',tool:task.tool,identifier:task.identifier});
+        return callTool(task.tool,task.args,{grant:grantToken,deepSearch:true,timeoutMs:task.timeoutMs,signal});
+      });
+    }
+    catch(error){grantRefused=error?.code==='RUN_GRANT';response={error:{message:error?.message||String(error)}};}
+    // Stopped while waiting for the server: the call never started, so there is nothing to record.
+    if(stopped)return;
+    // Renew only when Public Desk refused the grant itself (it does that before running anything). A tool's own error
+    // can mention permission too, and that tool already ran: renewing would run it again on the same confirmation.
+    // An error a tool returns can't claim the code, since only a thrown refusal from the server sets grantRefused.
+    if(grantRefused&&grantToken&&allowRenew&&typeof requestGrant==='function'&&!signal?.aborted){
       // A refused renewal keeps the tool's own error below; it never ends the whole run.
       let renewed=null;
       try{renewed=await requestGrant({target:task.identifier.value,level:task.risk.level,runId:id,ttlMs:30*60_000,tools:[{tool:task.tool,args:task.args}],confirmation:task.confirmation});}catch{}
@@ -84,7 +121,7 @@ export async function runDeepSearch(options={}){
       const result=response?.result;
       const requested=Math.min(1_000_000,Math.max(0,MAX_RUN_RAW_BYTES-rawBytes));
       if(requested>0){
-        const trimmed=trimRaw(resultText(result),requested);raw[callKey(task)]=trimmed.text;rawBytes+=new TextEncoder().encode(trimmed.text).byteLength;
+        const trimmed=trimRaw(resultText(result),requested);raw[callKey(task)]=trimmed.text;rawBytes+=storedBytes(trimmed.text);
         const classified=classifyToolResult(result);outcome=trimmed.trimmed?'trimmed':classified.kind;
       }else outcome='trimmed';
       adapted.push(...adaptToolResult({name:task.tool.name,serverName:task.tool.serverName},result,task.identifier));

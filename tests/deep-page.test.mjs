@@ -51,10 +51,10 @@ test('audit starts before the engine and completed runs are always stored',()=>{
   assert.match(run.slice(run.lastIndexOf('}finally{')),/^\}finally\{\s*await api\('\/api\/deep-search\/runs',run\)/);
 });
 
+// What each row says about its results is decided by historyRowResults (tests/deep-results-view.test.mjs).
 test('history offers stored results',()=>{
-  assert.match(app,/entry\.runId[\s\S]{0,180}Open results/);
-  assert.match(app,/data-open-deep/);
-  assert.match(app,/Results weren(?:\\'|')t kept for this run/);
+  assert.match(app,/historyRowResults\(entry,\{runningId:state\.deepRun\?\.id\|\|''\}\)/);
+  assert.match(app,/rowResults\(entry\)\.openRunId\?`<button[^`]*data-open-deep[^`]*>Open results<\/button>`:escapeHtml\(rowResults\(entry\)\.note\)/);
 });
 
 test('opening stored results re-adapts raw answers and links them again',()=>{

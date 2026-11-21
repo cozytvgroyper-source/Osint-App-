@@ -142,3 +142,11 @@ export async function readDeepSearchAudit(file, {limit = 200, maxBytes = MAX_AUD
   entries.reverse();
   return {entries: entries.slice(0, limit), total: entries.length, skipped};
 }
+
+// The run ids the log mentions anywhere, damaged lines included, so a run whose line can't be parsed still counts as
+// listed. null when there is no log: then nothing can be told about which results are listed.
+export async function listedRunIds(file){
+  const raw=await queued(file,()=>readWholeLog(file));
+  if(raw===null)return null;
+  return new Set([...raw.matchAll(/"runId"\s*:\s*"([a-z0-9-]{8,64})"/g)].map(match=>match[1]));
+}

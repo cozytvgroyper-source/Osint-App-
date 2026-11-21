@@ -2,7 +2,7 @@
 // of browser or cleared site data. Files are owner-only, writes are atomic (temporary file, then rename), and changes to
 // one case run one at a time so quick successive saves cannot overwrite each other.
 import {createHash,randomBytes} from 'node:crypto';
-import {chmod,mkdir,readFile,readdir,rename,unlink,writeFile} from 'node:fs/promises';
+import {chmod,mkdir,readFile,readdir,rename,stat,unlink,writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {buildCaseReport,reportFilename} from './case-report.mjs';
 
@@ -39,6 +39,15 @@ export class CaseStore{
     this.dir=dir;
     this.maxCaseBytes=maxCaseBytes;
     this.queues=new Map();
+    // What the case list shows for each case, with the size and change time of the file it came from. The list needs
+    // only these, so a case file is read again only when it changed (cases hold up to 50 MB each).
+    this.summaries=new Map();
+  }
+
+  remember(id,record,info){
+    const summary={id,name:record.name,createdAt:record.createdAt,updatedAt:record.updatedAt,evidenceCount:record.evidence?.length||0,searchCount:record.searches?.length||0};
+    this.summaries.set(id,{size:info.size,mtimeMs:info.mtimeMs,summary});
+    return summary;
   }
 
   file(id){return join(this.dir,`${caseId(id)}.json`);}
@@ -56,6 +65,7 @@ export class CaseStore{
     await writeFile(temporary,JSON.stringify(record),{mode:0o600});
     await chmod(temporary,0o600);
     await rename(temporary,this.file(record.id));
+    this.remember(record.id,record,await stat(this.file(record.id)));
     return record;
   }
 
@@ -74,7 +84,7 @@ export class CaseStore{
     const previous=this.queues.get(id)||Promise.resolve();
     const next=previous.catch(()=>{}).then(async()=>{
       const record=await this.read(id);const result=await update(record);
-      if(remove)await unlink(this.file(id));else await this.write({...record,updatedAt:new Date().toISOString()});
+      if(remove){await unlink(this.file(id));this.summaries.delete(id);}else await this.write({...record,updatedAt:new Date().toISOString()});
       return result;
     });
     this.queues.set(id,next);
@@ -84,17 +94,22 @@ export class CaseStore{
   async list(){
     let names=[];
     try{names=await readdir(this.dir);}catch(error){if(error.code==='ENOENT')return [];throw error;}
-    const cases=[];
+    const cases=[];const present=new Set();
     for(const name of names.filter(name=>/^[0-9a-f]{16}\.json$/.test(name))){
       const id=name.slice(0,16);
       try{
-        const record=await this.read(id);
-        cases.push({id,name:record.name,createdAt:record.createdAt,updatedAt:record.updatedAt,evidenceCount:record.evidence?.length||0,searchCount:record.searches?.length||0});
+        const info=await stat(this.file(id));
+        const known=this.summaries.get(id);
+        if(known&&known.size===info.size&&known.mtimeMs===info.mtimeMs){cases.push({...known.summary});present.add(id);continue;}
+        cases.push(this.remember(id,await this.read(id),info));present.add(id);
       }catch(error){
+        // A case deleted between listing the folder and reading it is simply gone.
+        if(error.code==='ENOENT'||error.code==='CASE_NOT_FOUND')continue;
         if(error.code!=='CASE_DAMAGED')throw error;
         cases.push({id,name:'Damaged case file',damaged:true});
       }
     }
+    for(const id of this.summaries.keys())if(!present.has(id))this.summaries.delete(id);
     return cases.sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
   }
 

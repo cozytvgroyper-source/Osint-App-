@@ -34,7 +34,16 @@ test('rejects requests from other websites',()=>{
 
 test('rejects API posts that are not JSON, which browsers can send cross-site without asking',()=>{
   assert.match(guardError(request({headers:{'content-type':'text/plain'}})),/json/i);
-  assert.match(guardError({method:'POST',url:new URL('http://127.0.0.1:4173/api/upload'),headers:{host:'127.0.0.1:4173'}}),/json/i);
+  assert.match(guardError({method:'POST',url:new URL('http://127.0.0.1:4173/api/upload'),headers:{host:'127.0.0.1:4173'}}),/file/i);
+});
+
+// Uploads send the file's own bytes (application/octet-stream), which browsers also send cross-site only after a CORS
+// preflight this server never approves. Only the upload route takes them, and it still needs the access token.
+test('only uploads may send raw bytes, and only with the access token',()=>{
+  const raw=pathname=>({method:'POST',url:new URL(`http://127.0.0.1:4173${pathname}`),headers:{host:'127.0.0.1:4173','content-type':'application/octet-stream'}});
+  assert.match(guardError(raw('/api/upload')),/not connected/i,'raw bytes reach the token check on the upload route');
+  assert.match(guardError(raw('/api/cases')),/json/i);
+  assert.match(guardError({method:'POST',url:new URL('http://127.0.0.1:4173/api/upload'),headers:{host:'127.0.0.1:4173','content-type':'text/plain'}}),/file/i);
 });
 
 test('rejects a forged Host header (DNS rebinding) on every route',()=>{
@@ -80,4 +89,15 @@ test('makes room for a new sign-in instead of blocking when many are pending',as
   assert.ok(pending.has('s24'),'the newest sign-in is kept');
   pending.set('old',{createdAt:now-11*60_000});prunePendingSignIns(pending,now);
   assert.ok(!pending.has('old'),'expired sign-ins are removed');
+});
+
+// Trading an open code for the token is the one API call made before the page has the token. It still needs this
+// host, this origin and a JSON body, so other sites cannot make it.
+test('the open-code exchange needs no token but keeps every other check',()=>{
+  const open=(headers={})=>({method:'POST',url:new URL('http://127.0.0.1:4173/api/open'),headers:{host:'127.0.0.1:4173','content-type':'application/json',...headers}});
+  assert.equal(guard(open()),null);
+  assert.match(guardError(open({origin:'https://evil.example'})),/origin/i);
+  assert.match(guardError(open({'sec-fetch-site':'cross-site'})),/site/i);
+  assert.match(guardError(open({'content-type':'text/plain'})),/json/i);
+  assert.match(guardError({...open(),headers:{...open().headers,host:'evil.example:4173'}}),/host/i);
 });

@@ -1,12 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {MAX_IDENTIFIERS,MAX_ROUNDS,PASSIVE_CONCURRENCY,runDeepSearch} from '../public/deep-engine.js';
+import {MAX_DEEP_RUN_BYTES} from '../scripts/deep-search-runs.mjs';
 
 const schemaFor=type=>({type:'object',properties:{[type]:{type:'string'}},required:[type]});
 const tool=(name,serverName,input='target')=>({name,serverName,inputSchema:schemaFor(input)});
 const toolbox=(name,input)=>tool(name,'OSINT Toolbox',input);
 const omega=name=>tool(name,'Omega MCP','target');
 const textResult=text=>({content:[{type:'text',text}],isError:false});
+// What the tool caller throws when Public Desk refused the call's grant (server.mjs answers RUN_GRANT before running it).
+const grantRefusal=message=>Object.assign(new Error(message),{code:'RUN_GRANT'});
 
 test('a person search follows linked leads and never exceeds three rounds',async()=>{
   const seen=[];
@@ -61,9 +64,28 @@ test('an expired grant is renewed once with the same confirmation',async()=>{
   const tools=[omega('omega_headers')];let grants=0,calls=0;
   await runDeepSearch({id:'renew',target:{type:'domain',value:'example.com'},level:1,tools,excluded:new Set(),confirmation:{acknowledged:true},
     requestGrant:async()=>({token:`g${++grants}`,expiresAt:Date.now()+1e6}),
-    callTool:async()=>{calls++;return calls===1?{error:{message:'current confirmed run grant expired'}}:{result:textResult('{}')}}});
+    callTool:async()=>{calls++;if(calls===1)throw grantRefusal('This risky tool requires a current confirmed run grant');return{result:textResult('{}')}}});
   assert.equal(grants,2);
   assert.equal(calls,2);
+});
+
+// A tool's own error can mention permission (a scan that needs root, a site that refuses access). Only Public Desk's
+// refusal of the grant itself (code RUN_GRANT, which comes before anything runs) may get a new grant; anything else
+// already ran, and running it again would contact the target twice on one confirmation.
+test('a tool error that mentions permission is never renewed or run again',async()=>{
+  for(const fail of [
+    ()=>({error:{message:'socket: Operation not permitted (permission denied)'}}),
+    ()=>({error:{message:'Run grant expired',code:'RUN_GRANT'}}),
+    ()=>{throw new Error('MCP server returned 403: permission denied, grant required');}
+  ]){
+    const tools=[omega('omega_ports')];let grants=0,calls=0;
+    const run=await runDeepSearch({id:'no-renew',target:{type:'domain',value:'example.com'},level:2,tools,excluded:new Set(),confirmation:{acknowledged:true,authorization:true},
+      requestGrant:async()=>({token:`g${++grants}`,expiresAt:Date.now()+1e6}),
+      callTool:async()=>{calls++;return fail();}});
+    assert.equal(calls,1,'the tool ran once');
+    assert.equal(grants,1,'no second grant was asked for');
+    assert.equal(run.calls[0].outcome,'error');
+  }
 });
 
 test('a lead loop ends without repeating calls',async()=>{
@@ -165,7 +187,7 @@ test('a person search keeps round-one findings when a later permission is refuse
 test('a failed permission renewal records the tool error instead of ending the run',async()=>{
   const tools=[omega('omega_headers'),omega('omega_ssl')];let grants=0;
   const run=await runDeepSearch({id:'renew-fail',target:{type:'domain',value:'example.com'},level:2,tools,excluded:new Set(),confirmation:{acknowledged:true,authorization:true},
-    callTool:async()=>({error:{message:'Run grant expired'}}),
+    callTool:async()=>{throw grantRefusal('Run grant expired');},
     requestGrant:async()=>{grants+=1;if(grants>1)throw new Error('refused on renewal');return{token:'g1',expiresAt:Date.now()+1e6};}});
   assert.equal(run.outcome,'completed');
   assert.equal(run.calls.length,2);
@@ -185,4 +207,54 @@ test('leads found in the last round are listed as not followed, never announced 
   const missed=run.leadsNotFollowed.map(item=>item.value);
   for(const value of Object.values(next))assert.ok(searched.has(value)||missed.includes(value),`${value} is searched or listed as not followed`);
   assert.ok(missed.includes('e3@owner-site.example'),'the lead from the last round is listed');
+});
+
+// Omega runs its tools one after another (omega-mcp's tools are plain functions that FastMCP calls on its event loop).
+// Sent together, the later calls waited unseen in Omega's queue, timed out here while still queued, and then ran
+// anyway with nobody waiting for them. Deep Search now sends Omega one call at a time, and other servers' tools keep
+// running beside it.
+test('Omega gets one call at a time while other servers keep running beside it',async()=>{
+  const tools=[toolbox('whois_lookup','domain'),toolbox('dns_lookup','domain'),toolbox('crtsh_certificate_search','domain'),
+    omega('omega_intel'),omega('omega_spoofcheck'),omega('omega_headers'),omega('omega_ssl'),omega('omega_ports')];
+  let omegaNow=0,othersNow=0,maxOmega=0,overlapped=false;const omegaStarts=[];
+  const run=await runDeepSearch({id:'serial-omega',target:{type:'domain',value:'example.com'},level:2,tools,excluded:new Set(),confirmation:{acknowledged:true,authorization:true},
+    requestGrant:async()=>({token:'grant',expiresAt:Date.now()+1e6}),
+    callTool:async current=>{
+      const isOmega=current.serverName==='Omega MCP';
+      if(isOmega){omegaNow++;maxOmega=Math.max(maxOmega,omegaNow);omegaStarts.push(current.name);}else othersNow++;
+      if(omegaNow&&othersNow)overlapped=true;
+      await new Promise(resolve=>setTimeout(resolve,10));
+      if(isOmega)omegaNow--;else othersNow--;
+      return{result:textResult('{}')};
+    }});
+  assert.equal(maxOmega,1);
+  assert.equal(omegaStarts.length,5,'every Omega tool still ran');
+  assert.ok(overlapped,'other servers ran while Omega was busy');
+  assert.equal(run.outcome,'completed');
+});
+
+test('stopping a search while calls wait for Omega starts none of them',async()=>{
+  const controller=new AbortController();let started=0;
+  await runDeepSearch({id:'stop-serial',target:{type:'domain',value:'example.com'},level:0,tools:[omega('omega_intel'),omega('omega_spoofcheck')],excluded:new Set(),signal:controller.signal,
+    callTool:async()=>{started++;controller.abort();await new Promise(resolve=>setTimeout(resolve,5));return{result:textResult('{}')};}});
+  assert.equal(started,1);
+});
+
+// Raw results are kept as JSON text, and the saved run stores that text inside JSON again, which escapes it a second
+// time (quotes and backslashes grow). A run at the raw limit used to come out above what the results store accepts,
+// so the whole run was refused and lost. The limit now counts raw results as they are saved.
+test('a run that hits the raw-results limit still fits what the results store accepts',async()=>{
+  const names=['whois_lookup','dns_lookup','crtsh_certificate_search','wayback_snapshots','dnstwist_lookalike_domains','theharvester_domain_search'];
+  const omegaNames=['omega_intel','omega_spoofcheck','omega_headers','omega_ssl','omega_tech','omega_cors','omega_mailsec','omega_certhunt','omega_cvemap',
+    'omega_deepweb','omega_docosint','omega_harvester','omega_infra','omega_opsec','omega_phishcheck','omega_screenshot','omega_typosquat','omega_ports',
+    'omega_crawl','omega_dnsbrute','omega_subdomains','omega_recon','omega_apiosint','omega_assetmap','omega_attackmap','omega_buckets','omega_cloud'];
+  const tools=[...names.map(name=>toolbox(name,'domain')),...omegaNames.map(omega)];
+  // Omega's own answer is pretty-printed JSON inside MCP text, so it is already escaped once: the worst case here.
+  const quoteHeavy=JSON.stringify({status:'ok',result:Array.from({length:40_000},(_,index)=>({k:`v${index}`}))},null,2);
+  const run=await runDeepSearch({id:'run-at-limit',target:{type:'domain',value:'example.com'},level:2,tools,excluded:new Set(),confirmation:{acknowledged:true,authorization:true},
+    requestGrant:async()=>({token:'grant',expiresAt:Date.now()+1e6}),
+    callTool:async()=>({result:textResult(quoteHeavy)})});
+  const rawStored=Object.values(run.raw).reduce((total,text)=>total+Buffer.byteLength(JSON.stringify(text)),0);
+  assert.ok(rawStored>15_000_000,'the run reached the raw limit');
+  assert.ok(Buffer.byteLength(JSON.stringify(run))<=MAX_DEEP_RUN_BYTES,`saved run is ${Buffer.byteLength(JSON.stringify(run))} bytes`);
 });

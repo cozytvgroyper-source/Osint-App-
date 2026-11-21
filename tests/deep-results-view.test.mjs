@@ -151,3 +151,14 @@ test('skipped calls show their reason in Search details, escaped',async()=>{
   assert.match(html,/&lt;img src=x&gt;/);
   assert.doesNotMatch(html,/<img src=x>/);
 });
+
+// A search that never finished (the tab closed, Public Desk stopped) leaves only its "started" line. Its row offered
+// Open results, which answered "These Deep Search results no longer exist". It now says the search did not finish.
+test('a history row only offers results for a search that finished',async()=>{
+  const {historyRowResults}=await import('../public/deep-results-view.js');
+  assert.deepEqual(historyRowResults({runId:'run-done0001',outcome:'completed'}),{outcome:'completed',openRunId:'run-done0001',note:''});
+  assert.deepEqual(historyRowResults({runId:'run-stop0001',outcome:'stopped'}),{outcome:'stopped',openRunId:'run-stop0001',note:''});
+  assert.deepEqual(historyRowResults({runId:'run-gone0001',outcome:'started'}),{outcome:'did not finish',openRunId:'',note:'No results were saved'});
+  assert.deepEqual(historyRowResults({runId:'run-live0001',outcome:'started'},{runningId:'run-live0001'}),{outcome:'running',openRunId:'',note:'Still running'});
+  assert.deepEqual(historyRowResults({outcome:'completed'}),{outcome:'completed',openRunId:'',note:"Results weren't kept for this run"});
+});

@@ -22,7 +22,10 @@ test('pins the managed Open OSINT checkout and protects every local service with
   assert.match(launcher,/require-loopback-token\.mjs/);
   assert.match(launcher,/run-osint-mcp-guarded\.py/);
   assert.match(launcher,/run-fastmcp-bridge-authenticated\.py/);
-  assert.match(launcher,/#access=\$PUBLIC_DESK_TOKEN/);
+  // Browser links carry a short-lived open code, never the token itself (links land in the browser's history).
+  assert.match(launcher,/#open=\$code/);
+  assert.doesNotMatch(launcher,/#access=/);
+  assert.match(launcher,/PUBLIC_DESK_OPEN_CODE_FILE="\$OPEN_CODE_FILE"/);
 });
 
 // The Start script finds uv wherever it was installed: its own installer (~/.local/bin, preferred) or Homebrew/PATH.

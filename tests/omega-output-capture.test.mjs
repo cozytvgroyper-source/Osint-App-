@@ -8,7 +8,7 @@ const wrapper = fileURLToPath(new URL('../scripts/run-omega-mcp-captured.py', im
 
 // Loads the wrapper without running it (omega-cli is not installed in CI), wraps a fake module runner,
 // and prints what the wrapped runner returns plus anything that still reached the real stdout.
-function runCaptured(fakeBody) {
+function runCaptured(fakeBody, { module = 'omega_cli.modules.x', keys = null, target = 'owner@example.com' } = {}) {
   const script = `
 import importlib.util, io, json, sys, contextlib
 spec = importlib.util.spec_from_file_location('captured', ${JSON.stringify(wrapper)})
@@ -18,7 +18,8 @@ def fake(module_path, func_name, *args, **kwargs):
 ${fakeBody}
 leak = io.StringIO()
 with contextlib.redirect_stdout(leak):
-    result = captured.capture_module_output(fake)('omega_cli.modules.x', 'run', 'example.com')
+    runner = captured.capture_module_output(fake) if ${keys === null ? 'True' : 'False'} else captured.capture_module_output(fake, read_keys=lambda: json.loads(${JSON.stringify(JSON.stringify(keys))}))
+    result = runner(${JSON.stringify(module)}, 'run', ${JSON.stringify(target)})
 sys.stdout.write(json.dumps({'result': result, 'leaked': leak.getvalue()}))
 `;
   return JSON.parse(execFileSync('python3', ['-c', script], { encoding: 'utf8' }));
@@ -151,4 +152,88 @@ test('Public Desk classifies the reported failure as an error, not an empty resu
   assert.deepEqual(classifyToolResult({ content: [{ type: 'text', text }], isError: false }), { kind: 'error', error: 'NVD rate limit' });
   const before = JSON.stringify({ status: 'ok', result: [] }, null, 2);
   assert.equal(classifyToolResult({ content: [{ type: 'text', text: before }], isError: false }).kind, 'empty', 'what it used to look like');
+});
+
+// omega-cli's breachcheck, when HIBP gives no usable answer (a rate limit, a server error, a network failure), prints
+// "Trying without API key..." and then reports the address as not found, so a check that never ran read as "no
+// breaches". These use that module's real printed lines.
+const BREACH = 'omega_cli.modules.breachcheck';
+const HIBP_KEY = { HIBP_API_KEY: 'k'.repeat(32) };
+
+test('HIBP not answering is "Not checked", never "no breaches"', () => {
+  const { result, leaked } = runCaptured(`    print('  Checking email against HIBP...')
+    print('  Trying without API key...')
+    print('✓ owner@example.com not found in any known HIBP breach.')
+    return {'status': 'ok', 'result': {'target': args[0], 'breaches': []}}`, { module: BREACH, keys: HIBP_KEY });
+  assert.equal(result.status, 'error');
+  assert.match(result.error, /^Not checked: Have I Been Pwned did not answer/);
+  assert.equal(leaked, '');
+});
+
+test('a real HIBP answer passes through, with the saved key handed to the module', () => {
+  const found = runCaptured(`    assert kwargs.get('hibp_key') == 'k' * 32
+    print('  Checking email against HIBP...')
+    return {'status': 'ok', 'result': {'target': args[0], 'breaches': ['Adobe']}}`, { module: BREACH, keys: HIBP_KEY });
+  assert.deepEqual(found.result, { status: 'ok', result: { target: 'owner@example.com', breaches: ['Adobe'] } });
+
+  const clean = runCaptured(`    print('✓ owner@example.com not found in any known HIBP breach.')
+    return {'status': 'ok', 'result': {'target': args[0], 'breaches': []}}`, { module: BREACH, keys: HIBP_KEY });
+  assert.deepEqual(clean.result, { status: 'ok', result: { target: 'owner@example.com', breaches: [] } }, 'a real "not found" stays clean');
+});
+
+test('without a saved HIBP key the breach check does not run and says why', () => {
+  const { result } = runCaptured(`    raise AssertionError('must not run without a key')`, { module: BREACH, keys: {} });
+  assert.equal(result.status, 'error');
+  assert.match(result.error, /^Not checked: Have I Been Pwned needs an API key/);
+});
+
+test('a key HIBP refuses is reported as not checked', () => {
+  const { result } = runCaptured(`    print('HIBP requires API key.  Set: omega config set hibp_api_key KEY')
+    print('  Trying without API key...')
+    return {'status': 'ok', 'result': {'target': args[0], 'breaches': []}}`, { module: BREACH, keys: HIBP_KEY });
+  assert.deepEqual(result, { status: 'error', error: 'Not checked: HIBP requires API key.' });
+});
+
+// omega_leaked asks Have I Been Pwned only about email addresses, so "HIBP not checked" belongs only on those.
+test('omega_leaked notes HIBP as not checked only for an email address', () => {
+  const body = `    return {'status': 'ok', 'result': {'target': args[0], 'pastes': []}}`;
+  const email = runCaptured(body, { module: 'omega_cli.modules.leaked', keys: {} });
+  assert.match(email.result.result.not_checked[0], /^Not checked: Have I Been Pwned needs an API key/);
+  for (const target of ['someuser', '8.8.8.8', '44d88612fea8a8f36de82e1278abb02f']) {
+    const other = runCaptured(body, { module: 'omega_cli.modules.leaked', keys: {}, target });
+    assert.deepEqual(other.result, { status: 'ok', result: { target, pastes: [] } }, target);
+  }
+});
+
+// FastMCP starts Omega with only a few safe environment variables (HOME, PATH, ...), so PUBLIC_DESK_WORK_DIR never
+// reached it: with a custom data folder, the Data sources panel saved keys in one place and Omega read another. The
+// launcher now records the data folder in work/runtime/data-dir, and the wrapper uses it for keys and its home.
+test('Omega finds the data folder from its setting, else from the launcher\'s note, else work/', () => {
+  const script = `
+import importlib.util, json, os, pathlib, tempfile
+spec = importlib.util.spec_from_file_location('captured', ${JSON.stringify(wrapper)})
+captured = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(captured)
+os.environ.pop('PUBLIC_DESK_WORK_DIR', None)
+app = pathlib.Path(tempfile.mkdtemp())
+plain = str(captured.data_dir(app))
+custom = pathlib.Path(tempfile.mkdtemp()) / 'data'
+(app / 'work' / 'runtime').mkdir(parents=True)
+(app / 'work' / 'runtime' / 'data-dir').write_text(str(custom) + '\\n')
+noted = str(captured.data_dir(app))
+keys = str(captured.key_file(app))
+home = str(captured.use_private_home(app))
+(app / 'work' / 'runtime' / 'data-dir').write_text('relative/not/allowed\\n')
+relative = str(captured.data_dir(app))
+os.environ['PUBLIC_DESK_WORK_DIR'] = str(app / 'from-env')
+env = str(captured.data_dir(app))
+print(json.dumps({'app': str(app), 'custom': str(custom), 'plain': plain, 'noted': noted, 'keys': keys, 'home': home, 'relative': relative, 'env': env}))
+`;
+  const out = JSON.parse(execFileSync('python3', ['-c', script], { encoding: 'utf8' }));
+  assert.equal(out.plain, `${out.app}/work`);
+  assert.equal(out.noted, out.custom);
+  assert.equal(out.keys, `${out.custom}/api-keys.env`, 'keys come from the folder the Data sources panel writes');
+  assert.equal(out.home, `${out.custom}/omega-home`, 'reports stay with the rest of the private data');
+  assert.equal(out.relative, `${out.app}/work`, 'a note that is not an absolute path is ignored');
+  assert.equal(out.env, `${out.app}/from-env`, 'the setting itself wins when it does reach the wrapper');
 });

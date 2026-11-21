@@ -14,20 +14,37 @@ const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
 const bootstrapFragment = new URLSearchParams(location.hash.slice(1));
 const fragmentAccess = bootstrapFragment.get('access');
+const fragmentOpen = bootstrapFragment.get('open');
 const localStore = safeStorage(() => localStorage);
 const sessionStore = safeStorage(() => sessionStorage);
-if (fragmentAccess) {
-  sessionStore.setItem('publicDesk.access', fragmentAccess);
-  history.replaceState({}, '', `${location.pathname}${location.search}`);
+// Browser links from the launcher carry a short-lived open code (a link lands in the browser's history, so it never
+// carries the token); the app window, which keeps no history, is given the token itself. Either way it leaves the
+// address bar at once. An expired or unknown code gives '' and the page shows that it is not connected.
+async function redeemOpenCode(code) {
+  try {
+    const response = await fetch('/api/open', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code }) });
+    return response.ok ? String((await response.json()).token || '') : '';
+  } catch {
+    return '';
+  }
+}
+if (fragmentAccess || fragmentOpen) history.replaceState({}, '', `${location.pathname}${location.search}`);
+if (fragmentAccess) sessionStore.setItem('publicDesk.access', fragmentAccess);
+else if (fragmentOpen) {
+  // Traded before the page makes any other request, so it is connected from the first one.
+  const traded = await redeemOpenCode(fragmentOpen);
+  if (traded) sessionStore.setItem('publicDesk.access', traded);
 }
 const publicDeskAccess = sessionStore.getItem('publicDesk.access') || '';
-// Opening Public Desk again after a restart brings this tab forward with the new access token in its address.
-// Only the fragment changes, so the page would not reload on its own; store the token and reload once to use it.
-window.addEventListener('hashchange', () => {
-  const access = new URLSearchParams(location.hash.slice(1)).get('access');
-  if (!access) return;
+// Opening Public Desk again after a restart brings this tab forward with a new link in its address. Only the fragment
+// changes, so the page would not reload on its own; store the new token and reload once to use it.
+window.addEventListener('hashchange', async () => {
+  const fragment = new URLSearchParams(location.hash.slice(1));
+  const code = fragment.get('open');
+  if (!fragment.get('access') && !code) return;
   history.replaceState({}, '', `${location.pathname}${location.search}`);
-  if (access === publicDeskAccess) return;
+  const access = fragment.get('access') || (await redeemOpenCode(code));
+  if (!access || access === publicDeskAccess) return;
   sessionStore.setItem('publicDesk.access', access);
   location.reload();
 });
@@ -296,7 +313,8 @@ async function api(path, payload, options = {}) {
     signal: options.signal
   });
   const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'Request failed');
+  // The code (for example RUN_GRANT, a refused run grant) lets callers tell the server's refusals from tool errors.
+  if (!response.ok) throw Object.assign(new Error(data.error || 'Request failed'), data.code ? { code: data.code } : {});
   return data;
 }
 

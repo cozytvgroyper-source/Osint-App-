@@ -15,7 +15,7 @@ Nothing: it asks public databases and third parties.
 | Tool | Automatic | Flags | Notes |
 |---|---|---|---|
 | `omega_asn` | **yes** |  | ASN lookup |
-| `omega_breach` | **yes** |  | Breach lookup |
+| `omega_breach` | **yes** |  | Breach lookup. Needs a Have I Been Pwned key (Data sources); without one it says "Not checked" |
 | `omega_crtsh` | **yes** |  | Certificate Transparency (crt.sh) |
 | `omega_cve` | **yes** |  | CVE keyword lookup |
 | `omega_cvssrank` | **yes** |  | CVSS + EPSS + CISA KEV ranking |
@@ -50,7 +50,7 @@ Nothing: it asks public databases and third parties.
 | `omega_hunt` | no |  | Works on saved reports, not a fresh search |
 | `omega_identity` | no |  | Works (30 sites); duplicates Sherlock/Blackbird |
 | `omega_imgosint` | no |  | Needs a file |
-| `omega_leaked` | no |  | Reports "no breaches" when HIBP refuses the missing key (false clean result) |
+| `omega_leaked` | no |  | Uses the Have I Been Pwned key from Data sources; without one, its result lists HIBP as not checked |
 | `omega_memory_search` | no |  | Searches local agent memory |
 | `omega_mldetect` | no |  | Works on saved reports |
 | `omega_notifier` | no | side-effects |  |
@@ -64,7 +64,7 @@ Nothing: it asks public databases and third parties.
 | `omega_reporthtml` | no | side-effects |  |
 | `omega_riskcore` | no |  | Scores saved reports |
 | `omega_satellite` | no |  | Aircraft/vessel IDs only |
-| `omega_shodan` | no |  |  |
+| `omega_shodan` | no |  | Needs a Shodan key (Data sources); without one it says "Not checked" |
 | `omega_social` | no |  | Only a mention count, no links |
 | `omega_socmint` | no |  | Ambiguous 403s, 10 s; duplicates Sherlock/Blackbird |
 | `omega_stix` | no |  | Exports saved reports as STIX |

@@ -3,9 +3,9 @@
 import { emptyState, escapeHtml } from '../ui.js?v=7';
 import { TIERS } from '../tool-tiers.js?v=1';
 import { deepRunBlocked, deepToolsFor, detectDeepTarget, isPersonType } from '../deep-search.js?v=5';
-import { runDeepSearch as runDeepEngine } from '../deep-engine.js?v=2';
+import { runDeepSearch as runDeepEngine } from '../deep-engine.js?v=4';
 import { deepStatusLine, initialProgress, reduceProgress, renderProgress } from '../deep-progress.js?v=1';
-import { renderDeepResults } from '../deep-results-view.js?v=2';
+import { historyRowResults, renderDeepResults } from '../deep-results-view.js?v=3';
 import { adaptToolResult } from '../deep-adapters.js?v=2';
 import { linkFindings } from '../deep-linking.js?v=2';
 import { $, $$, state, confirmAction, toast, switchView, apiGet, api } from './core.js';
@@ -27,6 +27,8 @@ async function loadDeepHistory() {
     });
     // Deleting is switched off while a search runs, so the running search can't delete its own results mid-write.
     const busy = Boolean(state.deepRun);
+    // A search that never finished has no results to open (see historyRowResults).
+    const rowResults = entry => historyRowResults(entry, { runningId: state.deepRun?.id || '' });
     const deleteButton = entry =>
       entry.runId
         ? `<button type="button" class="text-button" data-delete-deep-run="${escapeHtml(entry.runId)}" aria-label="Delete search: ${escapeHtml(entry.target)}"${busy ? ' disabled' : ''}>Delete</button>`
@@ -37,7 +39,7 @@ async function loadDeepHistory() {
     $('#deleteAllDeepHistory').disabled = busy;
     $('#deepHistoryBusy').hidden = !busy;
     box.innerHTML = runs.length
-      ? `<div class="table-scroll" role="region" tabindex="0" aria-label="Run history table"><table class="deep-history-table"><thead><tr><th scope="col">When</th><th scope="col">Target</th><th scope="col">Max level</th><th scope="col">Tools</th><th scope="col">Outcome</th><th scope="col">Results</th></tr></thead><tbody>${runs.map(entry => `<tr><td>${escapeHtml(new Date(entry.time).toLocaleString())}</td><td><code>${escapeHtml(entry.target)}</code></td><td>${escapeHtml(levelName(entry.level))}</td><td title="${escapeHtml((entry.tools || []).join(', '))}">${entry.toolCount ?? (entry.tools || []).length} tool${(entry.toolCount ?? (entry.tools || []).length) === 1 ? '' : 's'}</td><td>${escapeHtml(entry.outcome)}</td><td>${entry.runId ? `<button type="button" class="text-button" data-open-deep="${escapeHtml(entry.runId)}"${busy ? ' disabled' : ''}>Open results</button>` : "Results weren't kept for this run"} ${deleteButton(entry)}</td></tr>`).join('')}</tbody></table></div>${total > runs.length ? `<p class="subtle">Showing the latest ${runs.length} of ${total} audit entries.</p>` : ''}${skipped ? `<p class="subtle">${skipped} damaged line${skipped === 1 ? ' was' : 's were'} skipped in the audit log.</p>` : ''}`
+      ? `<div class="table-scroll" role="region" tabindex="0" aria-label="Run history table"><table class="deep-history-table"><thead><tr><th scope="col">When</th><th scope="col">Target</th><th scope="col">Max level</th><th scope="col">Tools</th><th scope="col">Outcome</th><th scope="col">Results</th></tr></thead><tbody>${runs.map(entry => `<tr><td>${escapeHtml(new Date(entry.time).toLocaleString())}</td><td><code>${escapeHtml(entry.target)}</code></td><td>${escapeHtml(levelName(entry.level))}</td><td title="${escapeHtml((entry.tools || []).join(', '))}">${entry.toolCount ?? (entry.tools || []).length} tool${(entry.toolCount ?? (entry.tools || []).length) === 1 ? '' : 's'}</td><td>${escapeHtml(rowResults(entry).outcome)}</td><td>${rowResults(entry).openRunId ? `<button type="button" class="text-button" data-open-deep="${escapeHtml(entry.runId)}"${busy ? ' disabled' : ''}>Open results</button>` : escapeHtml(rowResults(entry).note)} ${deleteButton(entry)}</td></tr>`).join('')}</tbody></table></div>${total > runs.length ? `<p class="subtle">Showing the latest ${runs.length} of ${total} audit entries.</p>` : ''}${skipped ? `<p class="subtle">${skipped} damaged line${skipped === 1 ? ' was' : 's were'} skipped in the audit log.</p>` : ''}`
       : emptyState({title:'No Deep Search runs yet.',text:'Completed searches will appear here with their saved results.'});
   } catch (error) {
     $('#deleteAllDeepHistory').hidden = true;

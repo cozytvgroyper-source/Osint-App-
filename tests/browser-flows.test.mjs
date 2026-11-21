@@ -338,3 +338,25 @@ test('a pivot on a website goes to Deep Search',options,()=>inApp(async browser=
   assert.equal(await browser.evaluate("return document.getElementById('resultDialog').open||!document.getElementById('deepProgress').hidden"),false);
   assert.equal((await browser.evaluate('return window.__mcp.calls')).length,before,'nothing was searched');
 },{stub:{answers:NAME_ANSWERS}}));
+
+// A browser link from the launcher carries an open code; the page trades it for the token before anything else runs,
+// so it is connected from its first request, and the code leaves the address bar.
+test('a launcher link with an open code connects the page, and an expired one does not',options,async()=>{
+  const server=await startServer();const browser=await startBrowser();
+  try{
+    await browser.open(server.openLink());
+    await browser.evaluate(show('deep'));
+    await browser.waitFor("return document.querySelectorAll('[data-open-deep]').length===2",{label:'Run history loaded with the traded token'});
+    assert.equal(await browser.evaluate('return location.hash'),'');
+    assert.equal(await browser.evaluate("return sessionStorage.getItem('publicDesk.access')"),server.token);
+    assert.deepEqual(browser.errors,[]);
+
+    // A fresh load with no token kept from before (/index.html, since the same page with only a new fragment would
+    // not reload).
+    await browser.evaluate("sessionStorage.clear();");
+    await browser.open(server.openLink({ageSeconds:600}).replace('/#open=','/index.html#open='));
+    await browser.evaluate(show('deep'));
+    await browser.waitFor("return /not connected/i.test(document.getElementById('deepHistory').textContent)",{label:'an expired link is not connected'});
+    assert.equal(await browser.evaluate('return location.hash'),'');
+  }finally{await browser.close();await server.stop();}
+});
